@@ -10,9 +10,7 @@ interface TimerProps {
 }
 
 function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-    .toString()
-    .padStart(2, "0");
+  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
   const s = (seconds % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
 }
@@ -55,7 +53,28 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
   const status = timer?.status ?? "stopped";
   const half = timer?.half ?? 1;
 
-  const send = (action: string) => sessionWS.sendTimerControl(action);
+  const [correcting, setCorrecting] = useState(false);
+  const [corrMm, setCorrMm] = useState("00");
+  const [corrSs, setCorrSs] = useState("00");
+
+  const send = (action: string, extras?: Record<string, unknown>) =>
+    sessionWS.sendTimerControl(action, extras);
+
+  const openCorrect = () => {
+    const cur = timer?.elapsed_seconds ?? 0;
+    setCorrMm(String(Math.floor(cur / 60)).padStart(2, "0"));
+    setCorrSs(String(cur % 60).padStart(2, "0"));
+    setCorrecting(true);
+  };
+
+  const applyCorrection = () => {
+    const mm = Math.max(0, parseInt(corrMm) || 0);
+    const ss = Math.min(59, Math.max(0, parseInt(corrSs) || 0));
+    send("set", { seconds: mm * 60 + ss });
+    setCorrecting(false);
+  };
+
+  const canCorrect = canControl && (status === "paused" || status === "stopped");
 
   return (
     <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
@@ -67,7 +86,6 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
 
       {/* Timer row */}
       <div className="flex items-center justify-between">
-        {/* Half + time */}
         <div className="flex items-baseline gap-2">
           <span className="text-xs font-bold text-gray-400 uppercase">
             {half === 1 ? "1T" : "2T"}
@@ -77,12 +95,10 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
           </span>
         </div>
 
-        {/* Status pill */}
         <span className="text-xs text-gray-500 capitalize">{status}</span>
 
-        {/* Controls — only for authorized users */}
         {canControl && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             {status === "stopped" && (
               <CtrlBtn onClick={() => send("start")} label="▶" color="green" />
             )}
@@ -107,27 +123,70 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
             {status === "halftime" && (
               <CtrlBtn onClick={() => send("start")} label="2T ▶" color="green" />
             )}
+
+            {/* Reset — available when paused or stopped with elapsed > 0 */}
+            {canCorrect && (elapsed > 0 || status === "paused") && (
+              <CtrlBtn onClick={() => send("reset")} label="↺" color="gray" />
+            )}
           </div>
         )}
       </div>
+
+      {/* Time correction row — paused or stopped */}
+      {canCorrect && (
+        correcting ? (
+          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700">
+            <span className="text-xs text-gray-400">Corregir:</span>
+            <input
+              type="number"
+              min="0"
+              max="99"
+              value={corrMm}
+              onChange={(e) => setCorrMm(e.target.value.padStart(2, "0").slice(-2))}
+              className="w-12 bg-gray-700 text-white text-sm text-center rounded px-2 py-1 outline-none"
+            />
+            <span className="text-gray-400 font-bold">:</span>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              value={corrSs}
+              onChange={(e) => setCorrSs(e.target.value.padStart(2, "0").slice(-2))}
+              className="w-12 bg-gray-700 text-white text-sm text-center rounded px-2 py-1 outline-none"
+            />
+            <button
+              onClick={applyCorrection}
+              className="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors"
+            >
+              OK
+            </button>
+            <button
+              onClick={() => setCorrecting(false)}
+              className="text-xs text-gray-400 hover:text-white transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={openCorrect}
+            className="mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            Corregir tiempo
+          </button>
+        )
+      )}
     </div>
   );
 }
 
-function CtrlBtn({
-  onClick,
-  label,
-  color,
-}: {
-  onClick: () => void;
-  label: string;
-  color: string;
-}) {
+function CtrlBtn({ onClick, label, color }: { onClick: () => void; label: string; color: string }) {
   const colors: Record<string, string> = {
     green: "bg-green-700 hover:bg-green-600",
     yellow: "bg-yellow-700 hover:bg-yellow-600",
     blue: "bg-blue-700 hover:bg-blue-600",
     red: "bg-red-700 hover:bg-red-600",
+    gray: "bg-gray-600 hover:bg-gray-500",
   };
   return (
     <button

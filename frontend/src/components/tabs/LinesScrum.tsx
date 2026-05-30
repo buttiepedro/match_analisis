@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../../lib/axios";
 import { parseApiError } from "../../lib/errors";
+import EventLog from "../EventLog";
 
 interface ActionConfig {
   label: string;
@@ -91,6 +92,7 @@ function ObtentionModal({
 
 export default function LinesScrum({ sessionId, onEvent }: Props) {
   const [active, setActive] = useState<ActionConfig | null>(null);
+  const LINE_SCRUM_TYPES = ["lineout_favor", "lineout_against", "scrum_favor", "scrum_against"];
 
   return (
     <div className="p-4 space-y-3">
@@ -128,6 +130,8 @@ export default function LinesScrum({ sessionId, onEvent }: Props) {
           onEvent={onEvent}
         />
       )}
+
+      <EventLog sessionId={sessionId} types={LINE_SCRUM_TYPES} />
     </div>
   );
 }

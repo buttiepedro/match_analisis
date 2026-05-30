@@ -52,6 +52,7 @@ interface SessionStore {
   setSession: (s: SessionData) => void;
   setTimer: (t: TimerData) => void;
   addEvent: (e: EventData) => void;
+  removeEvent: (id: string) => void;
   setEvents: (ev: EventData[]) => void;
   setLineup: (l: LineupPlayer[]) => void;
   applySubstitution: (outId: string, inId: string) => void;
@@ -69,6 +70,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
   setSession: (s) => set({ session: s }),
   setTimer: (t) => set({ timer: t }),
   addEvent: (e) => set((state) => ({ events: [e, ...state.events] })),
+  removeEvent: (id) => set((state) => ({ events: state.events.filter((e) => e.id !== id) })),
   setEvents: (ev) => set({ events: ev }),
   setLineup: (l) => set({ lineup: l }),
   applySubstitution: (outId, inId) =>

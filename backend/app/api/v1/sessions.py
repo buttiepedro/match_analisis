@@ -166,7 +166,7 @@ async def control_timer(
 
     sid = str(session_id)
     timer = manager.init_timer(sid, session.timer_state)
-    updated = manager.apply_action(sid, body.action)
+    updated = manager.apply_action(sid, body.action, seconds=body.seconds)
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -271,6 +271,26 @@ async def list_events(
     return result.scalars().all()
 
 
+@session_router.delete("/{session_id}/events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_event(
+    session_id: uuid.UUID,
+    event_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_timer_control)],
+):
+    session = await _get_session_or_404(session_id, db)
+    tournament = await _get_tournament_or_404(session.tournament_id, db)
+    if current_user.role != UserRole.superadmin and current_user.club_id != tournament.club_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    event = await db.scalar(select(Event).where(Event.id == event_id, Event.session_id == session_id))
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+
+    await db.delete(event)
+    await db.commit()
+
+
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 
 @ws_router.websocket("/{session_id}")
@@ -315,7 +335,8 @@ async def session_ws(
 
             if data.get("type") == "timer_control" and can_control:
                 action = data.get("action", "")
-                updated = manager.apply_action(str(session_id), action)
+                seconds = data.get("seconds")
+                updated = manager.apply_action(str(session_id), action, seconds=seconds)
                 if updated:
                     async with AsyncSessionLocal() as db:
                         await _persist_timer(session_id, updated, db)

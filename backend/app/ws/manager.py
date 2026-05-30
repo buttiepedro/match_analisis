@@ -31,7 +31,7 @@ class InMemoryTimer:
             "server_timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-    def apply(self, action: str) -> bool:
+    def apply(self, action: str, seconds: int | None = None) -> bool:
         now = datetime.now(timezone.utc)
 
         if action == "start":
@@ -62,6 +62,15 @@ class InMemoryTimer:
             self.base_elapsed = self.elapsed()
             self.started_at = None
             self.status = "finished"
+        elif action == "reset":
+            self.base_elapsed = 0
+            self.started_at = None
+            self.current_half = 1
+            self.status = "stopped"
+        elif action == "set" and seconds is not None and seconds >= 0:
+            self.base_elapsed = seconds
+            if self.status == "running":
+                self.started_at = now  # restart counting from this point
         else:
             return False
 
@@ -122,11 +131,11 @@ class ConnectionManager:
     def get_timer(self, session_id: str) -> Optional[InMemoryTimer]:
         return self._timers.get(session_id)
 
-    def apply_action(self, session_id: str, action: str) -> Optional[InMemoryTimer]:
+    def apply_action(self, session_id: str, action: str, seconds: int | None = None) -> Optional[InMemoryTimer]:
         t = self._timers.get(session_id)
         if not t:
             return None
-        if not t.apply(action):
+        if not t.apply(action, seconds=seconds):
             return None
         self._ensure_tick(session_id)
         return t

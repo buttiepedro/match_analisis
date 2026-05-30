@@ -44,6 +44,12 @@ class LineupEntryResponse(BaseModel):
     player: PlayerResponse
 
 
+class LineupEntryUpdate(BaseModel):
+    jersey_number: Optional[int] = None
+    position: Optional[str] = None
+    status: Optional[Literal["on_field", "bench"]] = None
+
+
 class SubstituteRequest(BaseModel):
     lineup_out_id: uuid.UUID
     lineup_in_id: uuid.UUID

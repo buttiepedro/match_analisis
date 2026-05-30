@@ -1,5 +1,6 @@
 import EventButton from "../EventButton";
 import { countEvents, EventData } from "../../store/sessionStore";
+import EventLog from "../EventLog";
 
 const PENALTY_REASONS = [
   "offside",
@@ -101,6 +102,12 @@ export default function PenaltiesPossession({ sessionId, events, homeTeam, awayT
           />
         </div>
       ))}
+
+      <EventLog
+        sessionId={sessionId}
+        types={["penalty_conceded", "penalty_won", "yellow_card", "red_card",
+                "turnover_conceded", "turnover_won", "knock_on", "forward_pass"]}
+      />
     </div>
   );
 }

@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_club_admin
 from app.models import Event, MatchLineup, Player, Session, Tournament, User, UserRole
 from app.models.player import LineupStatus
-from app.schemas.player import LineupEntryCreate, LineupEntryResponse, SubstituteRequest
+from app.schemas.player import LineupEntryCreate, LineupEntryResponse, LineupEntryUpdate, SubstituteRequest
 from app.ws.manager import manager
 
 router = APIRouter(prefix="/sessions")
@@ -62,6 +62,55 @@ async def add_to_lineup(
         .options(selectinload(MatchLineup.player))
     )
     return result
+
+
+@router.patch("/{session_id}/lineup/{entry_id}", response_model=LineupEntryResponse)
+async def update_lineup_entry(
+    session_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    body: LineupEntryUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_club_admin)],
+):
+    await _get_session_and_check_access(session_id, db, current_user)
+
+    entry = await db.scalar(
+        select(MatchLineup)
+        .where(MatchLineup.id == entry_id, MatchLineup.session_id == session_id)
+        .options(selectinload(MatchLineup.player))
+    )
+    if not entry:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineup entry not found")
+
+    if body.jersey_number is not None:
+        entry.jersey_number = body.jersey_number
+    if body.position is not None:
+        entry.position = body.position
+    if body.status is not None:
+        entry.status = LineupStatus(body.status)
+
+    await db.commit()
+    await db.refresh(entry)
+    return entry
+
+
+@router.delete("/{session_id}/lineup/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_lineup_entry(
+    session_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_club_admin)],
+):
+    await _get_session_and_check_access(session_id, db, current_user)
+
+    entry = await db.scalar(
+        select(MatchLineup).where(MatchLineup.id == entry_id, MatchLineup.session_id == session_id)
+    )
+    if not entry:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineup entry not found")
+
+    await db.delete(entry)
+    await db.commit()
 
 
 @router.get("/{session_id}/lineup", response_model=list[LineupEntryResponse])

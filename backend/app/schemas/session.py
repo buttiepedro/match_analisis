@@ -34,4 +34,5 @@ class SessionResponse(BaseModel):
 
 
 class TimerControlRequest(BaseModel):
-    action: Literal["start", "pause", "resume", "halftime", "finish"]
+    action: Literal["start", "pause", "resume", "halftime", "finish", "reset", "set"]
+    seconds: Optional[int] = None

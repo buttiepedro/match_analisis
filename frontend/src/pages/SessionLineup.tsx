@@ -53,6 +53,12 @@ export default function SessionLineup() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editJersey, setEditJersey] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!sessionId || !user?.club_id) return;
 
@@ -102,6 +108,36 @@ export default function SessionLineup() {
       setError(parseApiError(err, "Error al agregar jugador"));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleEditJersey = async (entryId: string) => {
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      await api.patch(`/sessions/${sessionId}/lineup/${entryId}`, {
+        jersey_number: parseInt(editJersey, 10),
+      });
+      const { data } = await api.get<LineupEntry[]>(`/sessions/${sessionId}/lineup`);
+      setLineup(data);
+      setEditingId(null);
+    } catch (err) {
+      setEditError(parseApiError(err, "Error al actualizar"));
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (entryId: string) => {
+    setDeletingId(entryId);
+    try {
+      await api.delete(`/sessions/${sessionId}/lineup/${entryId}`);
+      const { data } = await api.get<LineupEntry[]>(`/sessions/${sessionId}/lineup`);
+      setLineup(data);
+    } catch (err) {
+      setEditError(parseApiError(err, "Error al eliminar"));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -234,42 +270,82 @@ export default function SessionLineup() {
       )}
 
       {/* Current lineup */}
+      {editError && <p className="text-red-400 text-xs">{editError}</p>}
       <div className="space-y-3">
-        <div className="bg-gray-800/50 rounded-xl px-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider pt-3 pb-1">
-            En cancha ({onField.length})
-          </p>
-          {onField.length === 0 ? (
-            <p className="text-gray-600 text-sm py-2">Sin jugadores.</p>
-          ) : (
-            onField.map((e) => (
-              <div key={e.id} className="flex items-center gap-2 py-2 border-b border-gray-700/50">
-                <span className="w-8 text-right text-sm font-bold text-gray-400">#{e.jersey_number}</span>
-                <span className="flex-1 text-sm text-white">{e.player.name}</span>
-                <span className="text-xs text-gray-500">{e.position ?? e.player.position ?? "—"}</span>
-              </div>
-            ))
-          )}
-          <div className="py-1" />
-        </div>
-
-        <div className="bg-gray-800/50 rounded-xl px-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider pt-3 pb-1">
-            Suplentes ({bench.length})
-          </p>
-          {bench.length === 0 ? (
-            <p className="text-gray-600 text-sm py-2">Sin suplentes.</p>
-          ) : (
-            bench.map((e) => (
-              <div key={e.id} className="flex items-center gap-2 py-2 border-b border-gray-700/50">
-                <span className="w-8 text-right text-sm font-bold text-gray-400">#{e.jersey_number}</span>
-                <span className="flex-1 text-sm text-white">{e.player.name}</span>
-                <span className="text-xs text-gray-500">{e.position ?? e.player.position ?? "—"}</span>
-              </div>
-            ))
-          )}
-          <div className="py-1" />
-        </div>
+        {[
+          { label: "En cancha", entries: onField },
+          { label: "Suplentes", entries: bench },
+        ].map(({ label, entries }) => (
+          <div key={label} className="bg-gray-800/50 rounded-xl px-4">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider pt-3 pb-1">
+              {label} ({entries.length})
+            </p>
+            {entries.length === 0 ? (
+              <p className="text-gray-600 text-sm py-2">Sin jugadores.</p>
+            ) : (
+              entries.map((e) => (
+                <div key={e.id} className="py-2 border-b border-gray-700/50">
+                  {editingId === e.id ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">#</span>
+                      <input
+                        autoFocus
+                        type="number"
+                        min="1"
+                        max="99"
+                        value={editJersey}
+                        onChange={(ev) => setEditJersey(ev.target.value)}
+                        className="w-14 bg-gray-700 text-white text-sm text-center rounded px-2 py-1 outline-none focus:ring-1 focus:ring-green-600"
+                      />
+                      <span className="flex-1 text-sm text-white truncate">{e.player.name}</span>
+                      <button
+                        onClick={() => handleEditJersey(e.id)}
+                        disabled={editSubmitting}
+                        className="text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-2 py-1 rounded transition-colors"
+                      >
+                        OK
+                      </button>
+                      <button
+                        onClick={() => { setEditingId(null); setEditError(null); }}
+                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="w-8 text-right text-sm font-bold text-gray-400">
+                        #{e.jersey_number}
+                      </span>
+                      <span className="flex-1 text-sm text-white truncate">{e.player.name}</span>
+                      <span className="text-xs text-gray-500">{e.position ?? e.player.position ?? "—"}</span>
+                      {canEdit && (
+                        <>
+                          <button
+                            onClick={() => { setEditingId(e.id); setEditJersey(String(e.jersey_number)); setEditError(null); }}
+                            className="text-xs text-gray-500 hover:text-white px-1 transition-colors"
+                            title="Editar camiseta"
+                          >
+                            ✎
+                          </button>
+                          <button
+                            onClick={() => handleDelete(e.id)}
+                            disabled={deletingId === e.id}
+                            className="text-xs text-gray-600 hover:text-red-400 disabled:opacity-50 px-1 transition-colors"
+                            title="Eliminar del lineup"
+                          >
+                            ×
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+            <div className="py-1" />
+          </div>
+        ))}
       </div>
     </div>
   );

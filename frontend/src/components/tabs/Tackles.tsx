@@ -3,6 +3,7 @@ import api from "../../lib/axios";
 import { parseApiError } from "../../lib/errors";
 import { LineupPlayer, useSessionStore } from "../../store/sessionStore";
 import SubstitutionModal from "../SubstitutionModal";
+import EventLog from "../EventLog";
 
 interface Props {
   sessionId: string;
@@ -138,6 +139,11 @@ export default function Tackles({ sessionId, homeTeam }: Props) {
       {showSub && (
         <SubstitutionModal sessionId={sessionId} onClose={() => setShowSub(false)} />
       )}
+
+      <EventLog
+        sessionId={sessionId}
+        types={["tackle_effective", "tackle_missed", "substitution"]}
+      />
     </div>
   );
 }

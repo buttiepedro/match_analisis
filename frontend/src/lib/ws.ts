@@ -43,9 +43,9 @@ class SessionWebSocket {
     this.ws.onerror = () => this.onClose?.();
   }
 
-  sendTimerControl(action: string): void {
+  sendTimerControl(action: string, extras?: Record<string, unknown>): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: "timer_control", action }));
+      this.ws.send(JSON.stringify({ type: "timer_control", action, ...extras }));
     }
   }
 
