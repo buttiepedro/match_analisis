@@ -9,13 +9,14 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 
 revision: str = "0002"
 down_revision: Union[str, None] = "0001"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-_lineupstatus = sa.Enum("on_field", "bench", "substituted_out", name="lineupstatus", create_type=False)
+_lineupstatus = PGENUM(name="lineupstatus", create_type=False)
 
 
 def upgrade() -> None:

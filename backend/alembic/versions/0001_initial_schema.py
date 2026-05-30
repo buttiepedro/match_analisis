@@ -9,21 +9,22 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 
 revision: str = "0001"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-# create_type=False: the type is created manually via DO block below so
-# SQLAlchemy must not try to CREATE it again when building column definitions.
-_userrole = sa.Enum("superadmin", "club_admin", "match_director", "analyst", name="userrole", create_type=False)
-_sessionstatus = sa.Enum("scheduled", "active", "halftime", "finished", name="sessionstatus", create_type=False)
-_timerstatus = sa.Enum("stopped", "running", "paused", "halftime", "finished", name="timerstatus", create_type=False)
-_teamside = sa.Enum("home", "away", name="teamside", create_type=False)
+# Reference existing PG enum types by name only — never auto-create them.
+_userrole = PGENUM(name="userrole", create_type=False)
+_sessionstatus = PGENUM(name="sessionstatus", create_type=False)
+_timerstatus = PGENUM(name="timerstatus", create_type=False)
+_teamside = PGENUM(name="teamside", create_type=False)
 
 
-def _create_enum(name: str, *values: str) -> None:
+def _safe_create_enum(name: str, *values: str) -> None:
+    """Create a PostgreSQL ENUM type, silently skip if it already exists."""
     vals = ", ".join(f"'{v}'" for v in values)
     op.execute(f"""
         DO $$ BEGIN
@@ -34,10 +35,10 @@ def _create_enum(name: str, *values: str) -> None:
 
 
 def upgrade() -> None:
-    _create_enum("userrole", "superadmin", "club_admin", "match_director", "analyst")
-    _create_enum("sessionstatus", "scheduled", "active", "halftime", "finished")
-    _create_enum("timerstatus", "stopped", "running", "paused", "halftime", "finished")
-    _create_enum("teamside", "home", "away")
+    _safe_create_enum("userrole", "superadmin", "club_admin", "match_director", "analyst")
+    _safe_create_enum("sessionstatus", "scheduled", "active", "halftime", "finished")
+    _safe_create_enum("timerstatus", "stopped", "running", "paused", "halftime", "finished")
+    _safe_create_enum("teamside", "home", "away")
 
     op.create_table(
         "clubs",
