@@ -1,6 +1,6 @@
 import { useState } from "react";
 import api from "../lib/axios";
-import { LineupPlayer, useSessionStore } from "../store/sessionStore";
+import { useSessionStore } from "../store/sessionStore";
 
 interface Props {
   sessionId: string;

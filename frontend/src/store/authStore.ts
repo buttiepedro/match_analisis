@@ -6,7 +6,7 @@ interface User {
   id: string;
   email: string;
   full_name: string;
-  role: "superadmin" | "club_admin" | "analyst";
+  role: "superadmin" | "club_admin" | "match_director" | "analyst";
   club_id: string | null;
 }
 
