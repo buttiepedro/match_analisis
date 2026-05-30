@@ -57,7 +57,7 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
   const [corrMm, setCorrMm] = useState("00");
   const [corrSs, setCorrSs] = useState("00");
 
-  const canCorrect = canControl && (status === "paused" || status === "stopped");
+  const canCorrect = canControl && (status === "paused" || status === "stopped" || status === "finished");
 
   useEffect(() => {
     if (!canCorrect) setCorrecting(false);
@@ -128,8 +128,8 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
               <CtrlBtn onClick={() => send("start")} label="2T ▶" color="green" />
             )}
 
-            {/* Reset — available when paused or stopped with elapsed > 0 */}
-            {canCorrect && (elapsed > 0 || status === "paused") && (
+            {/* Reset — available when paused, stopped (with elapsed) or finished */}
+            {canCorrect && (elapsed > 0 || status === "paused" || status === "finished") && (
               <CtrlBtn onClick={() => send("reset")} label="↺" color="gray" />
             )}
           </div>
