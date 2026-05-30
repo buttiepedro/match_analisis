@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import AsyncSessionLocal, get_db
 from app.core.deps import get_current_user, require_club_admin, require_timer_control
 from app.core.security import decode_token
-from app.models import Event, Session, TimerState, Tournament, User, UserRole
+from app.models import Event, MatchLineup, Session, TimerState, Tournament, User, UserRole
 from app.models.session import SessionStatus, TimerStatus
 from app.schemas.event import EventCreate, EventResponse
 from app.schemas.session import SessionCreate, SessionResponse, TimerControlRequest
@@ -206,6 +206,17 @@ async def register_event(
         timer_seconds = ts.elapsed_seconds if ts else 0
         half = ts.current_half if ts else 1
 
+    player_number: int | None = None
+    if body.player_id:
+        lineup_entry = await db.scalar(
+            select(MatchLineup).where(
+                MatchLineup.session_id == session_id,
+                MatchLineup.player_id == body.player_id,
+            )
+        )
+        if lineup_entry:
+            player_number = lineup_entry.jersey_number
+
     event = Event(
         id=uuid.uuid4(),
         session_id=session.id,
@@ -213,7 +224,8 @@ async def register_event(
         half=half,
         timer_seconds=timer_seconds,
         team=body.team,
-        player_number=body.player_number,
+        player_id=body.player_id,
+        player_number=player_number,
         reason=body.reason,
         metadata_=body.metadata,
         recorded_by=current_user.id,
@@ -231,6 +243,7 @@ async def register_event(
             "half": event.half,
             "timer_seconds": event.timer_seconds,
             "team": event.team.value,
+            "player_id": str(event.player_id) if event.player_id else None,
             "player_number": event.player_number,
             "reason": event.reason,
         },

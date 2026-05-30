@@ -21,6 +21,7 @@ class Event(Base):
     half: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     timer_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
     team: Mapped[TeamSide] = mapped_column(Enum(TeamSide), nullable=False)
+    player_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("players.id"), nullable=True)
     player_number: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     reason: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     metadata_: Mapped[dict] = mapped_column("metadata", JSON, server_default="{}")

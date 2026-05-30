@@ -26,8 +26,7 @@ function TackleRow({
       await api.post(`/sessions/${sessionId}/events`, {
         event_type: type,
         team: entry.team,
-        player_number: entry.jersey_number,
-        metadata: { player_id: entry.player_id, player_name: entry.player.name },
+        player_id: entry.player_id,
       });
     } catch (err) {
       setError(parseApiError(err, "Error al registrar"));

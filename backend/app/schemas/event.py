@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
 from typing import Literal, Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EventCreate(BaseModel):
     event_type: str
     team: Literal["home", "away"]
-    player_number: Optional[int] = None
+    player_id: Optional[uuid.UUID] = None
     reason: Optional[str] = None
     metadata: dict = {}
 
@@ -21,7 +21,9 @@ class EventResponse(BaseModel):
     half: int
     timer_seconds: int
     team: str
+    player_id: Optional[uuid.UUID]
     player_number: Optional[int]
     reason: Optional[str]
+    metadata: dict = Field(default={}, validation_alias="metadata_")
     recorded_by: uuid.UUID
     recorded_at: datetime

@@ -13,8 +13,10 @@ export interface EventData {
   half: number;
   timer_seconds: number;
   team: "home" | "away";
+  player_id?: string | null;
   player_number?: number | null;
   reason?: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SessionData {

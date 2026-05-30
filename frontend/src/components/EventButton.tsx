@@ -39,7 +39,7 @@ export default function EventButton({
       await api.post(`/sessions/${sessionId}/events`, {
         event_type: eventType,
         team,
-        player_number: player ? parseInt(player, 10) : null,
+        player_id: player || null,
         reason: reason || null,
       });
       onSuccess?.();
@@ -93,7 +93,7 @@ export default function EventButton({
                   >
                     <option value="">— Sin especificar —</option>
                     {onFieldPlayers.map((p) => (
-                      <option key={p.id} value={String(p.jersey_number)}>
+                      <option key={p.id} value={p.player_id}>
                         #{p.jersey_number} {p.player.name}
                       </option>
                     ))}
