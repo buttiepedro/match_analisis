@@ -88,7 +88,12 @@ export default function Clubs() {
       setClubForm(EMPTY_CLUB_FORM);
       await fetchClubs();
     } catch (err: any) {
-      setClubError(err.response?.data?.detail ?? "Error al crear el club");
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setClubError(detail.map((d: any) => `${d.loc?.at(-1)}: ${d.msg}`).join(" · "));
+      } else {
+        setClubError(detail ?? "Error al crear el club");
+      }
     } finally {
       setClubSubmitting(false);
     }
@@ -107,7 +112,12 @@ export default function Clubs() {
       setAddingUserFor(null);
       setUserForm(EMPTY_USER_FORM);
     } catch (err: any) {
-      setUserError(err.response?.data?.detail ?? "Error al crear el usuario");
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setUserError(detail.map((d: any) => `${d.loc?.at(-1)}: ${d.msg}`).join(" · "));
+      } else {
+        setUserError(detail ?? "Error al crear el usuario");
+      }
     } finally {
       setUserSubmitting(false);
     }
