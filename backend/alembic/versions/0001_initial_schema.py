@@ -15,18 +15,29 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-user_role_enum = sa.Enum("superadmin", "club_admin", "match_director", "analyst", name="userrole")
-session_status_enum = sa.Enum("scheduled", "active", "halftime", "finished", name="sessionstatus")
-timer_status_enum = sa.Enum("stopped", "running", "paused", "halftime", "finished", name="timerstatus")
-team_side_enum = sa.Enum("home", "away", name="teamside")
+# create_type=False: the type is created manually via DO block below so
+# SQLAlchemy must not try to CREATE it again when building column definitions.
+_userrole = sa.Enum("superadmin", "club_admin", "match_director", "analyst", name="userrole", create_type=False)
+_sessionstatus = sa.Enum("scheduled", "active", "halftime", "finished", name="sessionstatus", create_type=False)
+_timerstatus = sa.Enum("stopped", "running", "paused", "halftime", "finished", name="timerstatus", create_type=False)
+_teamside = sa.Enum("home", "away", name="teamside", create_type=False)
+
+
+def _create_enum(name: str, *values: str) -> None:
+    vals = ", ".join(f"'{v}'" for v in values)
+    op.execute(f"""
+        DO $$ BEGIN
+            CREATE TYPE {name} AS ENUM ({vals});
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$
+    """)
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-    user_role_enum.create(bind, checkfirst=True)
-    session_status_enum.create(bind, checkfirst=True)
-    timer_status_enum.create(bind, checkfirst=True)
-    team_side_enum.create(bind, checkfirst=True)
+    _create_enum("userrole", "superadmin", "club_admin", "match_director", "analyst")
+    _create_enum("sessionstatus", "scheduled", "active", "halftime", "finished")
+    _create_enum("timerstatus", "stopped", "running", "paused", "halftime", "finished")
+    _create_enum("teamside", "home", "away")
 
     op.create_table(
         "clubs",
@@ -46,7 +57,7 @@ def upgrade() -> None:
         sa.Column("email", sa.String(255), nullable=False),
         sa.Column("password_hash", sa.String(), nullable=False),
         sa.Column("full_name", sa.String(100), nullable=False),
-        sa.Column("role", user_role_enum, nullable=False),
+        sa.Column("role", _userrole, nullable=False),
         sa.Column("is_active", sa.Boolean(), server_default=sa.text("true")),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
@@ -81,7 +92,7 @@ def upgrade() -> None:
         sa.Column("home_team", sa.String(100), nullable=False),
         sa.Column("away_team", sa.String(100), nullable=False),
         sa.Column("scheduled_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("status", session_status_enum, nullable=False, server_default="scheduled"),
+        sa.Column("status", _sessionstatus, nullable=False, server_default="scheduled"),
         sa.Column("half_duration_minutes", sa.Integer(), server_default="40"),
         sa.Column("created_by", sa.UUID(), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
@@ -93,7 +104,7 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), primary_key=True),
         sa.Column("session_id", sa.UUID(), sa.ForeignKey("sessions.id"), nullable=False),
         sa.Column("current_half", sa.SmallInteger(), server_default="1"),
-        sa.Column("status", timer_status_enum, nullable=False, server_default="stopped"),
+        sa.Column("status", _timerstatus, nullable=False, server_default="stopped"),
         sa.Column("elapsed_seconds", sa.Integer(), server_default="0"),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
@@ -107,7 +118,7 @@ def upgrade() -> None:
         sa.Column("event_type", sa.String(50), nullable=False),
         sa.Column("half", sa.SmallInteger(), nullable=False),
         sa.Column("timer_seconds", sa.Integer(), nullable=False),
-        sa.Column("team", team_side_enum, nullable=False),
+        sa.Column("team", _teamside, nullable=False),
         sa.Column("player_number", sa.SmallInteger(), nullable=True),
         sa.Column("reason", sa.String(50), nullable=True),
         sa.Column("metadata", sa.JSON(), server_default="{}"),
@@ -148,8 +159,7 @@ def downgrade() -> None:
     op.drop_table("users")
     op.drop_table("clubs")
 
-    bind = op.get_bind()
-    team_side_enum.drop(bind, checkfirst=True)
-    timer_status_enum.drop(bind, checkfirst=True)
-    session_status_enum.drop(bind, checkfirst=True)
-    user_role_enum.drop(bind, checkfirst=True)
+    op.execute("DROP TYPE IF EXISTS teamside")
+    op.execute("DROP TYPE IF EXISTS timerstatus")
+    op.execute("DROP TYPE IF EXISTS sessionstatus")
+    op.execute("DROP TYPE IF EXISTS userrole")
