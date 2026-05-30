@@ -1,7 +1,8 @@
 ---
 title: Pantallas de Estadísticas (Frontend)
 type: feature
-status: in-progress
+status: done
+archived: 2026-05-30
 spec: statistics-screens
 created: 2026-05-30
 ---

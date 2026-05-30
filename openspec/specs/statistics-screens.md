@@ -1,27 +1,30 @@
 ---
-title: Pantallas de Estadísticas
+title: Pantallas de Estadísticas y Registro
 status: active
 created: 2026-05-29
+updated: 2026-05-30
 ---
 
-# Pantallas de Estadísticas
+# Pantallas de Estadísticas y Registro
 
 ## Visión General
 
-El tablero de una sesión tiene tres pantallas (tabs) de registro, más el timer siempre visible en la parte superior. Cada acción registra un evento con el timestamp del timer actual. El diseño es mobile-first (375px base), con botones grandes aptos para uso en campo con guantes.
+El tablero de una sesión tiene tres tabs de registro de eventos más el timer siempre visible arriba. El diseño es mobile-first (375px base), botones grandes aptos para uso en campo. Adicionalmente existe una pantalla de estadísticas agregadas accesible desde el menú lateral.
 
-## Layout General del Tablero
+## Layout del Tablero (Session)
 
 ```
 ┌─────────────────────────────┐
-│  [1T]  23:45  ▶ ⏸ ⏹        │  ← Timer (siempre visible, solo admin ve controles)
-│  Equipo Local  vs  Visitante │
+│  [1T]  23:45  ▶ ⏸ ⏹  ↺     │  ← Timer + controles (solo admin/director)
+│  Equipo Local  vs  Visitante│  ← Botón "Corregir tiempo" cuando pausado
 ├─────────────────────────────┤
-│ [Tackles] [Lines/Scrum] [Pen]│  ← Tabs de navegación
+│ [Tackles] [Lines/Scrum] [Pen]│  ← 3 tabs
 ├─────────────────────────────┤
 │                             │
 │    CONTENIDO DEL TAB        │
 │                             │
+├─────────────────────────────┤
+│    REGISTRO DE EVENTOS      │  ← Log al final de cada tab (eliminable)
 └─────────────────────────────┘
 ```
 
@@ -29,159 +32,114 @@ El tablero de una sesión tiene tres pantallas (tabs) de registro, más el timer
 
 ## Tab 1: Tackles
 
-### Eventos Registrables
+### Eventos
 
-| Evento | Descripción | Equipo |
-|--------|-------------|--------|
-| `tackle_completed` | Tackle completado (derribó al portador) | equipo que tacleó |
-| `tackle_missed` | Tackle fallado | equipo que intentó taclear |
-| `dominant_tackle` | Tackle dominante (ganó metros en defensa) | equipo que tacleó |
-| `breakdown_won` | Ruck ganado en el tackle | equipo ganador |
-| `breakdown_lost` | Ruck perdido en el tackle | equipo que lo perdió |
+| event_type | Descripción |
+|---|---|
+| `tackle_effective` | Tackle completado |
+| `tackle_missed` | Tackle fallado |
 
-### Datos del Evento
+**UI:** Lista de jugadores en cancha (del lineup). Botones "Efectivo" y "Errado" por jugador. El jugador se asocia por `player_id`, no por número de camiseta.
 
-- Equipo (local / visitante)
-- Número de jugador (opcional, input numérico)
-- Tipo de tackle
-
-### UI
-
-```
-┌─────────────────────────────┐
-│     TACKLES                 │
-│  [LOCAL]        [VISITANTE] │
-│                             │
-│  [✓ TACKLE]    [✓ TACKLE]   │
-│  [✗ FALLADO]   [✗ FALLADO]  │
-│  [★ DOMINANTE] [★ DOMINANTE]│
-│  [RUCK ✓]      [RUCK ✓]     │
-│  [RUCK ✗]      [RUCK ✗]     │
-│                             │
-│  Jugador #: [____]          │
-└─────────────────────────────┘
-```
+**Cambio de jugadores:** botón "Registrar Cambio" abre modal que registra `substitution` event y actualiza el estado del lineup en tiempo real.
 
 ---
 
 ## Tab 2: Lines & Scrum
 
-### Eventos Registrables
+### Eventos
 
-| Evento | Descripción | Quién |
-|--------|-------------|-------|
-| `lineout_won` | Line-out ganado | equipo ganador |
-| `lineout_lost` | Line-out perdido (rival tomó la pelota) | equipo perdedor |
-| `lineout_steal` | Line-out robado activamente | equipo que robó |
-| `scrum_won` | Scrum ganado | equipo ganador |
-| `scrum_lost` | Scrum perdido | equipo perdedor |
-| `scrum_penalty_won` | Penal a favor por scrum | equipo favorecido |
-| `scrum_penalty_lost` | Penal en contra por scrum | equipo penalizado |
+| event_type | Descripción | Con obtención |
+|---|---|---|
+| `lineout_favor` | Line a favor | Sí (popup) |
+| `lineout_against` | Line en contra | Sí (popup) |
+| `scrum_favor` | Scrum a favor | Sí (popup) |
+| `scrum_against` | Scrum en contra | Sí (popup) |
 
-### Datos del Evento
-
-- Equipo
-- Posición en el campo (sector de campo: izquierda, centro, derecha — opcional)
-- Resultado
-
-### UI
-
-```
-┌─────────────────────────────┐
-│     LINES & SCRUM           │
-│  [LOCAL]        [VISITANTE] │
-│                             │
-│  LINE-OUTS                  │
-│  [✓ GANADO]    [✓ GANADO]   │
-│  [✗ PERDIDO]   [✗ PERDIDO]  │
-│  [⚡ ROBO]      [⚡ ROBO]    │
-│                             │
-│  SCRUMS                     │
-│  [✓ GANADO]    [✓ GANADO]   │
-│  [✗ PERDIDO]   [✗ PERDIDO]  │
-│  [🔴 PENAL ✓]  [🔴 PENAL ✓] │
-│  [🔴 PENAL ✗]  [🔴 PENAL ✗] │
-└─────────────────────────────┘
-```
+**UI:** 4 botones grandes (2 lines, 2 scrums). Al tocar abre modal "¿Con obtención?" → registra con `metadata: {obtained: bool}`.
 
 ---
 
-## Tab 3: Penales & Pérdida de Posesión
+## Tab 3: Penales & Posesión
 
-### Eventos Registrables
+### Eventos
 
-| Evento | Descripción | Quién |
-|--------|-------------|-------|
-| `penalty_conceded` | Penal cometido | equipo infractor |
-| `penalty_won` | Penal recibido a favor | equipo favorecido |
-| `yellow_card` | Tarjeta amarilla | jugador/equipo |
-| `red_card` | Tarjeta roja | jugador/equipo |
-| `turnover_conceded` | Pérdida de posesión por error propio | equipo que perdió |
-| `turnover_won` | Posesión ganada por robo | equipo que ganó |
-| `knock_on` | Knock-on (pelota al frente) | equipo infractor |
-| `forward_pass` | Pase adelantado | equipo infractor |
+| event_type | Con jugador |
+|---|---|
+| `penalty_conceded` | Opcional |
+| `penalty_won` | No |
+| `yellow_card` | Opcional |
+| `red_card` | Opcional |
+| `turnover_conceded` | No |
+| `turnover_won` | No |
+| `knock_on` | Opcional |
+| `forward_pass` | Opcional |
 
-### Datos del Evento
-
-- Equipo
-- Número de jugador (requerido para tarjetas, opcional para el resto)
-- Tipo de infracción / razón (dropdown opcional para penales: `offside`, `obstruction`, `high_tackle`, `collapsed_scrum`, `not_rolling_away`, `other`)
-
-### UI
-
-```
-┌─────────────────────────────┐
-│   PENALES & POSESIÓN        │
-│  [LOCAL]        [VISITANTE] │
-│                             │
-│  PENALES                    │
-│  [🔴 COMETIÓ]   [🔴 COMETIÓ]  │
-│  [✓ GANÓ]       [✓ GANÓ]    │
-│  [🟡 AMARILLA]  [🟡 AMARILLA]│
-│  [🔴 ROJA]      [🔴 ROJA]   │
-│                             │
-│  POSESIÓN                   │
-│  [↩ TURNOVER ✗] [↩ TURNOVER ✗]│
-│  [↪ TURNOVER ✓] [↪ TURNOVER ✓]│
-│  [✋ KNOCK-ON]  [✋ KNOCK-ON] │
-│  [→✗ PASE AD.] [→✗ PASE AD.]│
-│                             │
-│  Jugador #: [____]          │
-│  Razón: [__________▾]       │
-└─────────────────────────────┘
-```
+**Player picker:** cuando hay lineup cargado, el selector de jugador muestra nombre + camiseta y guarda `player_id`. Si no hay lineup, muestra input numérico de fallback.
 
 ---
 
-## Interacción al Registrar un Evento
+## Registro de Eventos (Event Log)
 
-1. Usuario toca un botón de acción
-2. Se abre un mini-modal de confirmación con:
-   - Tipo de evento
-   - Timer actual (congelado visualmente para referencia)
-   - Campo opcional de número de jugador
-   - Campo opcional de razón/tipo (si aplica)
-3. Usuario confirma → se envía `POST /sessions/{id}/events`
-4. Aparece feedback visual (toast) con el evento registrado
-5. Los totales del tab se actualizan en tiempo real
-
-## Vista de Resumen (dentro del tablero)
-
-Cada tab muestra un contador acumulado arriba de los botones:
+Al final de cada tab aparece un log de los eventos de ese tab, en orden inverso (más reciente primero). Cada fila:
 
 ```
-Tackles: Local 14  |  Visitante 11
+T1 23:45  [L]  Tackle efectivo · #7 Nombre Jugador · (razón opcional)  ×
 ```
 
-## Pantalla de Estadísticas Post-Partido
+- `×` elimina el evento via `DELETE /sessions/:id/events/:id`
+- Solo visible si hay eventos del tipo del tab
 
-Ruta: `/sessions/{id}/stats`
+---
 
-- Tabla comparativa por categoría
-- Línea de tiempo de eventos
-- Exportable a PDF (fase futura)
+## Pantalla de Estadísticas (`/stats`)
+
+Accesible desde el menú lateral para CLUB_ADMIN, MATCH_DIRECTOR, ANALYST.
+
+### Vista "Por jugador"
+
+Agrega eventos de todos los partidos del club, por `player_id`.
+
+| Jugador | Tk. Ef. | Tk. Err. | Amarillas | Rojas | Errores |
+|---|---|---|---|---|---|
+
+- Errores = knock-ons + pases adelantados
+- Solo aparecen jugadores con al menos un evento con `player_id` asociado
+- Ordenado por tackles totales
+
+### Vista "Por partido"
+
+Una fila por sesión, todas las sesiones del club.
+
+| Partido | Fecha | Tk. Ef. | Tk. Err. | Amarillas | Rojas | Errores | Scrum + | Scrum − | Line + | Line − |
+|---|---|---|---|---|---|---|---|---|---|---|
+
+- Ordenado por fecha descendente
+- Scroll horizontal en mobile
+
+### Carga de datos
+
+1. `GET /clubs/:id/tournaments` → lista torneos
+2. Para cada torneo: `GET /tournaments/:id/sessions`
+3. Para cada sesión: `GET /sessions/:id/events` + `GET /sessions/:id/lineup` (en paralelo)
+4. Cómputo en cliente
+
+---
+
+## Gestión de Lineup Pre-Partido (`/sessions/:id/lineup`)
+
+Pantalla separada del tablero de partido. Accesible desde los cards de sesión en Partidos y Torneos.
+
+- **Toggle Local/Visitante** — vista por equipo
+- **Buscar jugador** — filtro por nombre (client-side)
+- **Agregar:** click en jugador disponible → formulario inline con camiseta + posición + titular/suplente → `POST /sessions/:id/lineup`
+- **Editar camiseta:** botón ✎ por jugador → input inline → `PATCH /sessions/:id/lineup/:entry_id`
+- **Eliminar del lineup:** botón × → `DELETE /sessions/:id/lineup/:entry_id`
+
+---
 
 ## Relacionado
 
 - [[match-session]] — timer y modelo de evento
-- [[data-model]] — entidad Event y sus tipos
+- [[data-model]] — entidades Event, MatchLineup, Player
+- [[auth-and-users]] — permisos por pantalla

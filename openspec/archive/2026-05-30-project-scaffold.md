@@ -1,7 +1,8 @@
 ---
 title: Scaffolding inicial del proyecto
 type: feature
-status: in-progress
+status: done
+archived: 2026-05-30
 spec: architecture
 created: 2026-05-29
 ---

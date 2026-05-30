@@ -2,119 +2,127 @@
 title: Sesión de Partido y Timer
 status: active
 created: 2026-05-29
+updated: 2026-05-30
 ---
 
 # Sesión de Partido y Timer
 
 ## Visión General
 
-Una "sesión" representa un partido de rugby en curso o finalizado. El admin de la sesión controla el timer, y todos los participantes conectados lo ven en tiempo real via WebSocket. Cada evento registrado (tackle, line-out, scrum, penal, etc.) queda sellado con el timestamp del timer en el momento del registro.
+Una "sesión" representa un partido de rugby en curso o finalizado. El admin controla el timer; todos los participantes lo ven en tiempo real via WebSocket. Cada evento queda sellado con el timestamp del timer en el momento del registro.
 
 ## Estructura de una Sesión
 
 - Pertenece a un **torneo** → una **división** → un **club**
 - Tiene dos equipos: **local** y **visitante**
-- Tiene dos tiempos de juego (halves) de duración configurable (default: 40 min)
+- Tiene dos tiempos (halves) de duración configurable (default: 40 min)
 - Estado: `scheduled` → `active` → `halftime` → `active` → `finished`
 
 ## Timer
 
-### Comportamiento
+### Acciones del Timer
 
-| Acción | Quién puede | Efecto |
-|--------|-------------|--------|
-| Iniciar timer | CLUB_ADMIN, MATCH_DIRECTOR | Empieza a contar desde 00:00 |
-| Pausar timer | CLUB_ADMIN, MATCH_DIRECTOR | Congela el tiempo |
-| Reanudar timer | CLUB_ADMIN, MATCH_DIRECTOR | Continúa desde donde se pausó |
-| Ir al descanso | CLUB_ADMIN, MATCH_DIRECTOR | Congela, marca fin del 1er tiempo |
-| Iniciar 2do tiempo | CLUB_ADMIN, MATCH_DIRECTOR | Reinicia desde 00:00 del 2do tiempo |
-| Finalizar partido | CLUB_ADMIN, MATCH_DIRECTOR | Estado → `finished`, timer bloqueado |
+| Acción | Quién puede | Estado previo | Efecto |
+|--------|-------------|---------------|--------|
+| `start` | CLUB_ADMIN, MATCH_DIRECTOR | `stopped` | Inicia half 1 desde 00:00 |
+| `start` | CLUB_ADMIN, MATCH_DIRECTOR | `halftime` | Inicia half 2 desde 00:00 |
+| `pause` | CLUB_ADMIN, MATCH_DIRECTOR | `running` | Congela el tiempo |
+| `resume` | CLUB_ADMIN, MATCH_DIRECTOR | `paused` | Continúa desde donde pausó |
+| `halftime` | CLUB_ADMIN, MATCH_DIRECTOR | `running` (half 1) | Fin del 1er tiempo |
+| `finish` | CLUB_ADMIN, MATCH_DIRECTOR | cualquier activo | Finaliza el partido |
+| `reset` | CLUB_ADMIN, MATCH_DIRECTOR | cualquiera | Vuelve a 00:00 estado `stopped` |
+| `set` | CLUB_ADMIN, MATCH_DIRECTOR | `paused` o `stopped` | Ajusta el tiempo a un valor específico (corrección de errores) |
 
-### Distribución en Tiempo Real (WebSocket)
+`reset` y `set` son acciones de corrección — disponibles cuando el timer no está corriendo.  
+`set` recibe `seconds: int` como parámetro adicional.
 
-```
-Servidor mantiene estado del timer por sesión:
-{
-  session_id: uuid,
-  half: 1 | 2,
-  status: "stopped" | "running" | "paused" | "halftime" | "finished",
-  elapsed_seconds: number,
-  server_timestamp: ISO8601
-}
-```
-
-- El cliente se suscribe al canal `ws://backend/ws/session/{session_id}`
-- El servidor emite el estado del timer cada segundo cuando está corriendo
-- Los clientes calculan el tiempo local interpolando desde `elapsed_seconds` + `server_timestamp`
-- Al reconectar, el cliente recibe el estado actual inmediatamente
-
-### Formato de Visualización
-
-```
-[1T]  23:45
-[2T]  07:12
-```
-
-- Minutos y segundos del tiempo transcurrido en el half actual
-- Indicador de "1T" o "2T" (primer o segundo tiempo)
-- Color verde = corriendo, amarillo = pausado, rojo = finalizado
-
-## Modelo de Evento
-
-Cada evento registrado guarda:
+### Estado del Timer (WebSocket)
 
 ```json
 {
   "session_id": "uuid",
-  "event_type": "tackle | lineout | scrum | penalty | possession_loss | ...",
   "half": 1,
-  "timer_seconds": 1425,
-  "recorded_at": "2026-05-29T15:23:45Z",
-  "team": "local | visitor",
-  "player_number": 7,
-  "recorded_by_user_id": "uuid",
-  "metadata": {}
+  "status": "stopped | running | paused | halftime | finished",
+  "elapsed_seconds": 1425,
+  "server_timestamp": "2026-05-30T15:23:45Z"
 }
 ```
 
-- `timer_seconds`: tiempo del timer en el momento del registro (fuente de verdad para el partido)
-- `recorded_at`: timestamp UTC del servidor (para auditoría)
-- `metadata`: campo flexible para datos específicos por tipo de evento
+- El cliente interpola el tiempo local: `elapsed_seconds + (now - server_timestamp)`
+- Al reconectar, el cliente recibe el estado actual inmediatamente
+- El servidor emite `timer_tick` cada segundo cuando el timer corre
 
-## Endpoints REST de Sesión
+### Mensajes WebSocket
+
+```
+Cliente → Servidor (CLUB_ADMIN o MATCH_DIRECTOR):
+{ "type": "timer_control", "action": "start|pause|resume|halftime|finish|reset|set", "seconds": 1200 }
+
+Servidor → Cliente:
+{ "type": "timer_tick",   "data": { ...estado del timer } }
+{ "type": "timer_state",  "data": { ...estado del timer } }   ← on control action
+{ "type": "event_registered", "data": { ...evento } }
+{ "type": "substitution", "data": { player_out: {...}, player_in: {...} } }
+```
+
+## Modelo de Evento
+
+```json
+{
+  "id": "uuid",
+  "session_id": "uuid",
+  "event_type": "string",
+  "half": 1,
+  "timer_seconds": 1425,
+  "team": "home | away",
+  "player_id": "uuid | null",
+  "player_number": 7,
+  "reason": "string | null",
+  "metadata": {},
+  "recorded_by": "uuid",
+  "recorded_at": "2026-05-30T15:23:45Z"
+}
+```
+
+**Importante:** `player_id` es la referencia canónica al jugador (FK a `players`). `player_number` se puebla automáticamente desde el lineup como dato de display — nunca es la fuente de verdad. Eventos sin jugador asociado tienen ambos campos en `null`.
+
+### Tipos de evento implementados
+
+| event_type | Tab | Con player_id |
+|---|---|---|
+| `tackle_effective` | Tackles | Sí (obligatorio) |
+| `tackle_missed` | Tackles | Sí (obligatorio) |
+| `substitution` | — (auto) | Sí |
+| `lineout_favor` | Lines & Scrum | No |
+| `lineout_against` | Lines & Scrum | No |
+| `scrum_favor` | Lines & Scrum | No |
+| `scrum_against` | Lines & Scrum | No |
+| `penalty_conceded` | Penales | Opcional |
+| `penalty_won` | Penales | No |
+| `yellow_card` | Penales | Opcional |
+| `red_card` | Penales | Opcional |
+| `turnover_conceded` | Penales | No |
+| `turnover_won` | Penales | No |
+| `knock_on` | Penales | Opcional |
+| `forward_pass` | Penales | Opcional |
+
+## Endpoints
 
 | Método | Ruta | Descripción | Acceso |
 |--------|------|-------------|--------|
-| POST | `/tournaments/{t_id}/sessions` | Crear sesión/partido | CLUB_ADMIN |
+| POST | `/tournaments/{t_id}/sessions` | Crear sesión | CLUB_ADMIN |
 | GET | `/tournaments/{t_id}/sessions` | Listar sesiones | ANALYST+ |
-| GET | `/sessions/{session_id}` | Detalle de sesión | ANALYST+ |
-| PATCH | `/sessions/{session_id}/timer` | Controlar timer | CLUB_ADMIN |
+| GET | `/sessions/{session_id}` | Detalle | ANALYST+ |
+| DELETE | `/sessions/{session_id}` | Eliminar + cascada (eventos, lineup, timer) | CLUB_ADMIN |
+| PATCH | `/sessions/{session_id}/timer` | Controlar timer (REST) | CLUB_ADMIN, MATCH_DIRECTOR |
 | POST | `/sessions/{session_id}/events` | Registrar evento | ANALYST+ |
 | GET | `/sessions/{session_id}/events` | Listar eventos | ANALYST+ |
-| GET | `/sessions/{session_id}/stats` | Estadísticas calculadas | ANALYST+ |
+| DELETE | `/sessions/{session_id}/events/{event_id}` | Eliminar evento | ANALYST+ |
 
-## Endpoint WebSocket
-
-```
-WS /ws/session/{session_id}
-Headers: Authorization: Bearer <token>
-
-Mensajes del servidor → cliente:
-{ "type": "timer_tick", "data": { ...estado del timer } }
-{ "type": "event_registered", "data": { ...evento } }
-{ "type": "session_state_change", "data": { "status": "halftime" } }
-
-Mensajes del cliente → servidor (CLUB_ADMIN o MATCH_DIRECTOR):
-{ "type": "timer_control", "action": "start" | "pause" | "resume" | "halftime" | "finish" }
-```
-
-## Pantallas Frontend
-
-- `/sessions/{id}` — tablero principal de la sesión con timer visible
-- Tabs dentro del tablero: Tackles | Lines & Scrum | Penales & Posesión
+**Eliminación de sesión:** borra en cascada todos los eventos, entradas de lineup y el timer_state en una sola transacción.
 
 ## Relacionado
 
-- [[statistics-screens]] — pantallas de registro de eventos
-- [[data-model]] — entidades Session, Event, Tournament
+- [[statistics-screens]] — pantallas de registro y estadísticas
+- [[data-model]] — entidades Session, Event, MatchLineup
 - [[auth-and-users]] — permisos de control del timer

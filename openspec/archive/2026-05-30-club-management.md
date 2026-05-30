@@ -1,7 +1,8 @@
 ---
 title: Gestión de Clubes y Usuarios
 type: feature
-status: in-progress
+status: done
+archived: 2026-05-30
 spec: auth-and-users
 created: 2026-05-30
 ---

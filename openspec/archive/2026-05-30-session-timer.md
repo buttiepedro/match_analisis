@@ -1,7 +1,8 @@
 ---
 title: Sesión de Partido y Timer en Tiempo Real
 type: feature
-status: in-progress
+status: done
+archived: 2026-05-30
 spec: match-session
 created: 2026-05-30
 ---
