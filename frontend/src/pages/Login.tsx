@@ -28,7 +28,7 @@ export default function Login() {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-bold text-white text-center mb-1">
-          match_analisis
+          Rugby Analisis
         </h1>
         <p className="text-gray-400 text-center mb-8 text-sm">
           Estadisticas de Rugby

@@ -84,7 +84,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:w-56 bg-gray-800 flex-col border-r border-gray-700 fixed inset-y-0 left-0">
         <div className="px-4 py-5 border-b border-gray-700">
-          <span className="font-bold text-white">match_analisis</span>
+          <span className="font-bold text-white">Rugby Analisis</span>
         </div>
         {navLinks}
         {userFooter}
@@ -105,7 +105,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div className="px-4 py-5 border-b border-gray-700">
-          <span className="font-bold text-white">match_analisis</span>
+          <span className="font-bold text-white">Rugby Analisis</span>
         </div>
         {navLinks}
         {userFooter}
@@ -122,7 +122,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           >
             <HamburgerIcon />
           </button>
-          <span className="font-bold text-white text-sm">match_analisis</span>
+          <span className="font-bold text-white text-sm">Rugby Analisis</span>
         </header>
         <main className="flex-1">{children}</main>
       </div>
