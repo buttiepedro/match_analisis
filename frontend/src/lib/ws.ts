@@ -14,7 +14,10 @@ class SessionWebSocket {
     onConnect?: () => void,
     onDisconnect?: () => void
   ): void {
-    const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.host}`;
+    const rawApiUrl = import.meta.env.VITE_API_URL || "";
+    const apiUrl = rawApiUrl && !rawApiUrl.startsWith("http")
+      ? `https://${rawApiUrl}`
+      : rawApiUrl || `${window.location.protocol}//${window.location.host}`;
     const proto = apiUrl.startsWith("https") ? "wss:" : "ws:";
     const host = new URL(apiUrl).host;
     const url = `${proto}//${host}/ws/session/${sessionId}?token=${encodeURIComponent(token)}`;
