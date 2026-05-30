@@ -14,12 +14,15 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { label: "Divisiones", path: "/divisions" },
     { label: "Jugadores", path: "/players" },
     { label: "Usuarios", path: "/users" },
+    { label: "Estadísticas", path: "/stats" },
   ],
   match_director: [
     { label: "Partidos", path: "/dashboard" },
+    { label: "Estadísticas", path: "/stats" },
   ],
   analyst: [
     { label: "Partidos", path: "/dashboard" },
+    { label: "Estadísticas", path: "/stats" },
   ],
 };
 
