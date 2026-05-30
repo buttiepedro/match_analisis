@@ -23,6 +23,13 @@ def _has_column(table: str, column: str) -> bool:
     )
 
 
+def _has_index(table: str, index: str) -> bool:
+    return any(
+        i["name"] == index
+        for i in sa.inspect(op.get_bind()).get_indexes(table)
+    )
+
+
 def upgrade() -> None:
     if not _has_column("events", "player_id"):
         op.add_column(
@@ -38,5 +45,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("idx_events_player", "events")
-    op.drop_column("events", "player_id")
+    if _has_index("events", "idx_events_player"):
+        op.drop_index("idx_events_player", "events")
+    if _has_column("events", "player_id"):
+        op.drop_column("events", "player_id")

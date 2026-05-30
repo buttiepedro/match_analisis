@@ -86,8 +86,6 @@ async def update_lineup_entry(
         entry.jersey_number = body.jersey_number
     if body.position is not None:
         entry.position = body.position
-    if body.status is not None:
-        entry.status = LineupStatus(body.status)
 
     await db.commit()
     await db.refresh(entry)

@@ -296,7 +296,7 @@ async def delete_event(
     session_id: uuid.UUID,
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_timer_control)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     session = await _get_session_or_404(session_id, db)
     tournament = await _get_tournament_or_404(session.tournament_id, db)
@@ -355,7 +355,11 @@ async def session_ws(
 
             if data.get("type") == "timer_control" and can_control:
                 action = data.get("action", "")
-                seconds = data.get("seconds")
+                raw_seconds = data.get("seconds")
+                try:
+                    seconds = int(raw_seconds) if raw_seconds is not None else None
+                except (TypeError, ValueError):
+                    seconds = None
                 updated = manager.apply_action(str(session_id), action, seconds=seconds)
                 if updated:
                     async with AsyncSessionLocal() as db:

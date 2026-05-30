@@ -66,6 +66,7 @@ type View = "players" | "sessions";
 export default function Stats() {
   const user = useAuthStore((s) => s.user);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
   const [sessionStats, setSessionStats] = useState<SessionStats[]>([]);
   const [view, setView] = useState<View>("players");
@@ -153,6 +154,8 @@ export default function Stats() {
 
         setSessionStats(sStats);
         setPlayerStats(pStats);
+      } catch {
+        setLoadError("Error al cargar estadísticas. Revisá la conexión e intentá de nuevo.");
       } finally {
         setLoading(false);
       }
@@ -185,6 +188,8 @@ export default function Stats() {
 
       {loading ? (
         <p className="text-gray-400 text-sm">Cargando estadísticas...</p>
+      ) : loadError ? (
+        <p className="text-red-400 text-sm">{loadError}</p>
       ) : view === "players" ? (
         <PlayerView stats={playerStats} />
       ) : (

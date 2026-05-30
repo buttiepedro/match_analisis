@@ -57,6 +57,12 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
   const [corrMm, setCorrMm] = useState("00");
   const [corrSs, setCorrSs] = useState("00");
 
+  const canCorrect = canControl && (status === "paused" || status === "stopped");
+
+  useEffect(() => {
+    if (!canCorrect) setCorrecting(false);
+  }, [canCorrect]);
+
   const send = (action: string, extras?: Record<string, unknown>) =>
     sessionWS.sendTimerControl(action, extras);
 
@@ -73,8 +79,6 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
     send("set", { seconds: mm * 60 + ss });
     setCorrecting(false);
   };
-
-  const canCorrect = canControl && (status === "paused" || status === "stopped");
 
   return (
     <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">

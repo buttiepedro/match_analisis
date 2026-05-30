@@ -93,15 +93,14 @@ export default function SessionLineup() {
     setSubmitting(true);
     setError(null);
     try {
-      await api.post(`/sessions/${sessionId}/lineup`, {
+      const { data: newEntry } = await api.post<LineupEntry>(`/sessions/${sessionId}/lineup`, {
         player_id: playerId,
         jersey_number: parseInt(addForm.jersey_number, 10),
         position: addForm.position || null,
         team: addForm.team,
         status: addForm.status,
       });
-      const { data } = await api.get<LineupEntry[]>(`/sessions/${sessionId}/lineup`);
-      setLineup(data);
+      setLineup((prev) => [...prev, newEntry]);
       setAddingFor(null);
       setAddForm(EMPTY_ADD_FORM);
     } catch (err) {
@@ -115,11 +114,10 @@ export default function SessionLineup() {
     setEditSubmitting(true);
     setEditError(null);
     try {
-      await api.patch(`/sessions/${sessionId}/lineup/${entryId}`, {
+      const { data: updated } = await api.patch<LineupEntry>(`/sessions/${sessionId}/lineup/${entryId}`, {
         jersey_number: parseInt(editJersey, 10),
       });
-      const { data } = await api.get<LineupEntry[]>(`/sessions/${sessionId}/lineup`);
-      setLineup(data);
+      setLineup((prev) => prev.map((e) => (e.id === entryId ? updated : e)));
       setEditingId(null);
     } catch (err) {
       setEditError(parseApiError(err, "Error al actualizar"));
@@ -130,10 +128,10 @@ export default function SessionLineup() {
 
   const handleDelete = async (entryId: string) => {
     setDeletingId(entryId);
+    setEditError(null);
     try {
       await api.delete(`/sessions/${sessionId}/lineup/${entryId}`);
-      const { data } = await api.get<LineupEntry[]>(`/sessions/${sessionId}/lineup`);
-      setLineup(data);
+      setLineup((prev) => prev.filter((e) => e.id !== entryId));
     } catch (err) {
       setEditError(parseApiError(err, "Error al eliminar"));
     } finally {
