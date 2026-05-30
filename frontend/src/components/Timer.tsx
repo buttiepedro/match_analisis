@@ -128,57 +128,52 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
               <CtrlBtn onClick={() => send("start")} label="2T ▶" color="green" />
             )}
 
-            {/* Reset — available when paused, stopped (with elapsed) or finished */}
+            {/* Reset */}
             {canCorrect && (elapsed > 0 || status === "paused" || status === "finished") && (
               <CtrlBtn onClick={() => send("reset")} label="↺" color="gray" />
+            )}
+            {/* Set time — opens correction form */}
+            {canCorrect && (
+              <CtrlBtn onClick={correcting ? () => setCorrecting(false) : openCorrect} label="⏱" color="gray" />
             )}
           </div>
         )}
       </div>
 
-      {/* Time correction row — paused or stopped */}
-      {canCorrect && (
-        correcting ? (
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700">
-            <span className="text-xs text-gray-400">Corregir:</span>
-            <input
-              type="number"
-              min="0"
-              max="99"
-              value={corrMm}
-              onChange={(e) => setCorrMm(e.target.value.padStart(2, "0").slice(-2))}
-              className="w-12 bg-gray-700 text-white text-sm text-center rounded px-2 py-1 outline-none"
-            />
-            <span className="text-gray-400 font-bold">:</span>
-            <input
-              type="number"
-              min="0"
-              max="59"
-              value={corrSs}
-              onChange={(e) => setCorrSs(e.target.value.padStart(2, "0").slice(-2))}
-              className="w-12 bg-gray-700 text-white text-sm text-center rounded px-2 py-1 outline-none"
-            />
-            <button
-              onClick={applyCorrection}
-              className="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors"
-            >
-              OK
-            </button>
-            <button
-              onClick={() => setCorrecting(false)}
-              className="text-xs text-gray-400 hover:text-white transition-colors"
-            >
-              Cancelar
-            </button>
-          </div>
-        ) : (
+      {/* Correction form — appears below when ⏱ is active */}
+      {correcting && (
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700">
+          <span className="text-xs text-gray-400 shrink-0">Ir a:</span>
+          <input
+            type="number"
+            min="0"
+            max="99"
+            value={corrMm}
+            onChange={(e) => setCorrMm(e.target.value.padStart(2, "0").slice(-2))}
+            className="w-12 bg-gray-700 text-white text-sm text-center rounded px-2 py-1 outline-none"
+          />
+          <span className="text-gray-400 font-bold">:</span>
+          <input
+            type="number"
+            min="0"
+            max="59"
+            value={corrSs}
+            onChange={(e) => setCorrSs(e.target.value.padStart(2, "0").slice(-2))}
+            className="w-12 bg-gray-700 text-white text-sm text-center rounded px-2 py-1 outline-none"
+          />
           <button
-            onClick={openCorrect}
-            className="mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            onClick={applyCorrection}
+            className="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors"
           >
-            Corregir tiempo
+            OK
           </button>
-        )
+          <button
+            onClick={() => setCorrecting(false)}
+            className="text-xs text-gray-400 hover:text-white transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
       )}
     </div>
   );
