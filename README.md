@@ -13,14 +13,11 @@ Tablero de estadísticas en tiempo real para partidos de rugby. Diseñado para u
 | Tiempo real | WebSockets nativos de FastAPI |
 | Contenedores | Docker + Docker Compose |
 
-## Levantar el proyecto
+## Levantar con Docker Compose (local)
 
 ```bash
-# 1. Clonar y configurar variables de entorno
 cp .env.example .env
-# Editar .env con tus valores (contraseñas, secret key, etc.)
-
-# 2. Levantar todo
+# Editar .env con tus valores
 docker compose up --build
 ```
 
@@ -28,17 +25,67 @@ docker compose up --build
 - Backend API: http://localhost:8000
 - Docs interactivas: http://localhost:8000/docs
 
-El backend corre las migraciones de Alembic y crea el superadmin automáticamente al iniciar.
+El backend corre migraciones y crea el superadmin automáticamente al iniciar.
 
 ## Variables de entorno
 
-Ver `.env.example` para la lista completa. Las más importantes:
+### Backend
+
+| Variable | Descripción | Ejemplo |
+|----------|-------------|---------|
+| `DATABASE_URL` | Conexión a PostgreSQL (asyncpg) | `postgresql+asyncpg://user:pass@host:5432/db` |
+| `SECRET_KEY` | Clave JWT — cambiar en producción | `una-clave-secreta-larga` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Expiración del access token | `60` |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Expiración del refresh token | `7` |
+| `SUPERADMIN_EMAIL` | Email del superadmin (se crea al iniciar) | `admin@example.com` |
+| `SUPERADMIN_PASSWORD` | Contraseña del superadmin | `changeme123` |
+| `POSTGRES_USER` | Usuario de Postgres (para Docker Compose) | `match_user` |
+| `POSTGRES_PASSWORD` | Contraseña de Postgres | `changeme` |
+| `POSTGRES_DB` | Nombre de la base de datos | `match_analisis` |
+
+### Frontend (nginx)
+
+El frontend no tiene variables de build — las URLs del backend se configuran en runtime via el proxy nginx.
+
+| Variable | Descripción | Cuándo usarla |
+|----------|-------------|---------------|
+| `BACKEND_HOST` | Host:puerto del backend **sin** scheme | Redes internas (Docker Compose, Railway internal DNS) |
+| `BACKEND_URL` | URL completa **con** scheme — tiene precedencia sobre `BACKEND_HOST` | Backends externos o HTTPS |
+
+**Ejemplos por entorno:**
 
 ```env
+# Docker Compose (red interna)
+BACKEND_HOST=backend:8000
+
+# Railway (internal DNS)
+BACKEND_HOST=matchanalisis.railway.internal:8000
+
+# Backend externo / HTTPS
+BACKEND_URL=https://api.miapp.com
+```
+
+Si se setean las dos, `BACKEND_URL` tiene precedencia. Si ninguna está seteada, el default es `http://backend:8000`.
+
+## Deploy en Railway
+
+### Backend
+Variables de entorno del servicio backend:
+```env
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
+SECRET_KEY=...
 SUPERADMIN_EMAIL=admin@example.com
-SUPERADMIN_PASSWORD=changeme123
-SECRET_KEY=cambia-esto-en-produccion
-DATABASE_URL=postgresql+asyncpg://match_user:changeme@db:5432/match_analisis
+SUPERADMIN_PASSWORD=...
+```
+
+### Frontend
+Variable de entorno del servicio frontend (elegir según caso):
+```env
+# Opción A: si backend y frontend están en el mismo proyecto Railway (red interna)
+BACKEND_HOST=nombre-del-servicio.railway.internal:8000
+
+# Opción B: si el backend está en otra plataforma o tiene URL pública
+BACKEND_URL=https://tu-backend.up.railway.app
 ```
 
 ## Estructura
@@ -47,19 +94,20 @@ DATABASE_URL=postgresql+asyncpg://match_user:changeme@db:5432/match_analisis
 match_analisis/
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/        # Routers: auth, clubs, divisions, tournaments, sessions, lineup, players
-│   │   ├── core/          # Config, DB, seguridad, dependencias
+│   │   ├── api/v1/        # auth, clubs, divisions, tournaments, sessions, lineup, players
+│   │   ├── core/          # config, DB, seguridad, dependencias
 │   │   ├── models/        # SQLAlchemy ORM
 │   │   ├── schemas/       # Pydantic
 │   │   └── ws/            # WebSocket manager + timer en memoria
-│   ├── alembic/           # Migraciones
+│   ├── alembic/           # Migraciones (auto-run al iniciar)
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
 │   │   ├── components/    # Timer, EventButton, SubstitutionModal, tabs
 │   │   ├── pages/         # Login, Dashboard, Session
 │   │   ├── store/         # Zustand (auth, session/timer/lineup)
-│   │   └── lib/           # Axios client, WebSocket client
+│   │   └── lib/           # axios (URLs relativas), WebSocket client
+│   ├── nginx.conf         # Template con ${PROXY_URL} resuelto al iniciar
 │   └── Dockerfile
 ├── openspec/              # Specs y change proposals (SDD)
 ├── docker-compose.yml
@@ -103,28 +151,32 @@ Cada evento queda sellado con el tiempo exacto del timer en el momento del regis
 
 ## API principal
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| POST | `/auth/login` | Login → tokens JWT |
-| GET | `/auth/me` | Usuario actual |
-| POST | `/clubs` | Crear club + admin (superadmin) |
-| POST | `/clubs/{id}/users` | Crear usuario en club |
-| POST | `/clubs/{id}/divisions` | Crear división |
-| POST | `/clubs/{id}/tournaments` | Crear torneo |
-| POST | `/divisions/{id}/players` | Agregar jugador a división |
-| POST | `/tournaments/{id}/sessions` | Crear sesión/partido |
-| POST | `/sessions/{id}/lineup` | Definir lineup del partido |
-| POST | `/sessions/{id}/lineup/substitute` | Registrar cambio de jugador |
-| PATCH | `/sessions/{id}/timer` | Controlar timer (REST fallback) |
-| POST | `/sessions/{id}/events` | Registrar evento |
-| GET | `/health` | Healthcheck |
+| Método | Ruta | Descripción | Acceso |
+|--------|------|-------------|--------|
+| POST | `/auth/login` | Login → tokens JWT | Público |
+| GET | `/auth/me` | Usuario actual | Autenticado |
+| POST | `/clubs` | Crear club + admin | superadmin |
+| POST | `/clubs/{id}/users` | Crear usuario en club | club_admin |
+| POST | `/clubs/{id}/divisions` | Crear división | club_admin |
+| POST | `/clubs/{id}/tournaments` | Crear torneo | club_admin |
+| POST | `/divisions/{id}/players` | Agregar jugador a división | club_admin |
+| POST | `/tournaments/{id}/sessions` | Crear sesión/partido | club_admin |
+| POST | `/sessions/{id}/lineup` | Definir lineup del partido | club_admin |
+| POST | `/sessions/{id}/lineup/substitute` | Registrar cambio de jugador | club_admin |
+| PATCH | `/sessions/{id}/timer` | Controlar timer (REST) | club_admin, match_director |
+| POST | `/sessions/{id}/events` | Registrar evento | analyst+ |
+| GET | `/health` | Healthcheck | Público |
 
 Documentación interactiva completa en `/docs` cuando el backend está corriendo.
 
 ## Migraciones
 
-Alembic corre `upgrade head` automáticamente al iniciar el contenedor del backend. Para generar una nueva migración en desarrollo:
+Alembic corre `upgrade head` automáticamente al iniciar el contenedor. Las migraciones son idempotentes: si las tablas ya existen las saltea, si el schema cambió genera las alteraciones necesarias.
+
+Para generar una nueva migración tras cambiar un modelo:
 
 ```bash
-docker compose exec backend alembic revision --autogenerate -m "descripcion"
+docker compose exec backend alembic revision --autogenerate -m "descripcion del cambio"
+git add backend/alembic/versions/
+git commit -m "feat: nueva migración"
 ```
