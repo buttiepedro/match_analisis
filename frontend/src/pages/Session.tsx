@@ -4,17 +4,19 @@ import Timer from "../components/Timer";
 import Tackles from "../components/tabs/Tackles";
 import LinesScrum from "../components/tabs/LinesScrum";
 import PenaltiesPossession from "../components/tabs/PenaltiesPossession";
+import LineupTab from "../components/tabs/LineupTab";
 import api from "../lib/axios";
 import { sessionWS } from "../lib/ws";
 import { useAuthStore } from "../store/authStore";
 import { useSessionStore } from "../store/sessionStore";
 
-type Tab = "tackles" | "lines" | "penalties";
+type Tab = "tackles" | "lines" | "penalties" | "lineup";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "tackles", label: "Tackles" },
   { id: "lines", label: "Lines & Scrum" },
   { id: "penalties", label: "Penales" },
+  { id: "lineup", label: "Alineación" },
 ];
 
 export default function Session() {
@@ -44,7 +46,7 @@ export default function Session() {
       api.get(`/sessions/${id}/lineup`),
     ])
       .then(([sRes, eRes, lRes]) => {
-        setSession(sRes.data);
+        setSession({ ...sRes.data, tournament_id: sRes.data.tournament_id });
         setEvents(eRes.data);
         setLineup(lRes.data);
       })
@@ -150,6 +152,9 @@ export default function Session() {
             awayTeam={session.away_team}
             onEvent={refreshEvents}
           />
+        )}
+        {activeTab === "lineup" && (
+          <LineupTab sessionId={session.id} />
         )}
       </div>
     </div>

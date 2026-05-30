@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
+import { useSessionStore } from "../store/sessionStore";
 
 interface EventButtonProps {
   label: string;
@@ -21,6 +22,10 @@ export default function EventButton({
   reasons,
   onSuccess,
 }: EventButtonProps) {
+  const lineup = useSessionStore((s) => s.lineup);
+  const onFieldPlayers = lineup.filter((p) => p.team === team && p.status === "on_field")
+    .sort((a, b) => a.jersey_number - b.jersey_number);
+
   const [open, setOpen] = useState(false);
   const [player, setPlayer] = useState("");
   const [reason, setReason] = useState("");
@@ -78,15 +83,30 @@ export default function EventButton({
             {showPlayerInput && (
               <div>
                 <label className="block text-sm text-gray-300 mb-1">
-                  N° Jugador (opcional)
+                  Jugador (opcional)
                 </label>
-                <input
-                  type="number"
-                  value={player}
-                  onChange={(e) => setPlayer(e.target.value)}
-                  placeholder="ej: 7"
-                  className="w-full bg-gray-700 text-white rounded-xl px-4 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
+                {onFieldPlayers.length > 0 ? (
+                  <select
+                    value={player}
+                    onChange={(e) => setPlayer(e.target.value)}
+                    className="w-full bg-gray-700 text-white rounded-xl px-4 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">— Sin especificar —</option>
+                    {onFieldPlayers.map((p) => (
+                      <option key={p.id} value={String(p.jersey_number)}>
+                        #{p.jersey_number} {p.player.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    value={player}
+                    onChange={(e) => setPlayer(e.target.value)}
+                    placeholder="N° camiseta"
+                    className="w-full bg-gray-700 text-white rounded-xl px-4 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                )}
               </div>
             )}
 

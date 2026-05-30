@@ -19,6 +19,7 @@ export interface EventData {
 
 export interface SessionData {
   id: string;
+  tournament_id: string;
   home_team: string;
   away_team: string;
   status: string;
