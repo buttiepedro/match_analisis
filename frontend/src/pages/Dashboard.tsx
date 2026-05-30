@@ -142,28 +142,39 @@ export default function Dashboard() {
       ) : (
         <div className="space-y-3">
           {sessions.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => navigate(`/sessions/${s.id}`)}
-              className="w-full bg-gray-800 hover:bg-gray-750 rounded-xl px-4 py-4 text-left transition-colors"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-white font-semibold text-sm">
-                  {s.home_team} vs {s.away_team}
-                </span>
-                <span className={`text-xs font-medium ${STATUS_COLOR[s.status] ?? "text-gray-400"}`}>
-                  {STATUS_LABEL[s.status] ?? s.status}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                {s.tournament && (
-                  <span>{s.tournament.name}{s.tournament.season ? ` · ${s.tournament.season}` : ""}</span>
-                )}
-                {s.scheduled_at && (
-                  <span>· {new Date(s.scheduled_at).toLocaleDateString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-                )}
-              </div>
-            </button>
+            <div key={s.id} className="bg-gray-800 rounded-xl overflow-hidden">
+              <button
+                onClick={() => navigate(`/sessions/${s.id}`)}
+                className="w-full px-4 py-4 text-left hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-white font-semibold text-sm">
+                    {s.home_team} vs {s.away_team}
+                  </span>
+                  <span className={`text-xs font-medium ${STATUS_COLOR[s.status] ?? "text-gray-400"}`}>
+                    {STATUS_LABEL[s.status] ?? s.status}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  {s.tournament && (
+                    <span>{s.tournament.name}{s.tournament.season ? ` · ${s.tournament.season}` : ""}</span>
+                  )}
+                  {s.scheduled_at && (
+                    <span>· {new Date(s.scheduled_at).toLocaleDateString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                  )}
+                </div>
+              </button>
+              {canCreate && (
+                <div className="border-t border-gray-700 px-4 py-2 flex justify-end">
+                  <button
+                    onClick={() => navigate(`/sessions/${s.id}/lineup`)}
+                    className="text-xs text-green-400 hover:text-green-300 transition-colors"
+                  >
+                    Alineación →
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

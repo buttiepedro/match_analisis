@@ -182,10 +182,10 @@ export default function Tournaments() {
                   ) : (
                     <ul className="space-y-2 mb-3">
                       {(sessionsMap[t.id] ?? []).map((s) => (
-                        <li key={s.id}>
+                        <li key={s.id} className="bg-gray-700 rounded-lg overflow-hidden">
                           <button
                             onClick={() => navigate(`/sessions/${s.id}`)}
-                            className="w-full flex items-center justify-between bg-gray-700 hover:bg-gray-600 rounded-lg px-3 py-2 transition-colors"
+                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-600 transition-colors"
                           >
                             <span className="text-sm text-white">
                               {s.home_team} vs {s.away_team}
@@ -194,6 +194,14 @@ export default function Tournaments() {
                               {STATUS_LABEL[s.status] ?? s.status}
                             </span>
                           </button>
+                          <div className="border-t border-gray-600 px-3 py-1.5 flex justify-end">
+                            <button
+                              onClick={() => navigate(`/sessions/${s.id}/lineup`)}
+                              className="text-xs text-green-400 hover:text-green-300 transition-colors"
+                            >
+                              Alineación →
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>
