@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../../lib/axios";
+import { parseApiError } from "../../lib/errors";
 
 interface ActionConfig {
   label: string;
@@ -31,9 +32,11 @@ function ObtentionModal({
   onEvent: () => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const register = async (obtained: boolean) => {
     setLoading(true);
+    setError("");
     try {
       await api.post(`/sessions/${sessionId}/events`, {
         event_type: action.eventType,
@@ -41,9 +44,11 @@ function ObtentionModal({
         metadata: { obtained },
       });
       onEvent();
+      onClose();
+    } catch (err) {
+      setError(parseApiError(err, "Error al registrar el evento"));
     } finally {
       setLoading(false);
-      onClose();
     }
   };
 
@@ -53,6 +58,8 @@ function ObtentionModal({
       <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4">
         <p className="text-white font-bold text-lg">{action.label}</p>
         <p className="text-gray-400 text-sm">¿Con obtención del balón?</p>
+
+        {error && <p className="text-red-400 text-sm">{error}</p>}
 
         <div className="grid grid-cols-2 gap-3">
           <button

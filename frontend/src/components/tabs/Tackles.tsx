@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../../lib/axios";
+import { parseApiError } from "../../lib/errors";
 import { LineupPlayer, useSessionStore } from "../../store/sessionStore";
 import SubstitutionModal from "../SubstitutionModal";
 
@@ -16,9 +17,11 @@ function TackleRow({
   sessionId: string;
 }) {
   const [loading, setLoading] = useState<"" | "missed" | "effective">("");
+  const [error, setError] = useState("");
 
   const register = async (type: "tackle_missed" | "tackle_effective") => {
     setLoading(type === "tackle_missed" ? "missed" : "effective");
+    setError("");
     try {
       await api.post(`/sessions/${sessionId}/events`, {
         event_type: type,
@@ -26,6 +29,8 @@ function TackleRow({
         player_number: entry.jersey_number,
         metadata: { player_id: entry.player_id, player_name: entry.player.name },
       });
+    } catch (err) {
+      setError(parseApiError(err, "Error al registrar"));
     } finally {
       setLoading("");
     }
@@ -36,7 +41,10 @@ function TackleRow({
       <span className="w-8 text-right text-sm font-bold text-gray-400">
         #{entry.jersey_number}
       </span>
-      <span className="flex-1 text-sm text-white truncate">{entry.player.name}</span>
+      <span className="flex-1 text-sm text-white truncate">
+        {entry.player.name}
+        {error && <span className="block text-xs text-red-400">{error}</span>}
+      </span>
       <button
         onClick={() => register("tackle_missed")}
         disabled={loading !== ""}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../lib/axios";
+import { parseApiError } from "../lib/errors";
 import { useSessionStore } from "../store/sessionStore";
 
 interface Props {
@@ -33,8 +34,8 @@ export default function SubstitutionModal({ sessionId, onClose }: Props) {
       });
       applySubstitution(outId, inId);
       onClose();
-    } catch {
-      setError("Error al registrar el cambio");
+    } catch (err) {
+      setError(parseApiError(err, "Error al registrar el cambio"));
     } finally {
       setLoading(false);
     }

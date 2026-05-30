@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../lib/axios";
+import { parseApiError } from "../lib/errors";
 
 interface EventButtonProps {
   label: string;
@@ -24,9 +25,11 @@ export default function EventButton({
   const [player, setPlayer] = useState("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const confirm = async () => {
     setLoading(true);
+    setError("");
     try {
       await api.post(`/sessions/${sessionId}/events`, {
         event_type: eventType,
@@ -35,11 +38,13 @@ export default function EventButton({
         reason: reason || null,
       });
       onSuccess?.();
-    } finally {
-      setLoading(false);
       setOpen(false);
       setPlayer("");
       setReason("");
+    } catch (err) {
+      setError(parseApiError(err, "Error al registrar el evento"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -104,6 +109,8 @@ export default function EventButton({
                 </select>
               </div>
             )}
+
+            {error && <p className="text-red-400 text-sm">{error}</p>}
 
             <div className="flex gap-3 pt-1">
               <button
