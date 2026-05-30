@@ -1,12 +1,26 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
+import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Session from "./pages/Session";
+import Clubs from "./pages/Clubs";
+import Tournaments from "./pages/Tournaments";
+import Divisions from "./pages/Divisions";
+import Players from "./pages/Players";
+import Users from "./pages/Users";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
   return token ? <>{children}</> : <Navigate to="/login" replace />;
+}
+
+function LayoutRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <PrivateRoute>
+      <Layout>{children}</Layout>
+    </PrivateRoute>
+  );
 }
 
 export default function App() {
@@ -14,22 +28,20 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route
-          path="/dashboard"
-          element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          }
-        />
+
+        <Route path="/dashboard" element={<LayoutRoute><Dashboard /></LayoutRoute>} />
+        <Route path="/clubs" element={<LayoutRoute><Clubs /></LayoutRoute>} />
+        <Route path="/tournaments" element={<LayoutRoute><Tournaments /></LayoutRoute>} />
+        <Route path="/divisions" element={<LayoutRoute><Divisions /></LayoutRoute>} />
+        <Route path="/players" element={<LayoutRoute><Players /></LayoutRoute>} />
+        <Route path="/users" element={<LayoutRoute><Users /></LayoutRoute>} />
+
+        {/* Session is a focused view — no sidebar */}
         <Route
           path="/sessions/:id"
-          element={
-            <PrivateRoute>
-              <Session />
-            </PrivateRoute>
-          }
+          element={<PrivateRoute><Session /></PrivateRoute>}
         />
+
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
