@@ -1,75 +1,303 @@
 import { useEffect, useState } from "react";
+import ReactECharts from "echarts-for-react";
 import api from "../lib/axios";
 import { useAuthStore } from "../store/authStore";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface Session {
-  id: string;
-  home_team: string;
-  away_team: string;
-  scheduled_at: string | null;
-  status: string;
-}
-
 interface RawEvent {
+  id: string;
   event_type: string;
   player_id: string | null;
+  player_number: number | null;
+  team: "home" | "away";
+  half: number;
+  timer_seconds: number;
+  metadata?: Record<string, unknown>;
 }
 
 interface LineupEntry {
   player_id: string;
+  jersey_number: number;
   player: { name: string };
 }
 
-interface PlayerStats {
-  player_id: string;
-  name: string;
-  tackle_effective: number;
-  tackle_missed: number;
-  yellow_card: number;
-  red_card: number;
-  errors: number;
-}
-
-interface SessionStats {
+interface SessionInfo {
   id: string;
   home_team: string;
   away_team: string;
   scheduled_at: string | null;
-  tackle_effective: number;
-  tackle_missed: number;
-  yellow_card: number;
-  red_card: number;
-  errors: number;
-  scrum_favor: number;
-  scrum_against: number;
-  lineout_favor: number;
-  lineout_against: number;
+  tournament_name: string;
+}
+
+interface LoadedSession extends SessionInfo {
+  events: RawEvent[];
+  playerNames: Record<string, string>; // player_id → "#N Nombre"
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function count(events: RawEvent[], type: string) {
-  return events.filter((e) => e.event_type === type).length;
+function fmtTime(s: number) {
+  return `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
-function fmtDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "2-digit" });
+function obtained(e: RawEvent) {
+  return (e.metadata as any)?.obtained === true;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+const CHART_BG = "transparent";
+const TEXT_COLOR = "#9CA3AF";
+const GRID_COLOR = "#374151";
+const TOOLTIP_STYLE = {
+  backgroundColor: "#1F2937",
+  borderColor: "#374151",
+  textStyle: { color: "#F3F4F6" },
+};
 
-type View = "players" | "sessions";
+function baseOption() {
+  return {
+    backgroundColor: CHART_BG,
+    textStyle: { color: TEXT_COLOR },
+    grid: { containLabel: true, left: 16, right: 24, top: 40, bottom: 16 },
+    tooltip: { ...TOOLTIP_STYLE },
+  };
+}
+
+// ── Chart options ─────────────────────────────────────────────────────────────
+
+function cardsOption(events: RawEvent[], playerNames: Record<string, string>) {
+  const map: Record<string, { yellow: number; red: number }> = {};
+  for (const e of events) {
+    if (e.event_type !== "yellow_card" && e.event_type !== "red_card") continue;
+    if (!e.player_id) continue;
+    if (!map[e.player_id]) map[e.player_id] = { yellow: 0, red: 0 };
+    if (e.event_type === "yellow_card") map[e.player_id].yellow++;
+    else map[e.player_id].red++;
+  }
+
+  const players = Object.keys(map).map((pid) => playerNames[pid] ?? `ID: ${pid.slice(0, 6)}`);
+  const yellow = Object.values(map).map((v) => v.yellow);
+  const red = Object.values(map).map((v) => v.red);
+
+  if (players.length === 0) return null;
+
+  return {
+    ...baseOption(),
+    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: ["Amarillas", "Rojas"] },
+    xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } }, axisLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: { type: "category", data: players, axisLine: { lineStyle: { color: GRID_COLOR } }, axisLabel: { color: TEXT_COLOR } },
+    series: [
+      {
+        name: "Amarillas", type: "bar", stack: "cards", data: yellow,
+        itemStyle: { color: "#FBBF24" },
+        label: { show: true, position: "inside", formatter: (p: any) => p.value > 0 ? p.value : "" },
+      },
+      {
+        name: "Rojas", type: "bar", stack: "cards", data: red,
+        itemStyle: { color: "#EF4444" },
+        label: { show: true, position: "inside", formatter: (p: any) => p.value > 0 ? p.value : "" },
+      },
+    ],
+  };
+}
+
+function penaltiesOption(events: RawEvent[]) {
+  const favor = events.filter((e) => e.event_type === "penalty_won").length;
+  const contra = events.filter((e) => e.event_type === "penalty_conceded").length;
+
+  return {
+    ...baseOption(),
+    grid: { ...baseOption().grid, top: 16 },
+    tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "category", data: ["Penales"], axisLabel: { color: TEXT_COLOR }, axisLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } }, axisLabel: { color: TEXT_COLOR } },
+    series: [
+      {
+        name: "A favor", type: "bar", data: [favor],
+        itemStyle: { color: "#4ADE80" },
+        label: { show: true, position: "top", color: TEXT_COLOR, formatter: (p: any) => `${p.value} favor` },
+      },
+      {
+        name: "En contra", type: "bar", data: [contra],
+        itemStyle: { color: "#EF4444" },
+        label: { show: true, position: "top", color: TEXT_COLOR, formatter: (p: any) => `${p.value} contra` },
+      },
+    ],
+    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: ["A favor", "En contra"] },
+  };
+}
+
+function setpieceOption(
+  title: string,
+  favorType: string,
+  againstType: string,
+  events: RawEvent[],
+) {
+  const favorWith = events.filter((e) => e.event_type === favorType && obtained(e)).length;
+  const favorWithout = events.filter((e) => e.event_type === favorType && !obtained(e)).length;
+  const againstWith = events.filter((e) => e.event_type === againstType && obtained(e)).length;
+  const againstWithout = events.filter((e) => e.event_type === againstType && !obtained(e)).length;
+
+  const categories = ["Propios", "Ajenos"];
+
+  return {
+    ...baseOption(),
+    legend: {
+      top: 0, textStyle: { color: TEXT_COLOR },
+      data: ["Con obtención", "Sin obtención"],
+    },
+    tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "category", data: categories, axisLabel: { color: TEXT_COLOR }, axisLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } }, axisLabel: { color: TEXT_COLOR } },
+    series: [
+      {
+        name: "Con obtención", type: "bar", stack: title, barMaxWidth: 60,
+        data: [favorWith, againstWith],
+        itemStyle: { color: "#4ADE80" },
+        label: { show: true, position: "inside", formatter: (p: any) => p.value > 0 ? p.value : "" },
+      },
+      {
+        name: "Sin obtención", type: "bar", stack: title, barMaxWidth: 60,
+        data: [favorWithout, againstWithout],
+        itemStyle: { color: "#F87171" },
+        label: { show: true, position: "inside", formatter: (p: any) => p.value > 0 ? p.value : "" },
+      },
+    ],
+  };
+}
+
+const TIMELINE_CATEGORIES = [
+  "Tackles", "Lines", "Scrums", "Penales", "Tarjetas", "Posesión", "Cambios",
+] as const;
+
+type TimelineCat = typeof TIMELINE_CATEGORIES[number];
+
+const EVENT_CATEGORY: Record<string, TimelineCat> = {
+  tackle_effective: "Tackles", tackle_missed: "Tackles",
+  lineout_favor: "Lines", lineout_against: "Lines",
+  scrum_favor: "Scrums", scrum_against: "Scrums",
+  penalty_conceded: "Penales", penalty_won: "Penales",
+  yellow_card: "Tarjetas", red_card: "Tarjetas",
+  turnover_conceded: "Posesión", turnover_won: "Posesión",
+  knock_on: "Posesión", forward_pass: "Posesión",
+  substitution: "Cambios",
+};
+
+const EVENT_LABEL: Record<string, string> = {
+  tackle_effective: "Tackle efectivo", tackle_missed: "Tackle errado",
+  lineout_favor: "Line a favor", lineout_against: "Line en contra",
+  scrum_favor: "Scrum a favor", scrum_against: "Scrum en contra",
+  penalty_conceded: "Penal cometido", penalty_won: "Penal ganado",
+  yellow_card: "Tarjeta amarilla", red_card: "Tarjeta roja",
+  turnover_conceded: "Turnover perdido", turnover_won: "Turnover ganado",
+  knock_on: "Knock-on", forward_pass: "Pase adelantado",
+  substitution: "Cambio",
+};
+
+function timelineOption(session: LoadedSession) {
+  const dataByHalf = [1, 2].map((half) => {
+    const evs = session.events.filter((e) => e.half === half && EVENT_CATEGORY[e.event_type]);
+    return evs.map((e) => ({
+      value: [e.timer_seconds, TIMELINE_CATEGORIES.indexOf(EVENT_CATEGORY[e.event_type] ?? "Penales")],
+      eventType: e.event_type,
+      team: e.team,
+      player: e.player_id ? (session.playerNames[e.player_id] ?? "") : "",
+      half,
+    }));
+  });
+
+  const allData = dataByHalf.flat();
+  const homeData = allData.filter((d) => d.team === "home");
+  const awayData = allData.filter((d) => d.team === "away");
+
+  const maxSeconds = Math.max(...session.events.map((e) => e.timer_seconds), 40 * 60);
+  const halftimeSeconds = Math.max(...session.events.filter((e) => e.half === 1).map((e) => e.timer_seconds), 0);
+
+  return {
+    ...baseOption(),
+    grid: { containLabel: true, left: 16, right: 24, top: 48, bottom: 32 },
+    legend: {
+      top: 0, textStyle: { color: TEXT_COLOR },
+      data: [`${session.home_team} (local)`, `${session.away_team} (visitante)`],
+    },
+    tooltip: {
+      ...TOOLTIP_STYLE,
+      trigger: "item",
+      formatter: (params: any) => {
+        const d = params.data;
+        return `<b>${EVENT_LABEL[d.eventType] ?? d.eventType}</b><br/>T${d.half} ${fmtTime(d.value[0])}${d.player ? `<br/>${d.player}` : ""}`;
+      },
+    },
+    xAxis: {
+      type: "value",
+      name: "Tiempo",
+      nameTextStyle: { color: TEXT_COLOR },
+      min: 0,
+      max: maxSeconds + 60,
+      axisLabel: { color: TEXT_COLOR, formatter: (v: number) => fmtTime(v) },
+      splitLine: { lineStyle: { color: GRID_COLOR } },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
+    yAxis: {
+      type: "category",
+      data: [...TIMELINE_CATEGORIES],
+      axisLabel: { color: TEXT_COLOR },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
+    series: [
+      {
+        name: `${session.home_team} (local)`,
+        type: "scatter",
+        symbolSize: 10,
+        itemStyle: { color: "#60A5FA" },
+        data: homeData.map((d) => ({ value: d.value, eventType: d.eventType, team: d.team, player: d.player, half: d.half })),
+      },
+      {
+        name: `${session.away_team} (visitante)`,
+        type: "scatter",
+        symbolSize: 10,
+        symbol: "triangle",
+        itemStyle: { color: "#FB923C" },
+        data: awayData.map((d) => ({ value: d.value, eventType: d.eventType, team: d.team, player: d.player, half: d.half })),
+      },
+    ],
+    ...(halftimeSeconds > 0 ? {
+      visualMap: undefined,
+      graphic: [{
+        type: "line",
+        shape: { x1: 0, y1: 0, x2: 0, y2: 0 },
+      }],
+    } : {}),
+    markLine: {
+      data: halftimeSeconds > 0 ? [{ xAxis: halftimeSeconds, name: "HT", label: { formatter: "HT", color: TEXT_COLOR } }] : [],
+    },
+  };
+}
+
+// ── Section wrapper ───────────────────────────────────────────────────────────
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-gray-800 rounded-xl p-4 mb-4">
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function Empty({ msg }: { msg: string }) {
+  return <p className="text-gray-600 text-sm py-4 text-center">{msg}</p>;
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function Stats() {
   const user = useAuthStore((s) => s.user);
+
+  const [sessions, setSessions] = useState<LoadedSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
-  const [sessionStats, setSessionStats] = useState<SessionStats[]>([]);
-  const [view, setView] = useState<View>("players");
+  const [selectedId, setSelectedId] = useState<string>("all");
 
   useEffect(() => {
     const clubId = user?.club_id;
@@ -77,83 +305,36 @@ export default function Stats() {
 
     (async () => {
       try {
-        // 1. Tournaments
-        const { data: tournaments } = await api.get<{ id: string }[]>(`/clubs/${clubId}/tournaments`);
+        const { data: tournaments } = await api.get<{ id: string; name: string; season: string | null }[]>(
+          `/clubs/${clubId}/tournaments`
+        );
 
-        // 2. Sessions for all tournaments
         const sessionGroups = await Promise.all(
           tournaments.map((t) =>
-            api.get<Session[]>(`/tournaments/${t.id}/sessions`)
-              .then(({ data }) => data)
-              .catch(() => [] as Session[])
+            api.get<{ id: string; home_team: string; away_team: string; scheduled_at: string | null }[]>(
+              `/tournaments/${t.id}/sessions`
+            ).then(({ data }) =>
+              data.map((s) => ({ ...s, tournament_name: `${t.name}${t.season ? ` ${t.season}` : ""}` }))
+            ).catch(() => [])
           )
         );
-        const sessions = sessionGroups.flat();
+        const flatSessions = sessionGroups.flat();
 
-        // 3. Events + lineup for all sessions in parallel
-        const sessionData = await Promise.all(
-          sessions.map((s) =>
-            Promise.all([
-              api.get<RawEvent[]>(`/sessions/${s.id}/events`).then(({ data }) => data).catch(() => []),
-              api.get<LineupEntry[]>(`/sessions/${s.id}/lineup`).then(({ data }) => data).catch(() => []),
-            ]).then(([events, lineup]) => ({ session: s, events, lineup }))
-          )
-        );
-
-        // 4. Build player name map across all lineups
-        const playerNames: Record<string, string> = {};
-        sessionData.forEach(({ lineup }) => {
-          lineup.forEach((e) => { playerNames[e.player_id] = e.player.name; });
-        });
-
-        // 5. Per-session stats
-        const sStats: SessionStats[] = sessionData.map(({ session, events }) => ({
-          id: session.id,
-          home_team: session.home_team,
-          away_team: session.away_team,
-          scheduled_at: session.scheduled_at,
-          tackle_effective: count(events, "tackle_effective"),
-          tackle_missed: count(events, "tackle_missed"),
-          yellow_card: count(events, "yellow_card"),
-          red_card: count(events, "red_card"),
-          errors: count(events, "knock_on") + count(events, "forward_pass"),
-          scrum_favor: count(events, "scrum_favor"),
-          scrum_against: count(events, "scrum_against"),
-          lineout_favor: count(events, "lineout_favor"),
-          lineout_against: count(events, "lineout_against"),
-        }));
-        sStats.sort((a, b) => (b.scheduled_at ?? "").localeCompare(a.scheduled_at ?? ""));
-
-        // 6. Per-player stats across all sessions
-        const pMap: Record<string, PlayerStats> = {};
-        sessionData.forEach(({ events }) => {
-          events.forEach((e) => {
-            if (!e.player_id) return;
-            if (!pMap[e.player_id]) {
-              pMap[e.player_id] = {
-                player_id: e.player_id,
-                name: playerNames[e.player_id] ?? "Desconocido",
-                tackle_effective: 0,
-                tackle_missed: 0,
-                yellow_card: 0,
-                red_card: 0,
-                errors: 0,
-              };
+        const loaded = await Promise.all(
+          flatSessions.map(async (s) => {
+            const [evRes, luRes] = await Promise.all([
+              api.get<RawEvent[]>(`/sessions/${s.id}/events`).then((r) => r.data).catch(() => []),
+              api.get<LineupEntry[]>(`/sessions/${s.id}/lineup`).then((r) => r.data).catch(() => []),
+            ]);
+            const playerNames: Record<string, string> = {};
+            for (const e of luRes) {
+              playerNames[e.player_id] = `#${e.jersey_number} ${e.player.name}`;
             }
-            const s = pMap[e.player_id];
-            if (e.event_type === "tackle_effective") s.tackle_effective++;
-            else if (e.event_type === "tackle_missed") s.tackle_missed++;
-            else if (e.event_type === "yellow_card") s.yellow_card++;
-            else if (e.event_type === "red_card") s.red_card++;
-            else if (e.event_type === "knock_on" || e.event_type === "forward_pass") s.errors++;
-          });
-        });
-        const pStats = Object.values(pMap).sort((a, b) =>
-          (b.tackle_effective + b.tackle_missed) - (a.tackle_effective + a.tackle_missed)
+            return { ...s, events: evRes, playerNames } as LoadedSession;
+          })
         );
 
-        setSessionStats(sStats);
-        setPlayerStats(pStats);
+        setSessions(loaded);
       } catch {
         setLoadError("Error al cargar estadísticas. Revisá la conexión e intentá de nuevo.");
       } finally {
@@ -162,133 +343,88 @@ export default function Stats() {
     })();
   }, [user?.club_id]);
 
-  return (
-    <div className="p-6 max-w-4xl">
-      <h1 className="text-xl font-bold text-white mb-5">Estadísticas</h1>
+  const filtered = selectedId === "all" ? sessions : sessions.filter((s) => s.id === selectedId);
+  const allEvents = filtered.flatMap((s) => s.events);
+  const allNames = Object.assign({}, ...filtered.map((s) => s.playerNames));
+  const selectedSession = sessions.find((s) => s.id === selectedId);
 
-      {/* View toggle */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setView("players")}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            view === "players" ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300"
-          }`}
+  const cardsOpt = cardsOption(allEvents, allNames);
+  const penaltiesOpt = penaltiesOption(allEvents);
+  const scrumsOpt = setpieceOption("Scrums", "scrum_favor", "scrum_against", allEvents);
+  const linesOpt = setpieceOption("Lines", "lineout_favor", "lineout_against", allEvents);
+  const timelineOpt = selectedSession ? timelineOption(selectedSession) : null;
+
+  const chartStyle = { height: "260px" };
+
+  return (
+    <div className="p-4 max-w-3xl">
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-xl font-bold text-white">Estadísticas</h1>
+        <select
+          value={selectedId}
+          onChange={(e) => setSelectedId(e.target.value)}
+          className="bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
         >
-          Por jugador
-        </button>
-        <button
-          onClick={() => setView("sessions")}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            view === "sessions" ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300"
-          }`}
-        >
-          Por partido
-        </button>
+          <option value="all">Todos los partidos</option>
+          {sessions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.home_team} vs {s.away_team}
+              {s.scheduled_at ? ` · ${new Date(s.scheduled_at).toLocaleDateString("es-AR", { day: "numeric", month: "short" })}` : ""}
+            </option>
+          ))}
+        </select>
       </div>
 
       {loading ? (
         <p className="text-gray-400 text-sm">Cargando estadísticas...</p>
       ) : loadError ? (
         <p className="text-red-400 text-sm">{loadError}</p>
-      ) : view === "players" ? (
-        <PlayerView stats={playerStats} />
+      ) : sessions.length === 0 ? (
+        <p className="text-gray-500 text-sm">No hay partidos con datos todavía.</p>
       ) : (
-        <SessionView stats={sessionStats} />
+        <>
+          {/* Cards per player */}
+          <Section title="Tarjetas por jugador">
+            {cardsOpt
+              ? <ReactECharts option={cardsOpt} style={chartStyle} />
+              : <Empty msg="Sin tarjetas registradas con jugador asociado." />}
+          </Section>
+
+          {/* Penalties */}
+          <Section title="Penales">
+            <ReactECharts option={penaltiesOpt} style={chartStyle} />
+          </Section>
+
+          {/* Scrums */}
+          <Section title="Scrums — propios vs ajenos (con/sin obtención)">
+            {(allEvents.some((e) => e.event_type === "scrum_favor" || e.event_type === "scrum_against"))
+              ? <ReactECharts option={scrumsOpt} style={chartStyle} />
+              : <Empty msg="Sin scrums registrados." />}
+          </Section>
+
+          {/* Lines */}
+          <Section title="Line-outs — propios vs ajenos (con/sin obtención)">
+            {(allEvents.some((e) => e.event_type === "lineout_favor" || e.event_type === "lineout_against"))
+              ? <ReactECharts option={linesOpt} style={chartStyle} />
+              : <Empty msg="Sin line-outs registrados." />}
+          </Section>
+
+          {/* Timeline — only for specific session */}
+          {selectedSession && timelineOpt && (
+            <Section title={`Línea de tiempo — ${selectedSession.home_team} vs ${selectedSession.away_team}`}>
+              {selectedSession.events.length === 0
+                ? <Empty msg="Sin eventos en este partido." />
+                : <ReactECharts option={timelineOpt} style={{ height: "340px" }} />}
+            </Section>
+          )}
+
+          {selectedId === "all" && (
+            <p className="text-gray-600 text-xs text-center mt-2">
+              Seleccioná un partido para ver la línea de tiempo
+            </p>
+          )}
+        </>
       )}
-    </div>
-  );
-}
-
-// ── Per-player table ──────────────────────────────────────────────────────────
-
-function PlayerView({ stats }: { stats: PlayerStats[] }) {
-  if (stats.length === 0) {
-    return <p className="text-gray-500 text-sm">Sin datos. Registrá eventos con jugadores asociados.</p>;
-  }
-
-  return (
-    <div className="overflow-x-auto rounded-xl">
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="bg-gray-800 text-gray-400 text-xs uppercase tracking-wide">
-            <th className="text-left px-4 py-3">Jugador</th>
-            <th className="px-3 py-3 text-center">Tk. Ef.</th>
-            <th className="px-3 py-3 text-center">Tk. Err.</th>
-            <th className="px-3 py-3 text-center">Amarillas</th>
-            <th className="px-3 py-3 text-center">Rojas</th>
-            <th className="px-3 py-3 text-center">Errores</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stats.map((p, i) => (
-            <tr
-              key={p.player_id}
-              className={`border-t border-gray-700 ${i % 2 === 0 ? "bg-gray-800/40" : ""}`}
-            >
-              <td className="px-4 py-3 text-white font-medium">{p.name}</td>
-              <td className="px-3 py-3 text-center text-green-400 font-bold">{p.tackle_effective}</td>
-              <td className="px-3 py-3 text-center text-red-400 font-bold">{p.tackle_missed}</td>
-              <td className="px-3 py-3 text-center text-yellow-400 font-bold">{p.yellow_card}</td>
-              <td className="px-3 py-3 text-center text-red-600 font-bold">{p.red_card}</td>
-              <td className="px-3 py-3 text-center text-orange-400 font-bold">{p.errors}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ── Per-session table ─────────────────────────────────────────────────────────
-
-function SessionView({ stats }: { stats: SessionStats[] }) {
-  if (stats.length === 0) {
-    return <p className="text-gray-500 text-sm">Sin partidos registrados.</p>;
-  }
-
-  return (
-    <div className="overflow-x-auto rounded-xl">
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="bg-gray-800 text-gray-400 text-xs uppercase tracking-wide">
-            <th className="text-left px-4 py-3">Partido</th>
-            <th className="px-3 py-3 text-center whitespace-nowrap">Fecha</th>
-            <th className="px-3 py-3 text-center">Tk. Ef.</th>
-            <th className="px-3 py-3 text-center">Tk. Err.</th>
-            <th className="px-3 py-3 text-center">Amarillas</th>
-            <th className="px-3 py-3 text-center">Rojas</th>
-            <th className="px-3 py-3 text-center">Errores</th>
-            <th className="px-3 py-3 text-center whitespace-nowrap">Scrum +</th>
-            <th className="px-3 py-3 text-center whitespace-nowrap">Scrum −</th>
-            <th className="px-3 py-3 text-center whitespace-nowrap">Line +</th>
-            <th className="px-3 py-3 text-center whitespace-nowrap">Line −</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stats.map((s, i) => (
-            <tr
-              key={s.id}
-              className={`border-t border-gray-700 ${i % 2 === 0 ? "bg-gray-800/40" : ""}`}
-            >
-              <td className="px-4 py-3 text-white font-medium whitespace-nowrap">
-                {s.home_team} vs {s.away_team}
-              </td>
-              <td className="px-3 py-3 text-center text-gray-400 whitespace-nowrap">
-                {fmtDate(s.scheduled_at)}
-              </td>
-              <td className="px-3 py-3 text-center text-green-400 font-bold">{s.tackle_effective}</td>
-              <td className="px-3 py-3 text-center text-red-400 font-bold">{s.tackle_missed}</td>
-              <td className="px-3 py-3 text-center text-yellow-400 font-bold">{s.yellow_card}</td>
-              <td className="px-3 py-3 text-center text-red-600 font-bold">{s.red_card}</td>
-              <td className="px-3 py-3 text-center text-orange-400 font-bold">{s.errors}</td>
-              <td className="px-3 py-3 text-center text-blue-400 font-bold">{s.scrum_favor}</td>
-              <td className="px-3 py-3 text-center text-gray-400 font-bold">{s.scrum_against}</td>
-              <td className="px-3 py-3 text-center text-blue-400 font-bold">{s.lineout_favor}</td>
-              <td className="px-3 py-3 text-center text-gray-400 font-bold">{s.lineout_against}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
