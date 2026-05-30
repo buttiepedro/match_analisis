@@ -27,12 +27,12 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
     ports:
       - "3000:80"
-    environment:
-      BACKEND_HOST: backend:8000
-      # BACKEND_URL: https://api.externa.com  # override BACKEND_HOST with a full URL
     depends_on:
       - backend
 

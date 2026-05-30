@@ -43,29 +43,23 @@ El backend corre migraciones y crea el superadmin automáticamente al iniciar.
 | `POSTGRES_PASSWORD` | Contraseña de Postgres | `changeme` |
 | `POSTGRES_DB` | Nombre de la base de datos | `match_analisis` |
 
-### Frontend (nginx)
+### Frontend
 
-El frontend no tiene variables de build — las URLs del backend se configuran en runtime via el proxy nginx.
+| Variable | Descripción | Tipo |
+|----------|-------------|------|
+| `VITE_API_URL` | URL pública del backend (con scheme) | Build ARG |
 
-| Variable | Descripción | Cuándo usarla |
-|----------|-------------|---------------|
-| `BACKEND_HOST` | Host:puerto del backend **sin** scheme | Redes internas (Docker Compose, Railway internal DNS) |
-| `BACKEND_URL` | URL completa **con** scheme — tiene precedencia sobre `BACKEND_HOST` | Backends externos o HTTPS |
+`VITE_API_URL` se bake en el bundle al momento del build. Si no se pasa, las requests van a la misma origin (útil para dev local con `npm run dev`, donde Vite proxy al backend).
 
-**Ejemplos por entorno:**
+**Ejemplos:**
 
 ```env
-# Docker Compose (red interna)
-BACKEND_HOST=backend:8000
+# Railway
+VITE_API_URL=https://matchanalisisback-production.up.railway.app
 
-# Railway (internal DNS)
-BACKEND_HOST=matchanalisis.railway.internal:8000
-
-# Backend externo / HTTPS
-BACKEND_URL=https://api.miapp.com
+# Docker Compose local (el browser llega al backend por localhost:8000)
+VITE_API_URL=http://localhost:8000
 ```
-
-Si se setean las dos, `BACKEND_URL` tiene precedencia. Si ninguna está seteada, el default es `http://backend:8000`.
 
 ## Deploy en Railway
 
@@ -79,13 +73,9 @@ SUPERADMIN_PASSWORD=...
 ```
 
 ### Frontend
-Variable de entorno del servicio frontend (elegir según caso):
+Build ARG del servicio frontend:
 ```env
-# Opción A: si backend y frontend están en el mismo proyecto Railway (red interna)
-BACKEND_HOST=nombre-del-servicio.railway.internal:8000
-
-# Opción B: si el backend está en otra plataforma o tiene URL pública
-BACKEND_URL=https://tu-backend.up.railway.app
+VITE_API_URL=https://tu-backend.up.railway.app
 ```
 
 ## Estructura
@@ -106,8 +96,8 @@ match_analisis/
 │   │   ├── components/    # Timer, EventButton, SubstitutionModal, tabs
 │   │   ├── pages/         # Login, Dashboard, Session
 │   │   ├── store/         # Zustand (auth, session/timer/lineup)
-│   │   └── lib/           # axios (URLs relativas), WebSocket client
-│   ├── nginx.conf         # Template con ${PROXY_URL} resuelto al iniciar
+│   │   └── lib/           # axios (VITE_API_URL), WebSocket client
+│   ├── nginx.conf         # Sirve el SPA estático
 │   └── Dockerfile
 ├── openspec/              # Specs y change proposals (SDD)
 ├── docker-compose.yml
