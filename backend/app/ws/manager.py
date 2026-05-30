@@ -131,6 +131,13 @@ class ConnectionManager:
     def get_timer(self, session_id: str) -> Optional[InMemoryTimer]:
         return self._timers.get(session_id)
 
+    def remove_session(self, session_id: str) -> None:
+        self._timers.pop(session_id, None)
+        task = self._tasks.pop(session_id, None)
+        if task and not task.done():
+            task.cancel()
+        self._conns.pop(session_id, None)
+
     def apply_action(self, session_id: str, action: str, seconds: int | None = None) -> Optional[InMemoryTimer]:
         t = self._timers.get(session_id)
         if not t:

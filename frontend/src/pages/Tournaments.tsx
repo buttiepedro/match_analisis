@@ -57,6 +57,25 @@ export default function Tournaments() {
   const [sSubmitting, setSSubmitting] = useState(false);
   const [sError, setSError] = useState<string | null>(null);
 
+  const [confirmDeleteSession, setConfirmDeleteSession] = useState<string | null>(null);
+  const [deletingSession, setDeletingSession] = useState<string | null>(null);
+
+  const handleDeleteSession = async (sessionId: string, tournamentId: string) => {
+    setDeletingSession(sessionId);
+    try {
+      await api.delete(`/sessions/${sessionId}`);
+      setSessionsMap((prev) => ({
+        ...prev,
+        [tournamentId]: (prev[tournamentId] ?? []).filter((s) => s.id !== sessionId),
+      }));
+      setConfirmDeleteSession(null);
+    } catch (err) {
+      alert(parseApiError(err, "Error al eliminar el partido"));
+    } finally {
+      setDeletingSession(null);
+    }
+  };
+
   useEffect(() => {
     if (!clubId) return;
     Promise.all([
@@ -194,13 +213,38 @@ export default function Tournaments() {
                               {STATUS_LABEL[s.status] ?? s.status}
                             </span>
                           </button>
-                          <div className="border-t border-gray-600 px-3 py-1.5 flex justify-end">
+                          <div className="border-t border-gray-600 px-3 py-1.5 flex items-center justify-between">
                             <button
                               onClick={() => navigate(`/sessions/${s.id}/lineup`)}
                               className="text-xs text-green-400 hover:text-green-300 transition-colors"
                             >
                               Alineación →
                             </button>
+                            {confirmDeleteSession === s.id ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400">¿Eliminar?</span>
+                                <button
+                                  onClick={() => handleDeleteSession(s.id, t.id)}
+                                  disabled={deletingSession === s.id}
+                                  className="text-xs bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white px-2 py-0.5 rounded transition-colors"
+                                >
+                                  {deletingSession === s.id ? "..." : "Sí"}
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteSession(null)}
+                                  className="text-xs text-gray-400 hover:text-white transition-colors"
+                                >
+                                  No
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmDeleteSession(s.id)}
+                                className="text-xs text-gray-600 hover:text-red-400 transition-colors"
+                              >
+                                Eliminar
+                              </button>
+                            )}
                           </div>
                         </li>
                       ))}

@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from jose import JWTError
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -135,6 +135,26 @@ async def list_sessions(
         .order_by(Session.scheduled_at.desc())
     )
     return result.scalars().all()
+
+
+@session_router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session(
+    session_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_club_admin)],
+):
+    session = await _get_session_or_404(session_id, db)
+    tournament = await _get_tournament_or_404(session.tournament_id, db)
+    if current_user.role != UserRole.superadmin and current_user.club_id != tournament.club_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    await db.execute(delete(Event).where(Event.session_id == session_id))
+    await db.execute(delete(MatchLineup).where(MatchLineup.session_id == session_id))
+    await db.execute(delete(TimerState).where(TimerState.session_id == session_id))
+    await db.delete(session)
+    await db.commit()
+
+    manager.remove_session(str(session_id))
 
 
 @session_router.get("/{session_id}", response_model=SessionResponse)

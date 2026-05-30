@@ -56,6 +56,22 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const handleDelete = async (sessionId: string) => {
+    setDeleting(sessionId);
+    try {
+      await api.delete(`/sessions/${sessionId}`);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      setConfirmDelete(null);
+    } catch (err) {
+      alert(parseApiError(err, "Error al eliminar el partido"));
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const load = async () => {
     const clubId = user?.club_id;
     if (!clubId) { setLoading(false); return; }
@@ -165,13 +181,38 @@ export default function Dashboard() {
                 </div>
               </button>
               {canCreate && (
-                <div className="border-t border-gray-700 px-4 py-2 flex justify-end">
+                <div className="border-t border-gray-700 px-4 py-2 flex items-center justify-between">
                   <button
                     onClick={() => navigate(`/sessions/${s.id}/lineup`)}
                     className="text-xs text-green-400 hover:text-green-300 transition-colors"
                   >
                     Alineación →
                   </button>
+                  {confirmDelete === s.id ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">¿Eliminar partido y todos sus datos?</span>
+                      <button
+                        onClick={() => handleDelete(s.id)}
+                        disabled={deleting === s.id}
+                        className="text-xs bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white px-2 py-1 rounded transition-colors"
+                      >
+                        {deleting === s.id ? "..." : "Sí, eliminar"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="text-xs text-gray-400 hover:text-white transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(s.id)}
+                      className="text-xs text-gray-600 hover:text-red-400 transition-colors"
+                    >
+                      Eliminar
+                    </button>
+                  )}
                 </div>
               )}
             </div>
