@@ -14,9 +14,9 @@ class SessionWebSocket {
     onConnect?: () => void,
     onDisconnect?: () => void
   ): void {
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
-    const wsBase = apiBase.replace(/^http/, "ws");
-    const url = `${wsBase}/ws/session/${sessionId}?token=${encodeURIComponent(token)}`;
+    // Use current origin so nginx proxies the WS connection to the backend
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${proto}//${window.location.host}/ws/session/${sessionId}?token=${encodeURIComponent(token)}`;
 
     this.onMsg = onMessage;
     this.onOpen = onConnect ?? null;
