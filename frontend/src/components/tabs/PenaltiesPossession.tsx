@@ -1,9 +1,10 @@
 import { useState } from "react";
 import api from "../../lib/axios";
 import { parseApiError } from "../../lib/errors";
+import { useSessionStore, countEvents, EventData } from "../../store/sessionStore";
 import EventLog from "../EventLog";
 
-type Flow = "try" | "penalty" | "error" | "yellow_card" | "red_card" | null;
+type Flow = "try" | "penalty" | "error" | "yellow_card" | "red_card" | "drop" | null;
 type Step = "team" | "penalty_reason" | "error_type" | "conversion";
 
 interface ModalState {
@@ -15,6 +16,20 @@ interface ModalState {
 
 const CLOSED: ModalState = { flow: null, step: "team", team: null, penaltyReason: null };
 
+function calcPoints(events: EventData[], team: "home" | "away"): number {
+  return events.filter((e) => e.team === team).reduce((pts, e) => {
+    if (e.event_type === "try") {
+      pts += 5;
+      if (e.metadata?.converted === true) pts += 2;
+    }
+    if (e.event_type === "penalty" && e.reason === "a_los_palos" && e.metadata?.converted === true) {
+      pts += 3;
+    }
+    if (e.event_type === "drop") pts += 3;
+    return pts;
+  }, 0);
+}
+
 interface Props {
   sessionId: string;
   homeTeam: string;
@@ -23,9 +38,15 @@ interface Props {
 }
 
 export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props) {
+  const events = useSessionStore((s) => s.events);
   const [modal, setModal] = useState<ModalState>(CLOSED);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const yellows = countEvents(events, ["yellow_card"]);
+  const reds    = countEvents(events, ["red_card"]);
+  const homePoints = calcPoints(events, "home");
+  const awayPoints = calcPoints(events, "away");
 
   function open(flow: Flow) {
     setError("");
@@ -52,9 +73,9 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
 
   function selectTeam(team: "home" | "away") {
     const flow = modal.flow;
-    if (flow === "yellow_card" || flow === "red_card") {
+    if (flow === "yellow_card" || flow === "red_card" || flow === "drop") {
       setModal((m) => ({ ...m, team }));
-      submit_with_team(team, flow);
+      submitWithTeam(team, flow!);
       return;
     }
     setModal((m) => ({
@@ -64,7 +85,7 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
     }));
   }
 
-  function submit_with_team(team: "home" | "away", event_type: string) {
+  function submitWithTeam(team: "home" | "away", event_type: string) {
     setLoading(true);
     setError("");
     api.post(`/sessions/${sessionId}/events`, { event_type, team })
@@ -101,30 +122,15 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
   function selectConversion(converted: boolean) {
     const { flow, team, penaltyReason } = modal;
     if (!team) return;
-    if (flow === "try") {
-      setLoading(true);
-      setError("");
-      api.post(`/sessions/${sessionId}/events`, {
-        event_type: "try",
-        team,
-        metadata: { converted },
-      })
-        .then(() => { onEvent(); close(); })
-        .catch((err) => setError(parseApiError(err, "Error al registrar el evento")))
-        .finally(() => setLoading(false));
-    } else if (flow === "penalty") {
-      setLoading(true);
-      setError("");
-      api.post(`/sessions/${sessionId}/events`, {
-        event_type: "penalty",
-        team,
-        reason: penaltyReason,
-        metadata: { converted },
-      })
-        .then(() => { onEvent(); close(); })
-        .catch((err) => setError(parseApiError(err, "Error al registrar el evento")))
-        .finally(() => setLoading(false));
-    }
+    const body = flow === "try"
+      ? { event_type: "try", team, metadata: { converted } }
+      : { event_type: "penalty", team, reason: penaltyReason, metadata: { converted } };
+    setLoading(true);
+    setError("");
+    api.post(`/sessions/${sessionId}/events`, body)
+      .then(() => { onEvent(); close(); })
+      .catch((err) => setError(parseApiError(err, "Error al registrar el evento")))
+      .finally(() => setLoading(false));
   }
 
   const isOpen = modal.flow !== null;
@@ -136,10 +142,41 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
     error: "Error",
     yellow_card: "Amarilla",
     red_card: "Roja",
+    drop: "Drop",
   };
 
   return (
     <div className="p-4 space-y-3">
+      {/* Stats summary */}
+      <div className="bg-gray-800 rounded-xl overflow-hidden">
+        {/* Points row */}
+        <div className="grid grid-cols-2 divide-x divide-gray-700">
+          <div className="px-4 py-3 text-center">
+            <p className="text-gray-400 text-xs truncate">{homeTeam}</p>
+            <p className="text-white text-2xl font-bold">{homePoints}</p>
+            <p className="text-gray-500 text-xs">pts</p>
+          </div>
+          <div className="px-4 py-3 text-center">
+            <p className="text-gray-400 text-xs truncate">{awayTeam}</p>
+            <p className="text-white text-2xl font-bold">{awayPoints}</p>
+            <p className="text-gray-500 text-xs">pts</p>
+          </div>
+        </div>
+        {/* Cards row */}
+        <div className="border-t border-gray-700 px-4 py-2 space-y-1">
+          <div className="flex justify-between text-xs">
+            <span className="text-yellow-400 font-semibold">Amarillas</span>
+            <span className="text-gray-300">{homeTeam} <span className="text-white font-bold">{yellows.home}</span></span>
+            <span className="text-gray-300">{awayTeam} <span className="text-white font-bold">{yellows.away}</span></span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-red-400 font-semibold">Rojas</span>
+            <span className="text-gray-300">{homeTeam} <span className="text-white font-bold">{reds.home}</span></span>
+            <span className="text-gray-300">{awayTeam} <span className="text-white font-bold">{reds.away}</span></span>
+          </div>
+        </div>
+      </div>
+
       {/* Main event buttons */}
       <button
         onClick={() => open("try")}
@@ -158,6 +195,12 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
         className="w-full bg-red-700 active:bg-red-600 text-white font-semibold rounded-xl px-4 py-5 text-left text-base transition-colors"
       >
         Error
+      </button>
+      <button
+        onClick={() => open("drop")}
+        className="w-full bg-purple-700 active:bg-purple-600 text-white font-semibold rounded-xl px-4 py-5 text-left text-base transition-colors"
+      >
+        Drop
       </button>
 
       {/* Disciplina */}
@@ -179,7 +222,7 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
 
       <EventLog
         sessionId={sessionId}
-        types={["try", "penalty", "knock_on", "forward_pass", "lost_in_contact", "yellow_card", "red_card"]}
+        types={["try", "penalty", "drop", "knock_on", "forward_pass", "lost_in_contact", "yellow_card", "red_card"]}
       />
 
       {/* Multi-step bottom-sheet modal */}

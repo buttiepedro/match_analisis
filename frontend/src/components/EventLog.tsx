@@ -13,6 +13,7 @@ const EVENT_LABELS: Record<string, string> = {
   lost_in_contact: "Perdida en contacto",
   try: "Try",
   penalty: "Penal",
+  drop: "Drop",
   penalty_conceded: "Penal cometido",
   penalty_won: "Penal ganado",
   turnover_conceded: "Turnover perdido",

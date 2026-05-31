@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../../lib/axios";
 import { parseApiError } from "../../lib/errors";
+import { useSessionStore, EventData } from "../../store/sessionStore";
 import EventLog from "../EventLog";
 
 interface ActionConfig {
@@ -19,6 +20,32 @@ const ACTIONS: ActionConfig[] = [
 interface Props {
   sessionId: string;
   onEvent: () => void;
+}
+
+function countObtained(events: EventData[], type: string) {
+  const evs = events.filter((e) => e.event_type === type);
+  return {
+    won: evs.filter((e) => e.metadata?.obtained === true).length,
+    lost: evs.filter((e) => e.metadata?.obtained === false).length,
+  };
+}
+
+function SetpieceCounter({
+  label,
+  won,
+  lost,
+}: {
+  label: string;
+  won: number;
+  lost: number;
+}) {
+  return (
+    <div className="flex items-center justify-between px-3 py-1.5">
+      <span className="text-gray-400 text-xs w-20 shrink-0">{label}</span>
+      <span className="text-xs text-green-400 font-semibold">Ganados: <span className="text-white">{won}</span></span>
+      <span className="text-xs text-red-400 font-semibold ml-4">Perdidos: <span className="text-white">{lost}</span></span>
+    </div>
+  );
 }
 
 function ObtentionModal({
@@ -92,13 +119,24 @@ function ObtentionModal({
 
 export default function LinesScrum({ sessionId, onEvent }: Props) {
   const [active, setActive] = useState<ActionConfig | null>(null);
+  const events = useSessionStore((s) => s.events);
   const LINE_SCRUM_TYPES = ["lineout_favor", "lineout_against", "scrum_favor", "scrum_against"];
+
+  const lineFavor  = countObtained(events, "lineout_favor");
+  const lineAgainst = countObtained(events, "lineout_against");
+  const scrumFavor  = countObtained(events, "scrum_favor");
+  const scrumAgainst = countObtained(events, "scrum_against");
 
   return (
     <div className="p-4 space-y-3">
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">
+      {/* Lines counters */}
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
         Line-outs
       </p>
+      <div className="bg-gray-800 rounded-xl mb-2 py-1">
+        <SetpieceCounter label="A favor"   won={lineFavor.won}   lost={lineFavor.lost} />
+        <SetpieceCounter label="En contra" won={lineAgainst.won} lost={lineAgainst.lost} />
+      </div>
       {ACTIONS.slice(0, 2).map((a) => (
         <button
           key={a.eventType}
@@ -109,9 +147,14 @@ export default function LinesScrum({ sessionId, onEvent }: Props) {
         </button>
       ))}
 
+      {/* Scrums counters */}
       <p className="text-xs font-bold text-gray-500 uppercase tracking-wider pt-4">
         Scrums
       </p>
+      <div className="bg-gray-800 rounded-xl mb-2 py-1">
+        <SetpieceCounter label="A favor"   won={scrumFavor.won}   lost={scrumFavor.lost} />
+        <SetpieceCounter label="En contra" won={scrumAgainst.won} lost={scrumAgainst.lost} />
+      </div>
       {ACTIONS.slice(2).map((a) => (
         <button
           key={a.eventType}
