@@ -17,6 +17,10 @@ interface RawEvent {
   metadata?: Record<string, unknown>;
 }
 
+interface NormalizedEvent extends RawEvent {
+  isUserClub: boolean;
+}
+
 interface LineupEntry {
   player_id: string;
   jersey_number: number;
@@ -34,6 +38,7 @@ interface SessionInfo {
 interface LoadedSession extends SessionInfo {
   events: RawEvent[];
   playerNames: Record<string, string>;
+  userTeam: "home" | "away";
 }
 
 interface TeamScore {
@@ -56,9 +61,9 @@ function obtained(e: RawEvent) {
   return e.metadata?.obtained === true;
 }
 
-function calcTeamScore(events: RawEvent[], team: "home" | "away"): TeamScore {
+function calcTeamScore(events: NormalizedEvent[]): TeamScore {
   let tries = 0, conversions = 0, penaltyKicks = 0, drops = 0;
-  for (const e of events.filter((ev) => ev.team === team)) {
+  for (const e of events) {
     if (e.event_type === "try") {
       tries++;
       if (e.metadata?.converted === true) conversions++;
@@ -86,8 +91,8 @@ const TOOLTIP_STYLE = {
   borderColor: "#374151",
   textStyle: { color: "#F3F4F6" },
 };
-const HOME_COLOR = "#60A5FA";
-const AWAY_COLOR = "#FB923C";
+const CLUB_COLOR = "#60A5FA";
+const RIVAL_COLOR = "#FB923C";
 
 function baseOption() {
   return {
@@ -104,13 +109,13 @@ function barLabel() {
 
 // ── Chart functions ────────────────────────────────────────────────────────────
 
-function triesOption(events: RawEvent[], homeName: string, awayName: string) {
-  const hConv   = events.filter(e => e.event_type === "try" && e.team === "home" && e.metadata?.converted === true).length;
-  const hNoConv = events.filter(e => e.event_type === "try" && e.team === "home" && e.metadata?.converted !== true).length;
-  const aConv   = events.filter(e => e.event_type === "try" && e.team === "away" && e.metadata?.converted === true).length;
-  const aNoConv = events.filter(e => e.event_type === "try" && e.team === "away" && e.metadata?.converted !== true).length;
+function triesOption(events: NormalizedEvent[], clubName: string, rivalName: string) {
+  const cConv   = events.filter(e => e.isUserClub && e.event_type === "try" && e.metadata?.converted === true).length;
+  const cNoConv = events.filter(e => e.isUserClub && e.event_type === "try" && e.metadata?.converted !== true).length;
+  const rConv   = events.filter(e => !e.isUserClub && e.event_type === "try" && e.metadata?.converted === true).length;
+  const rNoConv = events.filter(e => !e.isUserClub && e.event_type === "try" && e.metadata?.converted !== true).length;
 
-  if (hConv + hNoConv + aConv + aNoConv === 0) return null;
+  if (cConv + cNoConv + rConv + rNoConv === 0) return null;
 
   return {
     ...baseOption(),
@@ -119,20 +124,20 @@ function triesOption(events: RawEvent[], homeName: string, awayName: string) {
     xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
     yAxis: {
       type: "category",
-      data: [awayName, homeName],
+      data: [rivalName, clubName],
       axisLabel: { color: TEXT_COLOR },
       axisLine: { lineStyle: { color: GRID_COLOR } },
     },
     series: [
       {
         name: "Convertidos", type: "bar", stack: "tries", barMaxWidth: 50,
-        data: [aConv, hConv],
+        data: [rConv, cConv],
         itemStyle: { color: "#4ADE80" },
         label: barLabel(),
       },
       {
         name: "No convertidos", type: "bar", stack: "tries", barMaxWidth: 50,
-        data: [aNoConv, hNoConv],
+        data: [rNoConv, cNoConv],
         itemStyle: { color: "#6B7280" },
         label: barLabel(),
       },
@@ -140,28 +145,20 @@ function triesOption(events: RawEvent[], homeName: string, awayName: string) {
   };
 }
 
-function penaltyBreakdownOption(events: RawEvent[], homeName: string, awayName: string) {
+function penaltyBreakdownOption(events: NormalizedEvent[], clubName: string, rivalName: string) {
   const reasons = ["line", "scrum", "juega", "a_los_palos"] as const;
   const reasonLabels = ["Line", "Scrum", "Juega", "A los palos"];
 
-  const homeData = reasons.map(r =>
-    events.filter(e => e.event_type === "penalty" && e.team === "home" && e.reason === r).length
-  );
-  const awayData = reasons.map(r =>
-    events.filter(e => e.event_type === "penalty" && e.team === "away" && e.reason === r).length
-  );
-  const hConv = events.filter(e =>
-    e.event_type === "penalty" && e.team === "home" && e.reason === "a_los_palos" && e.metadata?.converted === true
-  ).length;
-  const aConv = events.filter(e =>
-    e.event_type === "penalty" && e.team === "away" && e.reason === "a_los_palos" && e.metadata?.converted === true
-  ).length;
+  const clubData  = reasons.map(r => events.filter(e => e.isUserClub  && e.event_type === "penalty" && e.reason === r).length);
+  const rivalData = reasons.map(r => events.filter(e => !e.isUserClub && e.event_type === "penalty" && e.reason === r).length);
+  const cConv = events.filter(e => e.isUserClub  && e.event_type === "penalty" && e.reason === "a_los_palos" && e.metadata?.converted === true).length;
+  const rConv = events.filter(e => !e.isUserClub && e.event_type === "penalty" && e.reason === "a_los_palos" && e.metadata?.converted === true).length;
 
-  if (homeData.every(v => v === 0) && awayData.every(v => v === 0)) return null;
+  if (clubData.every(v => v === 0) && rivalData.every(v => v === 0)) return null;
 
   return {
     ...baseOption(),
-    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: [homeName, awayName] },
+    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: [clubName, rivalName] },
     tooltip: {
       ...TOOLTIP_STYLE,
       trigger: "axis",
@@ -172,7 +169,7 @@ function penaltyBreakdownOption(events: RawEvent[], homeName: string, awayName: 
         for (const p of params) {
           html += `${p.marker}${p.seriesName}: ${p.value}`;
           if (cat === "A los palos" && p.value > 0) {
-            const conv = p.seriesName === homeName ? hConv : aConv;
+            const conv = p.seriesName === clubName ? cConv : rConv;
             html += ` (${conv} conv.)`;
           }
           html += "<br/>";
@@ -189,25 +186,25 @@ function penaltyBreakdownOption(events: RawEvent[], homeName: string, awayName: 
     },
     series: [
       {
-        name: homeName, type: "bar", barMaxWidth: 50,
-        data: homeData,
-        itemStyle: { color: HOME_COLOR },
+        name: clubName, type: "bar", barMaxWidth: 50,
+        data: clubData,
+        itemStyle: { color: CLUB_COLOR },
         label: barLabel(),
       },
       {
-        name: awayName, type: "bar", barMaxWidth: 50,
-        data: awayData,
-        itemStyle: { color: AWAY_COLOR },
+        name: rivalName, type: "bar", barMaxWidth: 50,
+        data: rivalData,
+        itemStyle: { color: RIVAL_COLOR },
         label: barLabel(),
       },
     ],
   };
 }
 
-function dropsOption(events: RawEvent[], homeName: string, awayName: string) {
-  const hDrops = events.filter(e => e.event_type === "drop" && e.team === "home").length;
-  const aDrops = events.filter(e => e.event_type === "drop" && e.team === "away").length;
-  if (hDrops + aDrops === 0) return null;
+function dropsOption(events: NormalizedEvent[], clubName: string, rivalName: string) {
+  const clubDrops  = events.filter(e => e.isUserClub  && e.event_type === "drop").length;
+  const rivalDrops = events.filter(e => !e.isUserClub && e.event_type === "drop").length;
+  if (clubDrops + rivalDrops === 0) return null;
 
   return {
     ...baseOption(),
@@ -216,31 +213,31 @@ function dropsOption(events: RawEvent[], homeName: string, awayName: string) {
     xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
     yAxis: {
       type: "category",
-      data: [awayName, homeName],
+      data: [rivalName, clubName],
       axisLabel: { color: TEXT_COLOR },
       axisLine: { lineStyle: { color: GRID_COLOR } },
     },
     series: [{
       name: "Drops", type: "bar", barMaxWidth: 50,
-      data: [aDrops, hDrops],
+      data: [rivalDrops, clubDrops],
       itemStyle: { color: "#A78BFA" },
       label: barLabel(),
     }],
   };
 }
 
-function errorsOption(events: RawEvent[], homeName: string, awayName: string) {
+function errorsOption(events: NormalizedEvent[], clubName: string, rivalName: string) {
   const errorTypes = ["knock_on", "forward_pass", "lost_in_contact"] as const;
   const errorLabels = ["Knock-on", "Forward", "Perdida en contacto"];
 
-  const homeData = errorTypes.map(t => events.filter(e => e.event_type === t && e.team === "home").length);
-  const awayData = errorTypes.map(t => events.filter(e => e.event_type === t && e.team === "away").length);
+  const clubData  = errorTypes.map(t => events.filter(e => e.isUserClub  && e.event_type === t).length);
+  const rivalData = errorTypes.map(t => events.filter(e => !e.isUserClub && e.event_type === t).length);
 
-  if (homeData.every(v => v === 0) && awayData.every(v => v === 0)) return null;
+  if (clubData.every(v => v === 0) && rivalData.every(v => v === 0)) return null;
 
   return {
     ...baseOption(),
-    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: [homeName, awayName] },
+    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: [clubName, rivalName] },
     tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
     xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
     yAxis: {
@@ -251,15 +248,15 @@ function errorsOption(events: RawEvent[], homeName: string, awayName: string) {
     },
     series: [
       {
-        name: homeName, type: "bar", barMaxWidth: 50,
-        data: homeData,
-        itemStyle: { color: HOME_COLOR },
+        name: clubName, type: "bar", barMaxWidth: 50,
+        data: clubData,
+        itemStyle: { color: CLUB_COLOR },
         label: barLabel(),
       },
       {
-        name: awayName, type: "bar", barMaxWidth: 50,
-        data: awayData,
-        itemStyle: { color: AWAY_COLOR },
+        name: rivalName, type: "bar", barMaxWidth: 50,
+        data: rivalData,
+        itemStyle: { color: RIVAL_COLOR },
         label: barLabel(),
       },
     ],
@@ -380,7 +377,7 @@ function timelineOption(session: LoadedSession) {
     }));
   });
 
-  const allData = dataByHalf.flat();
+  const allData  = dataByHalf.flat();
   const homeData = allData.filter((d) => d.team === "home");
   const awayData = allData.filter((d) => d.team === "away");
   const maxSeconds = Math.max(...session.events.map((e) => e.timer_seconds), 40 * 60);
@@ -421,7 +418,7 @@ function timelineOption(session: LoadedSession) {
         name: `${session.home_team} (local)`,
         type: "scatter",
         symbolSize: 10,
-        itemStyle: { color: HOME_COLOR },
+        itemStyle: { color: CLUB_COLOR },
         data: homeData.map((d) => ({ value: d.value, eventType: d.eventType, team: d.team, player: d.player, half: d.half })),
       },
       {
@@ -429,7 +426,7 @@ function timelineOption(session: LoadedSession) {
         type: "scatter",
         symbolSize: 10,
         symbol: "triangle",
-        itemStyle: { color: AWAY_COLOR },
+        itemStyle: { color: RIVAL_COLOR },
         data: awayData.map((d) => ({ value: d.value, eventType: d.eventType, team: d.team, player: d.player, half: d.half })),
       },
     ],
@@ -480,49 +477,51 @@ function PillGroup<T extends string>({
 }
 
 function ScoreSummary({
-  events,
-  homeName,
-  awayName,
+  clubEvents,
+  rivalEvents,
+  clubName,
+  rivalName,
 }: {
-  events: RawEvent[];
-  homeName: string;
-  awayName: string;
+  clubEvents: NormalizedEvent[];
+  rivalEvents: NormalizedEvent[];
+  clubName: string;
+  rivalName: string;
 }) {
-  const home = calcTeamScore(events, "home");
-  const away = calcTeamScore(events, "away");
+  const club  = calcTeamScore(clubEvents);
+  const rival = calcTeamScore(rivalEvents);
 
   const rows = [
-    { label: "Tries (×5)", hVal: home.tries, aVal: away.tries },
-    { label: "Conversiones (×2)", hVal: home.conversions, aVal: away.conversions },
-    { label: "Penales a palos (×3)", hVal: home.penaltyKicks, aVal: away.penaltyKicks },
-    { label: "Drops (×3)", hVal: home.drops, aVal: away.drops },
+    { label: "Tries (×5)",           cVal: club.tries,        rVal: rival.tries },
+    { label: "Conversiones (×2)",    cVal: club.conversions,  rVal: rival.conversions },
+    { label: "Penales a palos (×3)", cVal: club.penaltyKicks, rVal: rival.penaltyKicks },
+    { label: "Drops (×3)",           cVal: club.drops,        rVal: rival.drops },
   ];
 
   return (
     <div className="bg-gray-800 rounded-xl overflow-hidden mb-4">
       <div className="grid grid-cols-2 divide-x divide-gray-700">
         <div className="px-4 py-4 text-center">
-          <p className="text-blue-400 text-xs font-semibold truncate">{homeName}</p>
-          <p className="text-white text-5xl font-bold mt-1">{home.total}</p>
+          <p className="text-blue-400 text-xs font-semibold truncate">{clubName}</p>
+          <p className="text-white text-5xl font-bold mt-1">{club.total}</p>
           <p className="text-gray-500 text-xs mt-0.5">pts</p>
         </div>
         <div className="px-4 py-4 text-center">
-          <p className="text-orange-400 text-xs font-semibold truncate">{awayName}</p>
-          <p className="text-white text-5xl font-bold mt-1">{away.total}</p>
+          <p className="text-orange-400 text-xs font-semibold truncate">{rivalName}</p>
+          <p className="text-white text-5xl font-bold mt-1">{rival.total}</p>
           <p className="text-gray-500 text-xs mt-0.5">pts</p>
         </div>
       </div>
       <div className="border-t border-gray-700 px-4 pb-3 pt-2">
         <div className="grid grid-cols-3 text-xs text-gray-500 pb-1 mb-1 border-b border-gray-700/50">
           <span />
-          <span className="text-center text-blue-400 font-semibold">Local</span>
-          <span className="text-center text-orange-400 font-semibold">Visitante</span>
+          <span className="text-center text-blue-400 font-semibold">{clubName}</span>
+          <span className="text-center text-orange-400 font-semibold">{rivalName}</span>
         </div>
         {rows.map((r) => (
           <div key={r.label} className="grid grid-cols-3 text-xs py-1">
             <span className="text-gray-400">{r.label}</span>
-            <span className={`text-center font-semibold ${r.hVal > 0 ? "text-white" : "text-gray-600"}`}>{r.hVal}</span>
-            <span className={`text-center font-semibold ${r.aVal > 0 ? "text-white" : "text-gray-600"}`}>{r.aVal}</span>
+            <span className={`text-center font-semibold ${r.cVal > 0 ? "text-white" : "text-gray-600"}`}>{r.cVal}</span>
+            <span className={`text-center font-semibold ${r.rVal > 0 ? "text-white" : "text-gray-600"}`}>{r.rVal}</span>
           </div>
         ))}
       </div>
@@ -543,11 +542,12 @@ const CAT_OPTIONS: { label: string; value: CatFilter }[] = [
 export default function Stats() {
   const user = useAuthStore((s) => s.user);
 
-  const [sessions, setSessions]     = useState<LoadedSession[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [loadError, setLoadError]   = useState<string | null>(null);
+  const [sessions,   setSessions]   = useState<LoadedSession[]>([]);
+  const [clubName,   setClubName]   = useState<string>("");
+  const [loading,    setLoading]    = useState(true);
+  const [loadError,  setLoadError]  = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>("all");
-  const [catFilter, setCatFilter]   = useState<CatFilter>("all");
+  const [catFilter,  setCatFilter]  = useState<CatFilter>("all");
 
   useEffect(() => {
     const clubId = user?.club_id;
@@ -555,9 +555,12 @@ export default function Stats() {
 
     (async () => {
       try {
-        const { data: tournaments } = await api.get<{ id: string; name: string; season: string | null }[]>(
-          `/clubs/${clubId}/tournaments`
-        );
+        const [{ data: club }, { data: tournaments }] = await Promise.all([
+          api.get<{ id: string; name: string }>(`/clubs/${clubId}`),
+          api.get<{ id: string; name: string; season: string | null }[]>(`/clubs/${clubId}/tournaments`),
+        ]);
+
+        setClubName(club.name);
 
         const sessionGroups = await Promise.all(
           tournaments.map((t) =>
@@ -580,7 +583,8 @@ export default function Stats() {
             for (const e of luRes) {
               playerNames[e.player_id] = `#${e.jersey_number} ${e.player.name}`;
             }
-            return { ...s, events: evRes, playerNames } as LoadedSession;
+            const userTeam: "home" | "away" = s.home_team === club.name ? "home" : "away";
+            return { ...s, events: evRes, playerNames, userTeam } as LoadedSession;
           })
         );
 
@@ -594,24 +598,34 @@ export default function Stats() {
   }, [user?.club_id]);
 
   const filteredSessions = selectedId === "all" ? sessions : sessions.filter((s) => s.id === selectedId);
-  const allEvents        = filteredSessions.flatMap((s) => s.events);
-  const allNames         = Object.assign({}, ...filteredSessions.map((s) => s.playerNames));
-  const selectedSession  = sessions.find((s) => s.id === selectedId);
-  const homeName         = selectedSession?.home_team ?? "Local";
-  const awayName         = selectedSession?.away_team ?? "Visitante";
+
+  const allEvents: NormalizedEvent[] = filteredSessions.flatMap((s) =>
+    s.events.map((e) => ({ ...e, isUserClub: e.team === s.userTeam }))
+  );
+
+  const allNames = Object.assign({}, ...filteredSessions.map((s) => s.playerNames));
+  const selectedSession = sessions.find((s) => s.id === selectedId);
+
+  const displayClubName = clubName || "Local";
+  const opponentName = selectedSession
+    ? (selectedSession.userTeam === "home" ? selectedSession.away_team : selectedSession.home_team)
+    : "Rivales";
+
+  const clubEvents  = allEvents.filter((e) => e.isUserClub);
+  const rivalEvents = allEvents.filter((e) => !e.isUserClub);
 
   const showPoints = catFilter === "all" || catFilter === "points";
   const showGame   = catFilter === "all" || catFilter === "game";
   const showErrors = catFilter === "all" || catFilter === "errors";
   const showDisc   = catFilter === "all" || catFilter === "discipline";
 
-  const triesOpt   = triesOption(allEvents, homeName, awayName);
-  const penaltyOpt = penaltyBreakdownOption(allEvents, homeName, awayName);
-  const dropsOpt   = dropsOption(allEvents, homeName, awayName);
-  const errorsOpt  = errorsOption(allEvents, homeName, awayName);
+  const triesOpt   = triesOption(allEvents, displayClubName, opponentName);
+  const penaltyOpt = penaltyBreakdownOption(allEvents, displayClubName, opponentName);
+  const dropsOpt   = dropsOption(allEvents, displayClubName, opponentName);
+  const errorsOpt  = errorsOption(allEvents, displayClubName, opponentName);
   const cardsOpt   = cardsOption(allEvents, allNames);
   const scrumOpt   = setpieceOption("Scrums", "scrum_favor", "scrum_against", allEvents);
-  const linesOpt   = setpieceOption("Lines", "lineout_favor", "lineout_against", allEvents);
+  const linesOpt   = setpieceOption("Lines",  "lineout_favor", "lineout_against", allEvents);
   const timelineOpt = selectedSession ? timelineOption(selectedSession) : null;
 
   const chartStyle = { height: "220px" };
@@ -629,7 +643,7 @@ export default function Stats() {
           <option value="all">Todos los partidos</option>
           {sessions.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.home_team} vs {s.away_team}
+              {displayClubName} vs {s.userTeam === "home" ? s.away_team : s.home_team}
               {s.scheduled_at
                 ? ` · ${new Date(s.scheduled_at).toLocaleDateString("es-AR", { day: "numeric", month: "short" })}`
                 : ""}
@@ -654,7 +668,12 @@ export default function Stats() {
           {/* ── Puntos ──────────────────────────────────────────────────── */}
           {showPoints && (
             <>
-              <ScoreSummary events={allEvents} homeName={homeName} awayName={awayName} />
+              <ScoreSummary
+                clubEvents={clubEvents}
+                rivalEvents={rivalEvents}
+                clubName={displayClubName}
+                rivalName={opponentName}
+              />
 
               <Section title="Tries">
                 {triesOpt
@@ -713,7 +732,7 @@ export default function Stats() {
 
           {/* ── Timeline (solo "Todos", partido específico) ─────────────── */}
           {catFilter === "all" && selectedSession && timelineOpt && (
-            <Section title={`Línea de tiempo — ${selectedSession.home_team} vs ${selectedSession.away_team}`}>
+            <Section title={`Línea de tiempo — ${displayClubName} vs ${opponentName}`}>
               {selectedSession.events.length === 0
                 ? <Empty msg="Sin eventos en este partido." />
                 : <ReactECharts option={timelineOpt} style={{ height: "340px" }} />}
