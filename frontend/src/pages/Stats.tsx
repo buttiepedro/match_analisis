@@ -3,7 +3,7 @@ import ReactECharts from "echarts-for-react";
 import api from "../lib/axios";
 import { useAuthStore } from "../store/authStore";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface RawEvent {
   id: string;
@@ -13,6 +13,7 @@ interface RawEvent {
   team: "home" | "away";
   half: number;
   timer_seconds: number;
+  reason?: string | null;
   metadata?: Record<string, unknown>;
 }
 
@@ -32,20 +33,52 @@ interface SessionInfo {
 
 interface LoadedSession extends SessionInfo {
   events: RawEvent[];
-  playerNames: Record<string, string>; // player_id → "#N Nombre"
+  playerNames: Record<string, string>;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+interface TeamScore {
+  tries: number;
+  conversions: number;
+  penaltyKicks: number;
+  drops: number;
+  total: number;
+}
+
+type CatFilter = "all" | "points" | "game" | "errors" | "discipline";
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmtTime(s: number) {
   return `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
 function obtained(e: RawEvent) {
-  return (e.metadata as any)?.obtained === true;
+  return e.metadata?.obtained === true;
 }
 
-const CHART_BG = "transparent";
+function calcTeamScore(events: RawEvent[], team: "home" | "away"): TeamScore {
+  let tries = 0, conversions = 0, penaltyKicks = 0, drops = 0;
+  for (const e of events.filter((ev) => ev.team === team)) {
+    if (e.event_type === "try") {
+      tries++;
+      if (e.metadata?.converted === true) conversions++;
+    }
+    if (e.event_type === "penalty" && e.reason === "a_los_palos" && e.metadata?.converted === true) {
+      penaltyKicks++;
+    }
+    if (e.event_type === "drop") drops++;
+  }
+  return {
+    tries,
+    conversions,
+    penaltyKicks,
+    drops,
+    total: tries * 5 + conversions * 2 + penaltyKicks * 3 + drops * 3,
+  };
+}
+
+// ── Chart constants ────────────────────────────────────────────────────────────
+
 const TEXT_COLOR = "#9CA3AF";
 const GRID_COLOR = "#374151";
 const TOOLTIP_STYLE = {
@@ -53,17 +86,185 @@ const TOOLTIP_STYLE = {
   borderColor: "#374151",
   textStyle: { color: "#F3F4F6" },
 };
+const HOME_COLOR = "#60A5FA";
+const AWAY_COLOR = "#FB923C";
 
 function baseOption() {
   return {
-    backgroundColor: CHART_BG,
+    backgroundColor: "transparent",
     textStyle: { color: TEXT_COLOR },
     grid: { containLabel: true, left: 16, right: 24, top: 40, bottom: 16 },
     tooltip: { ...TOOLTIP_STYLE },
   };
 }
 
-// ── Chart options ─────────────────────────────────────────────────────────────
+function barLabel() {
+  return { show: true, position: "inside" as const, formatter: (p: any) => p.value > 0 ? String(p.value) : "" };
+}
+
+// ── Chart functions ────────────────────────────────────────────────────────────
+
+function triesOption(events: RawEvent[], homeName: string, awayName: string) {
+  const hConv   = events.filter(e => e.event_type === "try" && e.team === "home" && e.metadata?.converted === true).length;
+  const hNoConv = events.filter(e => e.event_type === "try" && e.team === "home" && e.metadata?.converted !== true).length;
+  const aConv   = events.filter(e => e.event_type === "try" && e.team === "away" && e.metadata?.converted === true).length;
+  const aNoConv = events.filter(e => e.event_type === "try" && e.team === "away" && e.metadata?.converted !== true).length;
+
+  if (hConv + hNoConv + aConv + aNoConv === 0) return null;
+
+  return {
+    ...baseOption(),
+    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: ["Convertidos", "No convertidos"] },
+    tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: {
+      type: "category",
+      data: [awayName, homeName],
+      axisLabel: { color: TEXT_COLOR },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
+    series: [
+      {
+        name: "Convertidos", type: "bar", stack: "tries", barMaxWidth: 50,
+        data: [aConv, hConv],
+        itemStyle: { color: "#4ADE80" },
+        label: barLabel(),
+      },
+      {
+        name: "No convertidos", type: "bar", stack: "tries", barMaxWidth: 50,
+        data: [aNoConv, hNoConv],
+        itemStyle: { color: "#6B7280" },
+        label: barLabel(),
+      },
+    ],
+  };
+}
+
+function penaltyBreakdownOption(events: RawEvent[], homeName: string, awayName: string) {
+  const reasons = ["line", "scrum", "juega", "a_los_palos"] as const;
+  const reasonLabels = ["Line", "Scrum", "Juega", "A los palos"];
+
+  const homeData = reasons.map(r =>
+    events.filter(e => e.event_type === "penalty" && e.team === "home" && e.reason === r).length
+  );
+  const awayData = reasons.map(r =>
+    events.filter(e => e.event_type === "penalty" && e.team === "away" && e.reason === r).length
+  );
+  const hConv = events.filter(e =>
+    e.event_type === "penalty" && e.team === "home" && e.reason === "a_los_palos" && e.metadata?.converted === true
+  ).length;
+  const aConv = events.filter(e =>
+    e.event_type === "penalty" && e.team === "away" && e.reason === "a_los_palos" && e.metadata?.converted === true
+  ).length;
+
+  if (homeData.every(v => v === 0) && awayData.every(v => v === 0)) return null;
+
+  return {
+    ...baseOption(),
+    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: [homeName, awayName] },
+    tooltip: {
+      ...TOOLTIP_STYLE,
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      formatter: (params: any) => {
+        const cat: string = params[0]?.axisValue ?? "";
+        let html = `<b>${cat}</b><br/>`;
+        for (const p of params) {
+          html += `${p.marker}${p.seriesName}: ${p.value}`;
+          if (cat === "A los palos" && p.value > 0) {
+            const conv = p.seriesName === homeName ? hConv : aConv;
+            html += ` (${conv} conv.)`;
+          }
+          html += "<br/>";
+        }
+        return html;
+      },
+    },
+    xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: {
+      type: "category",
+      data: reasonLabels,
+      axisLabel: { color: TEXT_COLOR },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
+    series: [
+      {
+        name: homeName, type: "bar", barMaxWidth: 50,
+        data: homeData,
+        itemStyle: { color: HOME_COLOR },
+        label: barLabel(),
+      },
+      {
+        name: awayName, type: "bar", barMaxWidth: 50,
+        data: awayData,
+        itemStyle: { color: AWAY_COLOR },
+        label: barLabel(),
+      },
+    ],
+  };
+}
+
+function dropsOption(events: RawEvent[], homeName: string, awayName: string) {
+  const hDrops = events.filter(e => e.event_type === "drop" && e.team === "home").length;
+  const aDrops = events.filter(e => e.event_type === "drop" && e.team === "away").length;
+  if (hDrops + aDrops === 0) return null;
+
+  return {
+    ...baseOption(),
+    grid: { containLabel: true, left: 16, right: 24, top: 16, bottom: 16 },
+    tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: {
+      type: "category",
+      data: [awayName, homeName],
+      axisLabel: { color: TEXT_COLOR },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
+    series: [{
+      name: "Drops", type: "bar", barMaxWidth: 50,
+      data: [aDrops, hDrops],
+      itemStyle: { color: "#A78BFA" },
+      label: barLabel(),
+    }],
+  };
+}
+
+function errorsOption(events: RawEvent[], homeName: string, awayName: string) {
+  const errorTypes = ["knock_on", "forward_pass", "lost_in_contact"] as const;
+  const errorLabels = ["Knock-on", "Forward", "Perdida en contacto"];
+
+  const homeData = errorTypes.map(t => events.filter(e => e.event_type === t && e.team === "home").length);
+  const awayData = errorTypes.map(t => events.filter(e => e.event_type === t && e.team === "away").length);
+
+  if (homeData.every(v => v === 0) && awayData.every(v => v === 0)) return null;
+
+  return {
+    ...baseOption(),
+    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: [homeName, awayName] },
+    tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: {
+      type: "category",
+      data: errorLabels,
+      axisLabel: { color: TEXT_COLOR },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
+    series: [
+      {
+        name: homeName, type: "bar", barMaxWidth: 50,
+        data: homeData,
+        itemStyle: { color: HOME_COLOR },
+        label: barLabel(),
+      },
+      {
+        name: awayName, type: "bar", barMaxWidth: 50,
+        data: awayData,
+        itemStyle: { color: AWAY_COLOR },
+        label: barLabel(),
+      },
+    ],
+  };
+}
 
 function cardsOption(events: RawEvent[], playerNames: Record<string, string>) {
   const map: Record<string, { yellow: number; red: number }> = {};
@@ -88,90 +289,57 @@ function cardsOption(events: RawEvent[], playerNames: Record<string, string>) {
     yAxis: { type: "category", data: players, axisLine: { lineStyle: { color: GRID_COLOR } }, axisLabel: { color: TEXT_COLOR } },
     series: [
       {
-        name: "Amarillas", type: "bar", stack: "cards", data: yellow,
+        name: "Amarillas", type: "bar", stack: "cards",
+        data: yellow,
         itemStyle: { color: "#FBBF24" },
-        label: { show: true, position: "inside", formatter: (p: any) => p.value > 0 ? p.value : "" },
+        label: barLabel(),
       },
       {
-        name: "Rojas", type: "bar", stack: "cards", data: red,
+        name: "Rojas", type: "bar", stack: "cards",
+        data: red,
         itemStyle: { color: "#EF4444" },
-        label: { show: true, position: "inside", formatter: (p: any) => p.value > 0 ? p.value : "" },
+        label: barLabel(),
       },
     ],
   };
 }
 
-function penaltiesOption(events: RawEvent[]) {
-  // New-style: team indicates who received the penalty
-  const homeNew = events.filter((e) => e.event_type === "penalty" && e.team === "home").length;
-  const awayNew = events.filter((e) => e.event_type === "penalty" && e.team === "away").length;
-  // Legacy compat
-  const favor = events.filter((e) => e.event_type === "penalty_won").length + homeNew;
-  const contra = events.filter((e) => e.event_type === "penalty_conceded").length + awayNew;
-
-  return {
-    ...baseOption(),
-    grid: { ...baseOption().grid, top: 16 },
-    tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
-    xAxis: { type: "category", data: ["Penales"], axisLabel: { color: TEXT_COLOR }, axisLine: { lineStyle: { color: GRID_COLOR } } },
-    yAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } }, axisLabel: { color: TEXT_COLOR } },
-    series: [
-      {
-        name: "A favor", type: "bar", data: [favor],
-        itemStyle: { color: "#4ADE80" },
-        label: { show: true, position: "top", color: TEXT_COLOR, formatter: (p: any) => `${p.value} favor` },
-      },
-      {
-        name: "En contra", type: "bar", data: [contra],
-        itemStyle: { color: "#EF4444" },
-        label: { show: true, position: "top", color: TEXT_COLOR, formatter: (p: any) => `${p.value} contra` },
-      },
-    ],
-    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: ["A favor", "En contra"] },
-  };
-}
-
-function setpieceOption(
-  title: string,
-  favorType: string,
-  againstType: string,
-  events: RawEvent[],
-) {
-  const favorWith = events.filter((e) => e.event_type === favorType && obtained(e)).length;
+function setpieceOption(title: string, favorType: string, againstType: string, events: RawEvent[]) {
+  const favorWith    = events.filter((e) => e.event_type === favorType && obtained(e)).length;
   const favorWithout = events.filter((e) => e.event_type === favorType && !obtained(e)).length;
-  const againstWith = events.filter((e) => e.event_type === againstType && obtained(e)).length;
+  const againstWith  = events.filter((e) => e.event_type === againstType && obtained(e)).length;
   const againstWithout = events.filter((e) => e.event_type === againstType && !obtained(e)).length;
 
-  const categories = ["Propios", "Ajenos"];
-
   return {
     ...baseOption(),
-    legend: {
-      top: 0, textStyle: { color: TEXT_COLOR },
-      data: ["Con obtención", "Sin obtención"],
-    },
+    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: ["Con obtención", "Sin obtención"] },
     tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
-    xAxis: { type: "category", data: categories, axisLabel: { color: TEXT_COLOR }, axisLine: { lineStyle: { color: GRID_COLOR } } },
+    xAxis: {
+      type: "category",
+      data: ["Propios", "Ajenos"],
+      axisLabel: { color: TEXT_COLOR },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
     yAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } }, axisLabel: { color: TEXT_COLOR } },
     series: [
       {
         name: "Con obtención", type: "bar", stack: title, barMaxWidth: 60,
         data: [favorWith, againstWith],
         itemStyle: { color: "#4ADE80" },
-        label: { show: true, position: "inside", formatter: (p: any) => p.value > 0 ? p.value : "" },
+        label: barLabel(),
       },
       {
         name: "Sin obtención", type: "bar", stack: title, barMaxWidth: 60,
         data: [favorWithout, againstWithout],
         itemStyle: { color: "#F87171" },
-        label: { show: true, position: "inside", formatter: (p: any) => p.value > 0 ? p.value : "" },
+        label: barLabel(),
       },
     ],
   };
 }
 
 const TIMELINE_CATEGORIES = [
-  "Tackles", "Lines", "Scrums", "Penales", "Tarjetas", "Posesión", "Cambios",
+  "Tackles", "Lines", "Scrums", "Puntos", "Tarjetas", "Posesión", "Cambios",
 ] as const;
 
 type TimelineCat = typeof TIMELINE_CATEGORIES[number];
@@ -180,8 +348,8 @@ const EVENT_CATEGORY: Record<string, TimelineCat> = {
   tackle_effective: "Tackles", tackle_missed: "Tackles",
   lineout_favor: "Lines", lineout_against: "Lines",
   scrum_favor: "Scrums", scrum_against: "Scrums",
-  try: "Penales", penalty: "Penales", drop: "Penales",
-  penalty_conceded: "Penales", penalty_won: "Penales",
+  try: "Puntos", penalty: "Puntos", drop: "Puntos",
+  penalty_conceded: "Puntos", penalty_won: "Puntos",
   yellow_card: "Tarjetas", red_card: "Tarjetas",
   turnover_conceded: "Posesión", turnover_won: "Posesión",
   knock_on: "Posesión", forward_pass: "Posesión", lost_in_contact: "Posesión",
@@ -204,7 +372,7 @@ function timelineOption(session: LoadedSession) {
   const dataByHalf = [1, 2].map((half) => {
     const evs = session.events.filter((e) => e.half === half && EVENT_CATEGORY[e.event_type]);
     return evs.map((e) => ({
-      value: [e.timer_seconds, TIMELINE_CATEGORIES.indexOf(EVENT_CATEGORY[e.event_type] ?? "Penales")],
+      value: [e.timer_seconds, TIMELINE_CATEGORIES.indexOf(EVENT_CATEGORY[e.event_type] ?? "Puntos")],
       eventType: e.event_type,
       team: e.team,
       player: e.player_id ? (session.playerNames[e.player_id] ?? "") : "",
@@ -215,9 +383,7 @@ function timelineOption(session: LoadedSession) {
   const allData = dataByHalf.flat();
   const homeData = allData.filter((d) => d.team === "home");
   const awayData = allData.filter((d) => d.team === "away");
-
   const maxSeconds = Math.max(...session.events.map((e) => e.timer_seconds), 40 * 60);
-  const halftimeSeconds = Math.max(...session.events.filter((e) => e.half === 1).map((e) => e.timer_seconds), 0);
 
   return {
     ...baseOption(),
@@ -255,7 +421,7 @@ function timelineOption(session: LoadedSession) {
         name: `${session.home_team} (local)`,
         type: "scatter",
         symbolSize: 10,
-        itemStyle: { color: "#60A5FA" },
+        itemStyle: { color: HOME_COLOR },
         data: homeData.map((d) => ({ value: d.value, eventType: d.eventType, team: d.team, player: d.player, half: d.half })),
       },
       {
@@ -263,24 +429,14 @@ function timelineOption(session: LoadedSession) {
         type: "scatter",
         symbolSize: 10,
         symbol: "triangle",
-        itemStyle: { color: "#FB923C" },
+        itemStyle: { color: AWAY_COLOR },
         data: awayData.map((d) => ({ value: d.value, eventType: d.eventType, team: d.team, player: d.player, half: d.half })),
       },
     ],
-    ...(halftimeSeconds > 0 ? {
-      visualMap: undefined,
-      graphic: [{
-        type: "line",
-        shape: { x1: 0, y1: 0, x2: 0, y2: 0 },
-      }],
-    } : {}),
-    markLine: {
-      data: halftimeSeconds > 0 ? [{ xAxis: halftimeSeconds, name: "HT", label: { formatter: "HT", color: TEXT_COLOR } }] : [],
-    },
   };
 }
 
-// ── Section wrapper ───────────────────────────────────────────────────────────
+// ── UI helpers ─────────────────────────────────────────────────────────────────
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -295,15 +451,103 @@ function Empty({ msg }: { msg: string }) {
   return <p className="text-gray-600 text-sm py-4 text-center">{msg}</p>;
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+function PillGroup<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { label: string; value: T }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+            value === o.value
+              ? "bg-green-600 text-white"
+              : "bg-gray-700 text-gray-400 active:text-white"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ScoreSummary({
+  events,
+  homeName,
+  awayName,
+}: {
+  events: RawEvent[];
+  homeName: string;
+  awayName: string;
+}) {
+  const home = calcTeamScore(events, "home");
+  const away = calcTeamScore(events, "away");
+
+  const rows = [
+    { label: "Tries (×5)", hVal: home.tries, aVal: away.tries },
+    { label: "Conversiones (×2)", hVal: home.conversions, aVal: away.conversions },
+    { label: "Penales a palos (×3)", hVal: home.penaltyKicks, aVal: away.penaltyKicks },
+    { label: "Drops (×3)", hVal: home.drops, aVal: away.drops },
+  ];
+
+  return (
+    <div className="bg-gray-800 rounded-xl overflow-hidden mb-4">
+      <div className="grid grid-cols-2 divide-x divide-gray-700">
+        <div className="px-4 py-4 text-center">
+          <p className="text-blue-400 text-xs font-semibold truncate">{homeName}</p>
+          <p className="text-white text-5xl font-bold mt-1">{home.total}</p>
+          <p className="text-gray-500 text-xs mt-0.5">pts</p>
+        </div>
+        <div className="px-4 py-4 text-center">
+          <p className="text-orange-400 text-xs font-semibold truncate">{awayName}</p>
+          <p className="text-white text-5xl font-bold mt-1">{away.total}</p>
+          <p className="text-gray-500 text-xs mt-0.5">pts</p>
+        </div>
+      </div>
+      <div className="border-t border-gray-700 px-4 pb-3 pt-2">
+        <div className="grid grid-cols-3 text-xs text-gray-500 pb-1 mb-1 border-b border-gray-700/50">
+          <span />
+          <span className="text-center text-blue-400 font-semibold">Local</span>
+          <span className="text-center text-orange-400 font-semibold">Visitante</span>
+        </div>
+        {rows.map((r) => (
+          <div key={r.label} className="grid grid-cols-3 text-xs py-1">
+            <span className="text-gray-400">{r.label}</span>
+            <span className={`text-center font-semibold ${r.hVal > 0 ? "text-white" : "text-gray-600"}`}>{r.hVal}</span>
+            <span className={`text-center font-semibold ${r.aVal > 0 ? "text-white" : "text-gray-600"}`}>{r.aVal}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+const CAT_OPTIONS: { label: string; value: CatFilter }[] = [
+  { value: "all",        label: "Todos" },
+  { value: "points",     label: "Puntos" },
+  { value: "game",       label: "Juego" },
+  { value: "errors",     label: "Errores" },
+  { value: "discipline", label: "Disciplina" },
+];
 
 export default function Stats() {
   const user = useAuthStore((s) => s.user);
 
-  const [sessions, setSessions] = useState<LoadedSession[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sessions, setSessions]     = useState<LoadedSession[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [loadError, setLoadError]   = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>("all");
+  const [catFilter, setCatFilter]   = useState<CatFilter>("all");
 
   useEffect(() => {
     const clubId = user?.club_id;
@@ -349,22 +593,33 @@ export default function Stats() {
     })();
   }, [user?.club_id]);
 
-  const filtered = selectedId === "all" ? sessions : sessions.filter((s) => s.id === selectedId);
-  const allEvents = filtered.flatMap((s) => s.events);
-  const allNames = Object.assign({}, ...filtered.map((s) => s.playerNames));
-  const selectedSession = sessions.find((s) => s.id === selectedId);
+  const filteredSessions = selectedId === "all" ? sessions : sessions.filter((s) => s.id === selectedId);
+  const allEvents        = filteredSessions.flatMap((s) => s.events);
+  const allNames         = Object.assign({}, ...filteredSessions.map((s) => s.playerNames));
+  const selectedSession  = sessions.find((s) => s.id === selectedId);
+  const homeName         = selectedSession?.home_team ?? "Local";
+  const awayName         = selectedSession?.away_team ?? "Visitante";
 
-  const cardsOpt = cardsOption(allEvents, allNames);
-  const penaltiesOpt = penaltiesOption(allEvents);
-  const scrumsOpt = setpieceOption("Scrums", "scrum_favor", "scrum_against", allEvents);
-  const linesOpt = setpieceOption("Lines", "lineout_favor", "lineout_against", allEvents);
+  const showPoints = catFilter === "all" || catFilter === "points";
+  const showGame   = catFilter === "all" || catFilter === "game";
+  const showErrors = catFilter === "all" || catFilter === "errors";
+  const showDisc   = catFilter === "all" || catFilter === "discipline";
+
+  const triesOpt   = triesOption(allEvents, homeName, awayName);
+  const penaltyOpt = penaltyBreakdownOption(allEvents, homeName, awayName);
+  const dropsOpt   = dropsOption(allEvents, homeName, awayName);
+  const errorsOpt  = errorsOption(allEvents, homeName, awayName);
+  const cardsOpt   = cardsOption(allEvents, allNames);
+  const scrumOpt   = setpieceOption("Scrums", "scrum_favor", "scrum_against", allEvents);
+  const linesOpt   = setpieceOption("Lines", "lineout_favor", "lineout_against", allEvents);
   const timelineOpt = selectedSession ? timelineOption(selectedSession) : null;
 
-  const chartStyle = { height: "260px" };
+  const chartStyle = { height: "220px" };
 
   return (
     <div className="p-4 max-w-3xl">
-      <div className="flex items-center justify-between mb-5">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-white">Estadísticas</h1>
         <select
           value={selectedId}
@@ -375,10 +630,17 @@ export default function Stats() {
           {sessions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.home_team} vs {s.away_team}
-              {s.scheduled_at ? ` · ${new Date(s.scheduled_at).toLocaleDateString("es-AR", { day: "numeric", month: "short" })}` : ""}
+              {s.scheduled_at
+                ? ` · ${new Date(s.scheduled_at).toLocaleDateString("es-AR", { day: "numeric", month: "short" })}`
+                : ""}
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Category filter */}
+      <div className="mb-5">
+        <PillGroup options={CAT_OPTIONS} value={catFilter} onChange={setCatFilter} />
       </div>
 
       {loading ? (
@@ -389,42 +651,75 @@ export default function Stats() {
         <p className="text-gray-500 text-sm">No hay partidos con datos todavía.</p>
       ) : (
         <>
-          {/* Cards per player */}
-          <Section title="Tarjetas por jugador">
-            {cardsOpt
-              ? <ReactECharts option={cardsOpt} style={chartStyle} />
-              : <Empty msg="Sin tarjetas registradas con jugador asociado." />}
-          </Section>
+          {/* ── Puntos ──────────────────────────────────────────────────── */}
+          {showPoints && (
+            <>
+              <ScoreSummary events={allEvents} homeName={homeName} awayName={awayName} />
 
-          {/* Penalties */}
-          <Section title="Penales">
-            <ReactECharts option={penaltiesOpt} style={chartStyle} />
-          </Section>
+              <Section title="Tries">
+                {triesOpt
+                  ? <ReactECharts option={triesOpt} style={chartStyle} />
+                  : <Empty msg="Sin tries registrados." />}
+              </Section>
 
-          {/* Scrums */}
-          <Section title="Scrums — propios vs ajenos (con/sin obtención)">
-            {(allEvents.some((e) => e.event_type === "scrum_favor" || e.event_type === "scrum_against"))
-              ? <ReactECharts option={scrumsOpt} style={chartStyle} />
-              : <Empty msg="Sin scrums registrados." />}
-          </Section>
+              <Section title="Penales — por destino">
+                {penaltyOpt
+                  ? <ReactECharts option={penaltyOpt} style={chartStyle} />
+                  : <Empty msg="Sin penales registrados." />}
+              </Section>
 
-          {/* Lines */}
-          <Section title="Line-outs — propios vs ajenos (con/sin obtención)">
-            {(allEvents.some((e) => e.event_type === "lineout_favor" || e.event_type === "lineout_against"))
-              ? <ReactECharts option={linesOpt} style={chartStyle} />
-              : <Empty msg="Sin line-outs registrados." />}
-          </Section>
+              {dropsOpt && (
+                <Section title="Drops">
+                  <ReactECharts option={dropsOpt} style={{ height: "120px" }} />
+                </Section>
+              )}
+            </>
+          )}
 
-          {/* Timeline — only for specific session */}
-          {selectedSession && timelineOpt && (
+          {/* ── Juego ───────────────────────────────────────────────────── */}
+          {showGame && (
+            <>
+              <Section title="Line-outs — propios vs ajenos (con/sin obtención)">
+                {allEvents.some(e => e.event_type === "lineout_favor" || e.event_type === "lineout_against")
+                  ? <ReactECharts option={linesOpt} style={chartStyle} />
+                  : <Empty msg="Sin line-outs registrados." />}
+              </Section>
+
+              <Section title="Scrums — propios vs ajenos (con/sin obtención)">
+                {allEvents.some(e => e.event_type === "scrum_favor" || e.event_type === "scrum_against")
+                  ? <ReactECharts option={scrumOpt} style={chartStyle} />
+                  : <Empty msg="Sin scrums registrados." />}
+              </Section>
+            </>
+          )}
+
+          {/* ── Errores ─────────────────────────────────────────────────── */}
+          {showErrors && (
+            <Section title="Errores">
+              {errorsOpt
+                ? <ReactECharts option={errorsOpt} style={chartStyle} />
+                : <Empty msg="Sin errores registrados." />}
+            </Section>
+          )}
+
+          {/* ── Disciplina ──────────────────────────────────────────────── */}
+          {showDisc && (
+            <Section title="Tarjetas por jugador">
+              {cardsOpt
+                ? <ReactECharts option={cardsOpt} style={chartStyle} />
+                : <Empty msg="Sin tarjetas con jugador asociado." />}
+            </Section>
+          )}
+
+          {/* ── Timeline (solo "Todos", partido específico) ─────────────── */}
+          {catFilter === "all" && selectedSession && timelineOpt && (
             <Section title={`Línea de tiempo — ${selectedSession.home_team} vs ${selectedSession.away_team}`}>
               {selectedSession.events.length === 0
                 ? <Empty msg="Sin eventos en este partido." />
                 : <ReactECharts option={timelineOpt} style={{ height: "340px" }} />}
             </Section>
           )}
-
-          {selectedId === "all" && (
+          {catFilter === "all" && selectedId === "all" && (
             <p className="text-gray-600 text-xs text-center mt-2">
               Seleccioná un partido para ver la línea de tiempo
             </p>
