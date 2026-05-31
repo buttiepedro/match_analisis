@@ -88,23 +88,25 @@ Servidor → Cliente:
 
 ### Tipos de evento implementados
 
-| event_type | Tab | Con player_id |
-|---|---|---|
-| `tackle_effective` | Tackles | Sí (obligatorio) |
-| `tackle_missed` | Tackles | Sí (obligatorio) |
-| `substitution` | — (auto) | Sí |
-| `lineout_favor` | Lines & Scrum | No |
-| `lineout_against` | Lines & Scrum | No |
-| `scrum_favor` | Lines & Scrum | No |
-| `scrum_against` | Lines & Scrum | No |
-| `penalty_conceded` | Penales | Opcional |
-| `penalty_won` | Penales | No |
-| `yellow_card` | Penales | Opcional |
-| `red_card` | Penales | Opcional |
-| `turnover_conceded` | Penales | No |
-| `turnover_won` | Penales | No |
-| `knock_on` | Penales | Opcional |
-| `forward_pass` | Penales | Opcional |
+| event_type | Tab | Con player_id | reason | metadata |
+|---|---|---|---|---|
+| `tackle_effective` | Tackles | Sí (obligatorio) | — | — |
+| `tackle_missed` | Tackles | Sí (obligatorio) | — | — |
+| `substitution` | — (auto) | Sí | — | `{player_out_*,player_in_*}` |
+| `lineout_favor` | Lines & Scrum | No | — | `{obtained: bool}` |
+| `lineout_against` | Lines & Scrum | No | — | `{obtained: bool}` |
+| `scrum_favor` | Lines & Scrum | No | — | `{obtained: bool}` |
+| `scrum_against` | Lines & Scrum | No | — | `{obtained: bool}` |
+| `try` | Eventos | No | — | `{converted: bool}` |
+| `penalty` | Eventos | No | `line\|scrum\|juega\|a_los_palos` | `{converted: bool}` (solo a_los_palos) |
+| `drop` | Eventos | No | — | — |
+| `knock_on` | Eventos | No | — | — |
+| `forward_pass` | Eventos | No | — | — |
+| `lost_in_contact` | Eventos | No | — | — |
+| `yellow_card` | Eventos | No | — | — |
+| `red_card` | Eventos | No | — | — |
+
+> **Nota de compatibilidad:** los tipos `penalty_conceded`, `penalty_won`, `turnover_conceded`, `turnover_won` pueden existir en datos históricos. El frontend los muestra en el EventLog con sus labels originales, pero ya no se generan desde la UI.
 
 ## Endpoints
 

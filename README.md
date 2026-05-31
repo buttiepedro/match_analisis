@@ -113,6 +113,16 @@ match_analisis/
 | `match_director` | Controlar el timer + registrar eventos |
 | `analyst` | Solo registrar eventos |
 
+## Estadísticas (`/stats`)
+
+Pantalla de análisis post-partido accesible para `club_admin`, `match_director` y `analyst`.
+
+- **Marcador** con desglose de puntos por equipo (tries, conversiones, penales a palos, drops)
+- **Gráficos**: tries (conv/no conv), penales por destino, drops, errores, tarjetas por jugador, line-outs y scrums con obtención
+- **Filtro de categoría**: Todos / Puntos / Juego / Errores / Disciplina
+- **Línea de tiempo** de eventos (cuando hay un partido seleccionado)
+- **Perspectiva normalizada por club**: el club del usuario siempre es el protagonista. Los eventos se agrupan por club real, no por posición home/away de cada partido.
+
 ## Funcionalidades principales
 
 ### Multi-tenant
@@ -132,7 +142,9 @@ Cada evento queda sellado con el tiempo exacto del timer en el momento del regis
 
 **Pantalla Lines & Scrum**: 4 botones (line a favor, line en contra, scrum a favor, scrum en contra) con popup de obtención del balón.
 
-**Pantalla Eventos**: flujo guiado en múltiples pasos para registrar Try (+ conversión), Penal (Line / Scrum / Juega / A los palos + conversión), Error (Knock-on / Forward / Perdida en contacto) y Disciplina (Amarilla / Roja). Cada evento auto-submite al seleccionar la última opción.
+**Pantalla Eventos** (tab 3): flujo guiado multi-paso para Try (+conversión), Penal (Line/Scrum/Juega/A los palos +conversión), Drop, Error (Knock-on/Forward/Perdida en contacto) y Disciplina (Amarilla/Roja). Auto-submit al seleccionar la última opción. Muestra marcador de puntos en tiempo real (Try=5+2, Penal a palos=3, Drop=3) y contadores de tarjetas por equipo.
+
+**Pantalla Lines & Scrum** muestra contadores de obtención por tipo (A favor / En contra · Ganados / Perdidos) calculados en tiempo real desde el store.
 
 ### Jugadores y lineup
 - Los jugadores se registran por división con su posición habitual.
