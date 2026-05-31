@@ -93,7 +93,7 @@ match_analisis/
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── components/    # Timer, EventButton, SubstitutionModal, tabs
+│   │   ├── components/    # Timer, EventButton, SubstitutionModal, EventLog, tabs
 │   │   ├── pages/         # Login, Dashboard, Session
 │   │   ├── store/         # Zustand (auth, session/timer/lineup)
 │   │   └── lib/           # axios (VITE_API_URL), WebSocket client
@@ -132,7 +132,7 @@ Cada evento queda sellado con el tiempo exacto del timer en el momento del regis
 
 **Pantalla Lines & Scrum**: 4 botones (line a favor, line en contra, scrum a favor, scrum en contra) con popup de obtención del balón.
 
-**Pantalla Penales & Posesión**: penales, tarjetas, turnovers, knock-ons con campo de razón opcional.
+**Pantalla Eventos**: flujo guiado en múltiples pasos para registrar Try (+ conversión), Penal (Line / Scrum / Juega / A los palos + conversión), Error (Knock-on / Forward / Perdida en contacto) y Disciplina (Amarilla / Roja). Cada evento auto-submite al seleccionar la última opción.
 
 ### Jugadores y lineup
 - Los jugadores se registran por división con su posición habitual.

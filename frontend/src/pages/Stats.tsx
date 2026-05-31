@@ -102,8 +102,12 @@ function cardsOption(events: RawEvent[], playerNames: Record<string, string>) {
 }
 
 function penaltiesOption(events: RawEvent[]) {
-  const favor = events.filter((e) => e.event_type === "penalty_won").length;
-  const contra = events.filter((e) => e.event_type === "penalty_conceded").length;
+  // New-style: team indicates who received the penalty
+  const homeNew = events.filter((e) => e.event_type === "penalty" && e.team === "home").length;
+  const awayNew = events.filter((e) => e.event_type === "penalty" && e.team === "away").length;
+  // Legacy compat
+  const favor = events.filter((e) => e.event_type === "penalty_won").length + homeNew;
+  const contra = events.filter((e) => e.event_type === "penalty_conceded").length + awayNew;
 
   return {
     ...baseOption(),
@@ -176,10 +180,11 @@ const EVENT_CATEGORY: Record<string, TimelineCat> = {
   tackle_effective: "Tackles", tackle_missed: "Tackles",
   lineout_favor: "Lines", lineout_against: "Lines",
   scrum_favor: "Scrums", scrum_against: "Scrums",
+  try: "Penales", penalty: "Penales",
   penalty_conceded: "Penales", penalty_won: "Penales",
   yellow_card: "Tarjetas", red_card: "Tarjetas",
   turnover_conceded: "Posesión", turnover_won: "Posesión",
-  knock_on: "Posesión", forward_pass: "Posesión",
+  knock_on: "Posesión", forward_pass: "Posesión", lost_in_contact: "Posesión",
   substitution: "Cambios",
 };
 
@@ -187,10 +192,11 @@ const EVENT_LABEL: Record<string, string> = {
   tackle_effective: "Tackle efectivo", tackle_missed: "Tackle errado",
   lineout_favor: "Line a favor", lineout_against: "Line en contra",
   scrum_favor: "Scrum a favor", scrum_against: "Scrum en contra",
+  try: "Try", penalty: "Penal",
   penalty_conceded: "Penal cometido", penalty_won: "Penal ganado",
   yellow_card: "Tarjeta amarilla", red_card: "Tarjeta roja",
   turnover_conceded: "Turnover perdido", turnover_won: "Turnover ganado",
-  knock_on: "Knock-on", forward_pass: "Pase adelantado",
+  knock_on: "Knock-on", forward_pass: "Forward", lost_in_contact: "Perdida en contacto",
   substitution: "Cambio",
 };
 

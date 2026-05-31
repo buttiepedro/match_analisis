@@ -9,7 +9,10 @@ const EVENT_LABELS: Record<string, string> = {
   yellow_card: "Tarjeta amarilla",
   red_card: "Tarjeta roja",
   knock_on: "Knock-on",
-  forward_pass: "Pase adelantado",
+  forward_pass: "Forward",
+  lost_in_contact: "Perdida en contacto",
+  try: "Try",
+  penalty: "Penal",
   penalty_conceded: "Penal cometido",
   penalty_won: "Penal ganado",
   turnover_conceded: "Turnover perdido",
@@ -28,6 +31,10 @@ const REASON_LABELS: Record<string, string> = {
   collapsed_scrum: "Scrum derrumbado",
   not_rolling_away: "No se retira",
   other: "Otro",
+  line: "Line",
+  scrum: "Scrum",
+  juega: "Juega",
+  a_los_palos: "A los palos",
 };
 
 const SETPIECE_TYPES = ["lineout_favor", "lineout_against", "scrum_favor", "scrum_against"];
@@ -68,7 +75,9 @@ function EventDescription({ e, lineup }: { e: EventData; lineup: LineupPlayer[] 
   const name = playerName(e, lineup);
   const isSetpiece = SETPIECE_TYPES.includes(e.event_type);
   const obtained = e.metadata?.obtained;
+  const converted = e.metadata?.converted;
   const reason = e.reason ? (REASON_LABELS[e.reason] ?? e.reason) : null;
+  const showConversion = (e.event_type === "try" || e.event_type === "penalty") && converted !== undefined;
 
   return (
     <>
@@ -80,6 +89,11 @@ function EventDescription({ e, lineup }: { e: EventData; lineup: LineupPlayer[] 
         </span>
       )}
       {reason && <span className="text-gray-500"> · {reason}</span>}
+      {showConversion && (
+        <span className={converted ? "text-green-400" : "text-red-400"}>
+          {" · "}{converted ? "Convertido" : "No convertido"}
+        </span>
+      )}
     </>
   );
 }

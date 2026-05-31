@@ -3,18 +3,18 @@ import { useNavigate, useParams } from "react-router-dom";
 import Timer from "../components/Timer";
 import Tackles from "../components/tabs/Tackles";
 import LinesScrum from "../components/tabs/LinesScrum";
-import PenaltiesPossession from "../components/tabs/PenaltiesPossession";
+import Events from "../components/tabs/PenaltiesPossession";
 import api from "../lib/axios";
 import { sessionWS } from "../lib/ws";
 import { useAuthStore } from "../store/authStore";
 import { useSessionStore } from "../store/sessionStore";
 
-type Tab = "tackles" | "lines" | "penalties";
+type Tab = "tackles" | "lines" | "events";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "tackles", label: "Tackles" },
   { id: "lines", label: "Lines & Scrum" },
-  { id: "penalties", label: "Penales" },
+  { id: "events", label: "Eventos" },
 ];
 
 export default function Session() {
@@ -23,7 +23,7 @@ export default function Session() {
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const {
-    session, timer, events, wsConnected,
+    session, timer, wsConnected,
     setSession, setTimer, addEvent, setEvents, setLineup, setWsConnected, reset,
   } = useSessionStore();
 
@@ -142,10 +142,9 @@ export default function Session() {
         {activeTab === "lines" && (
           <LinesScrum sessionId={session.id} onEvent={refreshEvents} />
         )}
-        {activeTab === "penalties" && (
-          <PenaltiesPossession
+        {activeTab === "events" && (
+          <Events
             sessionId={session.id}
-            events={events}
             homeTeam={session.home_team}
             awayTeam={session.away_team}
             onEvent={refreshEvents}
