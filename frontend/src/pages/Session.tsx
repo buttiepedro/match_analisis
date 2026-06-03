@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Timer from "../components/Timer";
-import Tackles from "../components/tabs/Tackles";
+import JuegoEventos from "../components/tabs/JuegoEventos";
 import LinesScrum from "../components/tabs/LinesScrum";
 import Events from "../components/tabs/PenaltiesPossession";
 import api from "../lib/axios";
@@ -12,7 +12,7 @@ import { useSessionStore } from "../store/sessionStore";
 type Tab = "tackles" | "lines" | "events";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "tackles", label: "Tackles" },
+  { id: "tackles", label: "Juego" },
   { id: "lines", label: "Lines & Scrum" },
   { id: "events", label: "Eventos" },
 ];
@@ -137,7 +137,7 @@ export default function Session() {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto pb-8">
         {activeTab === "tackles" && (
-          <Tackles sessionId={session.id} homeTeam={session.home_team} />
+          <JuegoEventos sessionId={session.id} homeTeam={session.home_team} />
         )}
         {activeTab === "lines" && (
           <LinesScrum sessionId={session.id} onEvent={refreshEvents} />

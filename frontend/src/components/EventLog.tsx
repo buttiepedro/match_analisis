@@ -6,6 +6,7 @@ import { EventData, LineupPlayer, useSessionStore } from "../store/sessionStore"
 const EVENT_LABELS: Record<string, string> = {
   tackle_effective: "Tackle efectivo",
   tackle_missed: "Tackle errado",
+  tackle_positive: "Tackle positivo",
   yellow_card: "Tarjeta amarilla",
   red_card: "Tarjeta roja",
   knock_on: "Knock-on",
@@ -23,6 +24,12 @@ const EVENT_LABELS: Record<string, string> = {
   scrum_favor: "Scrum a favor",
   scrum_against: "Scrum en contra",
   substitution: "Cambio",
+  line_break: "Quiebre",
+  offload: "Offload",
+  possession_lost: "Posesión perdida",
+  ball_won: "Pelota ganada",
+  line_exit: "Salida de line",
+  scrum_exit: "Salida de scrum",
 };
 
 const REASON_LABELS: Record<string, string> = {
@@ -36,9 +43,16 @@ const REASON_LABELS: Record<string, string> = {
   scrum: "Scrum",
   juega: "Juega",
   a_los_palos: "A los palos",
+  ruck: "Ruck",
+  maul: "Maul",
+  contacto: "Contacto",
+  pesca: "Pesca",
+  patada: "Patada",
+  knock_on: "Knock On",
 };
 
 const SETPIECE_TYPES = ["lineout_favor", "lineout_against", "scrum_favor", "scrum_against"];
+const EXIT_TYPES = ["line_exit", "scrum_exit"];
 
 function fmt(half: number, seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -75,6 +89,7 @@ function EventDescription({ e, lineup }: { e: EventData; lineup: LineupPlayer[] 
   const base = EVENT_LABELS[e.event_type] ?? e.event_type;
   const name = playerName(e, lineup);
   const isSetpiece = SETPIECE_TYPES.includes(e.event_type);
+  const isExit = EXIT_TYPES.includes(e.event_type);
   const obtained = e.metadata?.obtained;
   const converted = e.metadata?.converted;
   const reason = e.reason ? (REASON_LABELS[e.reason] ?? e.reason) : null;
@@ -87,6 +102,14 @@ function EventDescription({ e, lineup }: { e: EventData; lineup: LineupPlayer[] 
       {isSetpiece && obtained !== undefined && (
         <span className={obtained ? "text-green-400" : "text-red-400"}>
           {" · "}{obtained ? "Con obtención" : "Sin obtención"}
+        </span>
+      )}
+      {isExit && e.metadata?.team && (
+        <span className="text-gray-400"> · {e.metadata.team === "own" ? "Propia" : "Rival"}</span>
+      )}
+      {isExit && e.metadata?.reception !== undefined && (
+        <span className={e.metadata.reception ? "text-green-400" : "text-red-400"}>
+          {" · "}{e.metadata.reception ? "Con recepción" : "Sin recepción"}
         </span>
       )}
       {reason && <span className="text-gray-500"> · {reason}</span>}
