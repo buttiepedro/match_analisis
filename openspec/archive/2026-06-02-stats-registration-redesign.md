@@ -1,9 +1,10 @@
 ---
 title: Rediseño pantallas de registro de stats
 type: feature
-status: completed
+status: done
 spec: statistics-screens
 created: 2026-06-02
+archived: 2026-06-02
 ---
 
 # Rediseño pantallas de registro de stats
