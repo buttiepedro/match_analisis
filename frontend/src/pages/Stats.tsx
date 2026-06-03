@@ -335,6 +335,96 @@ function setpieceOption(title: string, favorType: string, againstType: string, e
   };
 }
 
+function tacklesOption(events: NormalizedEvent[], clubName: string) {
+  const concretado = events.filter(e => e.isUserClub && e.event_type === "tackle_effective").length;
+  const errado     = events.filter(e => e.isUserClub && e.event_type === "tackle_missed").length;
+  const positivo   = events.filter(e => e.isUserClub && e.event_type === "tackle_positive").length;
+
+  if (concretado + errado + positivo === 0) return null;
+
+  return {
+    ...baseOption(),
+    grid: { containLabel: true, left: 16, right: 24, top: 16, bottom: 16 },
+    tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: {
+      type: "category",
+      data: ["Positivo", "Errado", "Concretado"],
+      axisLabel: { color: TEXT_COLOR },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
+    series: [{
+      name: clubName, type: "bar", barMaxWidth: 50,
+      data: [positivo, errado, concretado],
+      itemStyle: { color: CLUB_COLOR },
+      label: barLabel(),
+    }],
+  };
+}
+
+function possessionBreakdownOption(events: NormalizedEvent[]) {
+  const motivos = ["ruck", "maul", "contacto", "pesca", "patada", "knock_on"];
+  const motivoLabels = ["Ruck", "Maul", "Contacto", "Pesca", "Patada", "Knock On"];
+
+  const lostData = motivos.map(m => events.filter(e => e.isUserClub && e.event_type === "possession_lost" && e.reason === m).length);
+  const wonData  = motivos.map(m => events.filter(e => e.isUserClub && e.event_type === "ball_won"       && e.reason === m).length);
+
+  if (lostData.every(v => v === 0) && wonData.every(v => v === 0)) return null;
+
+  return {
+    ...baseOption(),
+    legend: { top: 0, textStyle: { color: TEXT_COLOR }, data: ["Perdidas", "Ganadas"] },
+    tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: {
+      type: "category",
+      data: motivoLabels,
+      axisLabel: { color: TEXT_COLOR },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
+    series: [
+      {
+        name: "Perdidas", type: "bar", barMaxWidth: 50,
+        data: lostData,
+        itemStyle: { color: "#F87171" },
+        label: barLabel(),
+      },
+      {
+        name: "Ganadas", type: "bar", barMaxWidth: 50,
+        data: wonData,
+        itemStyle: { color: "#4ADE80" },
+        label: barLabel(),
+      },
+    ],
+  };
+}
+
+function attackOption(events: NormalizedEvent[], clubName: string) {
+  const breaks   = events.filter(e => e.isUserClub && e.event_type === "line_break").length;
+  const offloads = events.filter(e => e.isUserClub && e.event_type === "offload").length;
+
+  if (breaks + offloads === 0) return null;
+
+  return {
+    ...baseOption(),
+    grid: { containLabel: true, left: 16, right: 24, top: 16, bottom: 16 },
+    tooltip: { ...TOOLTIP_STYLE, trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "value", splitLine: { lineStyle: { color: GRID_COLOR } } },
+    yAxis: {
+      type: "category",
+      data: ["Offload", "Quiebre"],
+      axisLabel: { color: TEXT_COLOR },
+      axisLine: { lineStyle: { color: GRID_COLOR } },
+    },
+    series: [{
+      name: clubName, type: "bar", barMaxWidth: 50,
+      data: [offloads, breaks],
+      itemStyle: { color: CLUB_COLOR },
+      label: barLabel(),
+    }],
+  };
+}
+
 const TIMELINE_CATEGORIES = [
   "Tackles", "Lines", "Scrums", "Puntos", "Tarjetas", "Posesión", "Cambios",
 ] as const;
@@ -342,26 +432,32 @@ const TIMELINE_CATEGORIES = [
 type TimelineCat = typeof TIMELINE_CATEGORIES[number];
 
 const EVENT_CATEGORY: Record<string, TimelineCat> = {
-  tackle_effective: "Tackles", tackle_missed: "Tackles",
+  tackle_effective: "Tackles", tackle_missed: "Tackles", tackle_positive: "Tackles",
   lineout_favor: "Lines", lineout_against: "Lines",
+  exit_favor: "Lines", exit_against: "Lines",
   scrum_favor: "Scrums", scrum_against: "Scrums",
   try: "Puntos", penalty: "Puntos", drop: "Puntos",
   penalty_conceded: "Puntos", penalty_won: "Puntos",
   yellow_card: "Tarjetas", red_card: "Tarjetas",
   turnover_conceded: "Posesión", turnover_won: "Posesión",
   knock_on: "Posesión", forward_pass: "Posesión", lost_in_contact: "Posesión",
+  possession_lost: "Posesión", ball_won: "Posesión",
+  line_break: "Posesión", offload: "Posesión",
   substitution: "Cambios",
 };
 
 const EVENT_LABEL: Record<string, string> = {
-  tackle_effective: "Tackle efectivo", tackle_missed: "Tackle errado",
+  tackle_effective: "Tackle efectivo", tackle_missed: "Tackle errado", tackle_positive: "Tackle positivo",
   lineout_favor: "Line a favor", lineout_against: "Line en contra",
+  exit_favor: "Salida a favor", exit_against: "Salida en contra",
   scrum_favor: "Scrum a favor", scrum_against: "Scrum en contra",
   try: "Try", penalty: "Penal", drop: "Drop",
   penalty_conceded: "Penal cometido", penalty_won: "Penal ganado",
   yellow_card: "Tarjeta amarilla", red_card: "Tarjeta roja",
   turnover_conceded: "Turnover perdido", turnover_won: "Turnover ganado",
   knock_on: "Knock-on", forward_pass: "Forward", lost_in_contact: "Perdida en contacto",
+  possession_lost: "Posesión perdida", ball_won: "Pelota ganada",
+  line_break: "Quiebre", offload: "Offload",
   substitution: "Cambio",
 };
 
@@ -624,9 +720,13 @@ export default function Stats() {
   const dropsOpt   = dropsOption(allEvents, displayClubName, opponentName);
   const errorsOpt  = errorsOption(allEvents, displayClubName, opponentName);
   const cardsOpt   = cardsOption(allEvents, allNames);
-  const scrumOpt   = setpieceOption("Scrums", "scrum_favor", "scrum_against", allEvents);
-  const linesOpt   = setpieceOption("Lines",  "lineout_favor", "lineout_against", allEvents);
-  const timelineOpt = selectedSession ? timelineOption(selectedSession) : null;
+  const scrumOpt       = setpieceOption("Scrums", "scrum_favor", "scrum_against", allEvents);
+  const linesOpt       = setpieceOption("Lines",  "lineout_favor", "lineout_against", allEvents);
+  const salidasOpt     = setpieceOption("Salidas", "exit_favor", "exit_against", allEvents);
+  const tacklesOpt     = tacklesOption(allEvents, displayClubName);
+  const possessionOpt  = possessionBreakdownOption(allEvents);
+  const attackOpt      = attackOption(allEvents, displayClubName);
+  const timelineOpt    = selectedSession ? timelineOption(selectedSession) : null;
 
   const chartStyle = { height: "220px" };
 
@@ -698,6 +798,24 @@ export default function Stats() {
           {/* ── Juego ───────────────────────────────────────────────────── */}
           {showGame && (
             <>
+              {tacklesOpt && (
+                <Section title="Tackles">
+                  <ReactECharts option={tacklesOpt} style={{ height: "140px" }} />
+                </Section>
+              )}
+
+              {attackOpt && (
+                <Section title="Ataque — quiebres y offloads">
+                  <ReactECharts option={attackOpt} style={{ height: "120px" }} />
+                </Section>
+              )}
+
+              {possessionOpt && (
+                <Section title="Posesión por motivo">
+                  <ReactECharts option={possessionOpt} style={chartStyle} />
+                </Section>
+              )}
+
               <Section title="Line-outs — propios vs ajenos (con/sin obtención)">
                 {allEvents.some(e => e.event_type === "lineout_favor" || e.event_type === "lineout_against")
                   ? <ReactECharts option={linesOpt} style={chartStyle} />
@@ -709,6 +827,12 @@ export default function Stats() {
                   ? <ReactECharts option={scrumOpt} style={chartStyle} />
                   : <Empty msg="Sin scrums registrados." />}
               </Section>
+
+              {allEvents.some(e => e.event_type === "exit_favor" || e.event_type === "exit_against") && (
+                <Section title="Salidas — propias vs ajenas (con/sin obtención)">
+                  <ReactECharts option={salidasOpt} style={chartStyle} />
+                </Section>
+              )}
             </>
           )}
 
