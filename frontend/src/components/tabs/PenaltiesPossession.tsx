@@ -2,6 +2,7 @@ import { useState } from "react";
 import api from "../../lib/axios";
 import { parseApiError } from "../../lib/errors";
 import { useSessionStore, countEvents, EventData } from "../../store/sessionStore";
+import SubstitutionModal from "../SubstitutionModal";
 import EventLog from "../EventLog";
 
 type Flow = "try" | "penalty" | "error" | "yellow_card" | "red_card" | "drop" | null;
@@ -42,6 +43,7 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
   const [modal, setModal] = useState<ModalState>(CLOSED);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showSub, setShowSub] = useState(false);
 
   const yellows = countEvents(events, ["yellow_card"]);
   const reds    = countEvents(events, ["red_card"]);
@@ -220,10 +222,21 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
         </button>
       </div>
 
+      <button
+        onClick={() => setShowSub(true)}
+        className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl py-3 text-sm transition-colors"
+      >
+        Registrar Cambio
+      </button>
+
       <EventLog
         sessionId={sessionId}
-        types={["try", "penalty", "drop", "knock_on", "forward_pass", "lost_in_contact", "yellow_card", "red_card"]}
+        types={["try", "penalty", "drop", "knock_on", "forward_pass", "lost_in_contact", "yellow_card", "red_card", "substitution"]}
       />
+
+      {showSub && (
+        <SubstitutionModal sessionId={sessionId} onClose={() => setShowSub(false)} />
+      )}
 
       {/* Multi-step bottom-sheet modal */}
       {isOpen && (

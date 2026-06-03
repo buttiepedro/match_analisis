@@ -28,8 +28,8 @@ const EVENT_LABELS: Record<string, string> = {
   offload: "Offload",
   possession_lost: "Posesión perdida",
   ball_won: "Pelota ganada",
-  line_exit: "Salida de line",
-  scrum_exit: "Salida de scrum",
+  exit_favor: "Salida a favor",
+  exit_against: "Salida en contra",
 };
 
 const REASON_LABELS: Record<string, string> = {
@@ -51,8 +51,7 @@ const REASON_LABELS: Record<string, string> = {
   knock_on: "Knock On",
 };
 
-const SETPIECE_TYPES = ["lineout_favor", "lineout_against", "scrum_favor", "scrum_against"];
-const EXIT_TYPES = ["line_exit", "scrum_exit"];
+const SETPIECE_TYPES = ["lineout_favor", "lineout_against", "scrum_favor", "scrum_against", "exit_favor", "exit_against"];
 
 function fmt(half: number, seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -89,7 +88,6 @@ function EventDescription({ e, lineup }: { e: EventData; lineup: LineupPlayer[] 
   const base = EVENT_LABELS[e.event_type] ?? e.event_type;
   const name = playerName(e, lineup);
   const isSetpiece = SETPIECE_TYPES.includes(e.event_type);
-  const isExit = EXIT_TYPES.includes(e.event_type);
   const obtained = e.metadata?.obtained;
   const converted = e.metadata?.converted;
   const reason = e.reason ? (REASON_LABELS[e.reason] ?? e.reason) : null;
@@ -102,14 +100,6 @@ function EventDescription({ e, lineup }: { e: EventData; lineup: LineupPlayer[] 
       {isSetpiece && obtained !== undefined && (
         <span className={obtained ? "text-green-400" : "text-red-400"}>
           {" · "}{obtained ? "Con obtención" : "Sin obtención"}
-        </span>
-      )}
-      {isExit && e.metadata?.team && (
-        <span className="text-gray-400"> · {e.metadata.team === "own" ? "Propia" : "Rival"}</span>
-      )}
-      {isExit && e.metadata?.reception !== undefined && (
-        <span className={e.metadata.reception ? "text-green-400" : "text-red-400"}>
-          {" · "}{e.metadata.reception ? "Con recepción" : "Sin recepción"}
         </span>
       )}
       {reason && <span className="text-gray-500"> · {reason}</span>}
