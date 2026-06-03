@@ -241,7 +241,13 @@ Drops (×3)          0       0
 
 ### Sección Juego
 
-**Line-outs**, **Scrums** y **Salidas**: bar chart con stack por obtención (Con / Sin).
+**Tackles** (solo club): bar horizontal con 3 barras — Concretado / Errado / Positivo. Se omite si no hay tackles registrados.
+
+**Ataque** (solo club): bar horizontal con 2 barras — Quiebres (`line_break`) / Offloads (`offload`). Se omite si no hay datos.
+
+**Posesión por motivo** (solo club): bar agrupado — dos series "Perdidas" (`possession_lost`) vs "Ganadas" (`ball_won`) × motivo en eje Y (Ruck / Maul / Contacto / Pesca / Patada / Knock On). Se omite si no hay datos.
+
+**Line-outs**, **Scrums**, **Salidas** (`exit_favor`/`exit_against`): bar chart apilado por obtención (Con / Sin). Eje X: Propios / Ajenos. Cada sección se omite si no hay eventos del tipo.
 
 ### Sección Errores
 
