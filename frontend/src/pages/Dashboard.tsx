@@ -51,13 +51,28 @@ export default function Dashboard() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [selectedDivisionId, setSelectedDivisionId] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [formDivisionId, setFormDivisionId] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  // Unique divisions from loaded tournaments
+  const divisions = Array.from(
+    new Map(tournaments.map((t) => [t.division.id, t.division])).values()
+  );
+
+  const filteredSessions = selectedDivisionId
+    ? sessions.filter((s) => s.tournament?.division.id === selectedDivisionId)
+    : sessions;
+
+  const tournamentsForForm = formDivisionId
+    ? tournaments.filter((t) => t.division.id === formDivisionId)
+    : tournaments;
 
   const handleDelete = async (sessionId: string) => {
     setDeleting(sessionId);
@@ -105,6 +120,21 @@ export default function Dashboard() {
 
   useEffect(() => { load(); }, [user?.club_id]);
 
+  const openModal = () => {
+    const firstDivId = divisions[0]?.id ?? "";
+    const firstTournId = tournaments.find((t) => t.division.id === firstDivId)?.id ?? "";
+    setFormDivisionId(firstDivId);
+    setForm({ ...EMPTY_FORM, tournament_id: firstTournId });
+    setError(null);
+    setShowModal(true);
+  };
+
+  const handleDivisionChange = (divId: string) => {
+    setFormDivisionId(divId);
+    const firstTournId = tournaments.find((t) => t.division.id === divId)?.id ?? "";
+    setForm((f) => ({ ...f, tournament_id: firstTournId }));
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -132,15 +162,11 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 max-w-2xl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-white">Partidos</h1>
         {canCreate && (
           <button
-            onClick={() => {
-              setShowModal(true);
-              setError(null);
-              setForm((f) => ({ ...f, tournament_id: tournaments[0]?.id ?? "" }));
-            }}
+            onClick={openModal}
             className="text-sm bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
           >
             + Nuevo partido
@@ -148,11 +174,42 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Division filter pills */}
+      {!loading && divisions.length > 1 && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          <button
+            onClick={() => setSelectedDivisionId("")}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              selectedDivisionId === ""
+                ? "bg-green-700 text-white"
+                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+            }`}
+          >
+            Todas
+          </button>
+          {divisions.map((d) => (
+            <button
+              key={d.id}
+              onClick={() => setSelectedDivisionId(d.id)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                selectedDivisionId === d.id
+                  ? "bg-green-700 text-white"
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+            >
+              {d.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <p className="text-gray-400 text-sm">Cargando...</p>
-      ) : sessions.length === 0 ? (
+      ) : filteredSessions.length === 0 ? (
         <div className="text-center mt-12">
-          <p className="text-gray-500 text-sm">No hay partidos todavía.</p>
+          <p className="text-gray-500 text-sm">
+            {selectedDivisionId ? "No hay partidos en esta división." : "No hay partidos todavía."}
+          </p>
           {canCreate && tournaments.length === 0 && (
             <p className="text-gray-600 text-xs mt-2">
               Primero creá una división y un torneo desde el menú lateral.
@@ -161,7 +218,7 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="space-y-3">
-          {sessions.map((s) => (
+          {filteredSessions.map((s) => (
             <div key={s.id} className="bg-gray-800 rounded-xl overflow-hidden">
               <button
                 onClick={() => navigate(`/sessions/${s.id}`)}
@@ -242,14 +299,28 @@ export default function Dashboard() {
               </>
             ) : (
               <form onSubmit={handleCreate} className="space-y-3">
+                {/* Division selector */}
+                <select
+                  required
+                  value={formDivisionId}
+                  onChange={(e) => handleDivisionChange(e.target.value)}
+                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                >
+                  <option value="">— Seleccionar división —</option>
+                  {divisions.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+                {/* Tournament selector filtered by division */}
                 <select
                   required
                   value={form.tournament_id}
                   onChange={(e) => setForm((f) => ({ ...f, tournament_id: e.target.value }))}
-                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                  disabled={!formDivisionId}
+                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600 disabled:opacity-50"
                 >
                   <option value="">— Seleccionar torneo —</option>
-                  {tournaments.map((t) => (
+                  {tournamentsForForm.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}{t.season ? ` (${t.season})` : ""}
                     </option>
