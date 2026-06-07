@@ -2,6 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 
+const TIPO_LABEL: Record<string, string> = {
+  try: "Try",
+  penalty: "Penal",
+  yellow_card: "Amarilla",
+  red_card: "Roja",
+  substitution: "Cambio",
+};
+
+function eventDesc(e: PdfEvent): string {
+  const base = TIPO_LABEL[e.tipo] ?? e.tipo;
+  if (e.tipo === "try") return `${base}${e.metadata?.converted ? " (conv.)" : ""} · Dor. ${e.dorsal ?? "?"}`;
+  if (e.tipo === "substitution") return `${base} ${e.dorsal_out ?? "?"} → ${e.dorsal_in ?? "?"}`;
+  return `${base} · Dor. ${e.dorsal ?? "?"}`;
+}
+
 interface PdfPlayer {
   pos: number;
   dor: number;
@@ -97,6 +112,7 @@ export default function UarImportModal({
   const [pendingQueue, setPendingQueue] = useState<Resolution[]>([]);
   const [currentRes, setCurrentRes] = useState<Resolution | null>(null);
   const [creatingPlayer, setCreatingPlayer] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -108,6 +124,7 @@ export default function UarImportModal({
       setResolutions([]);
       setPendingQueue([]);
       setCurrentRes(null);
+      setShowEvents(false);
     }
   }, [isOpen]);
 
@@ -408,15 +425,72 @@ export default function UarImportModal({
                 Plantel rival: {rivalLineup.length} jugadores (referencia, no se importa al lineup)
               </p>
 
-              {/* Summary */}
-              <div className="bg-gray-700/30 rounded-lg px-4 py-3 space-y-1">
-                {notFound > 0 && (
-                  <p className="text-yellow-400 text-xs">
-                    ⚠ {notFound} jugador{notFound > 1 ? "es" : ""} no encontrado{notFound > 1 ? "s" : ""} — se crearán en la división seleccionada
-                  </p>
+              {/* Events section */}
+              <div>
+                <button
+                  onClick={() => setShowEvents((v) => !v)}
+                  className="w-full flex items-center justify-between bg-gray-700/40 hover:bg-gray-700/60 rounded-lg px-4 py-2.5 transition-colors"
+                >
+                  <span className="text-sm text-gray-300 font-medium">
+                    Eventos a importar
+                    <span className="ml-2 text-xs text-gray-500">({totalEvents} en total)</span>
+                  </span>
+                  <span className="text-gray-400 text-xs">{showEvents ? "▲" : "▼"}</span>
+                </button>
+                {showEvents && (
+                  <div className="mt-1 max-h-52 overflow-y-auto space-y-0.5 rounded-lg">
+                    {/* User events */}
+                    {(userSide === "local" ? parsed.incidencias_local : parsed.incidencias_visitante).length > 0 && (
+                      <>
+                        <p className="text-xs text-gray-500 uppercase tracking-wide px-2 pt-2 pb-1">Tu equipo</p>
+                        {(userSide === "local" ? parsed.incidencias_local : parsed.incidencias_visitante).map((e, i) => (
+                          <div key={i} className="flex items-center gap-2 px-3 py-1 bg-gray-700/30 rounded">
+                            <span className="text-xs text-gray-500 w-7">{e.tiempo}</span>
+                            <span className="text-xs text-gray-400 w-8">min.{e.minuto}</span>
+                            <span className={`text-xs font-medium ${
+                              e.tipo === "try" ? "text-green-400" :
+                              e.tipo === "penalty" ? "text-blue-400" :
+                              e.tipo === "yellow_card" ? "text-yellow-400" :
+                              e.tipo === "red_card" ? "text-red-400" :
+                              "text-gray-300"
+                            }`}>
+                              {eventDesc(e)}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {/* Rival events */}
+                    {(userSide === "local" ? parsed.incidencias_visitante : parsed.incidencias_local).length > 0 && (
+                      <>
+                        <p className="text-xs text-gray-500 uppercase tracking-wide px-2 pt-2 pb-1">Rival</p>
+                        {(userSide === "local" ? parsed.incidencias_visitante : parsed.incidencias_local).map((e, i) => (
+                          <div key={i} className="flex items-center gap-2 px-3 py-1 bg-gray-700/20 rounded">
+                            <span className="text-xs text-gray-500 w-7">{e.tiempo}</span>
+                            <span className="text-xs text-gray-400 w-8">min.{e.minuto}</span>
+                            <span className={`text-xs font-medium ${
+                              e.tipo === "try" ? "text-green-400" :
+                              e.tipo === "penalty" ? "text-blue-400" :
+                              e.tipo === "yellow_card" ? "text-yellow-400" :
+                              e.tipo === "red_card" ? "text-red-400" :
+                              "text-gray-300"
+                            }`}>
+                              {eventDesc(e)}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
                 )}
-                <p className="text-gray-400 text-xs">{totalEvents} eventos a importar (tries, penales, cambios, tarjetas)</p>
               </div>
+
+              {/* Bottom summary */}
+              {notFound > 0 && (
+                <p className="text-yellow-400 text-xs">
+                  ⚠ {notFound} jugador{notFound > 1 ? "es" : ""} no encontrado{notFound > 1 ? "s" : ""} — se crearán en la división seleccionada
+                </p>
+              )}
 
               {error && <p className="text-red-400 text-xs">{error}</p>}
             </>

@@ -179,13 +179,17 @@ async def import_lineup_pdf(
     local_team = visitante_team = ""
     local_score = visitante_score = 0
     skip_kws = {"Cancha", "Torneo", "División", "Tarjeta", "Pos", "Dor", "Tie.", "Instancia"}
+    _date_time_re = re.compile(r"\d{4}-\d{2}-\d{2}|\b\d{2}:\d{2}\b")
     for line in lines:
         if any(kw in line for kw in skip_kws):
             continue
-        m = re.match(r"^(.+?)\s+(\d+)\s+(.+?)\s+(\d+)\s*$", line)
+        # skip header info lines that contain date/time patterns (they can false-match)
+        if _date_time_re.search(line):
+            continue
+        m = re.match(r"^([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)\s+(\d+)\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)\s+(\d+)\s*$", line)
         if m:
             s1, s2 = int(m.group(2)), int(m.group(4))
-            if 0 <= s1 <= 200 and 0 <= s2 <= 200:
+            if 0 <= s1 <= 150 and 0 <= s2 <= 150:
                 local_team = m.group(1).strip()
                 local_score = s1
                 visitante_team = m.group(3).strip()
