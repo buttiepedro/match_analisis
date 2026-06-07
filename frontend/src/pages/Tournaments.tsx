@@ -5,6 +5,7 @@ import { calcPoints, countTries, countPenalties, countDrops, countCards, countTa
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
+import UarImportModal from "../components/UarImportModal";
 
 interface LineupEntryFull {
   id: string;
@@ -96,6 +97,8 @@ export default function Tournaments() {
   const [editSessionForm, setEditSessionForm] = useState(EMPTY_EDIT_SESSION_FORM);
   const [editSessionSubmitting, setEditSessionSubmitting] = useState(false);
   const [editSessionError, setEditSessionError] = useState<string | null>(null);
+
+  const [uarImportOpen, setUarImportOpen] = useState(false);
 
   const handleDeleteSession = async (sessionId: string, tournamentId: string) => {
     setDeletingSession(sessionId);
@@ -483,16 +486,24 @@ export default function Tournaments() {
     <div className="p-6 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-white">Torneos</h1>
-        <button
-          onClick={() => {
-            setShowModal(true);
-            setTError(null);
-            setTForm((f) => ({ ...f, division_id: divisions[0]?.id ?? "" }));
-          }}
-          className="text-sm bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          + Nuevo torneo
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setUarImportOpen(true)}
+            className="text-sm bg-blue-700 hover:bg-blue-600 text-white px-3 py-2 rounded-lg transition-colors"
+          >
+            Importar ficha BD UAR
+          </button>
+          <button
+            onClick={() => {
+              setShowModal(true);
+              setTError(null);
+              setTForm((f) => ({ ...f, division_id: divisions[0]?.id ?? "" }));
+            }}
+            className="text-sm bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            + Nuevo torneo
+          </button>
+        </div>
       </div>
 
       {/* Division filter pills */}
@@ -732,6 +743,25 @@ export default function Tournaments() {
           ))}
         </div>
       )}
+
+      {/* UAR import modal */}
+      <UarImportModal
+        isOpen={uarImportOpen}
+        onClose={() => setUarImportOpen(false)}
+        tournaments={tournaments}
+        divisions={divisions}
+        clubName={clubName}
+        onImportDone={async (tid) => {
+          setUarImportOpen(false);
+          try {
+            const { data } = await api.get<Session[]>(`/tournaments/${tid}/sessions`);
+            setSessionsMap((prev) => ({ ...prev, [tid]: data }));
+            setExpandedId(tid);
+          } catch {
+            // refresh failed silently — user can expand tournament manually
+          }
+        }}
+      />
 
       {/* Create tournament modal */}
       {showModal && (

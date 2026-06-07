@@ -8,6 +8,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.clubs import router as clubs_router
 from app.api.v1.divisions import router as divisions_router
 from app.api.v1.health import router as health_router
+from app.api.v1.import_ import router as import_router
 from app.api.v1.lineup import router as lineup_router
 from app.api.v1.players import router as players_router
 from app.api.v1.sessions import session_router, sessions_router, ws_router
@@ -51,6 +52,7 @@ app.add_middleware(
 
 app.include_router(health_router, tags=["health"])
 app.include_router(auth_router, tags=["auth"])
+app.include_router(import_router, tags=["import"])
 app.include_router(clubs_router, tags=["clubs"])
 app.include_router(divisions_router, tags=["divisions"])
 app.include_router(tournaments_router, tags=["tournaments"])
