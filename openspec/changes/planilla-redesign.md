@@ -67,10 +67,7 @@ npm install exceljs
 - Titulares primero (Pos 1–15), luego Suplentes — separados con fila vacía + subheader
 - Filas alternadas (striped)
 
-**Sheet "Eventos"** — igual al actual (datos crudos para compat con re-import Excel):
-```
-Tipo | Equipo | Razon | Convertido
-```
+_(Sheet "Eventos" eliminada — el export es solo para informe/envío, no para re-import)_
 
 ### Cálculo de estadísticas (client-side)
 
@@ -315,7 +312,7 @@ Si un jugador propio (userSide) no está en la BD del club, antes de cargar apar
 |---|---|
 | ¿Fuente del PDF? | UAR "Tarjeta de partido" — formato fijo conocido |
 | ¿Qué datos contiene? | Plantel completo de ambos equipos + incidencias (tries, penales, amarillas, cambios) |
-| ¿Mantener import Excel? | Sí, conviven — Excel es para re-importar planillas propias |
+| ¿Mantener import Excel? | **No** — eliminado. Export es solo informe/envío; import viene de PDF UAR |
 | ¿Jugadores no encontrados? | Se crean automáticamente en BD para el equipo propio |
 | ¿Jugadores rival? | Solo al lineup de la sesión, sin perfil en BD |
 
