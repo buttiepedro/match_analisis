@@ -11,6 +11,7 @@ import Players from "./pages/Players";
 import Users from "./pages/Users";
 import SessionLineup from "./pages/SessionLineup";
 import Stats from "./pages/Stats";
+import Configuracion from "./pages/Configuracion";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -38,12 +39,13 @@ export default function App() {
         <Route path="/players" element={<LayoutRoute><Players /></LayoutRoute>} />
         <Route path="/users" element={<LayoutRoute><Users /></LayoutRoute>} />
         <Route path="/stats" element={<LayoutRoute><Stats /></LayoutRoute>} />
+        <Route path="/config" element={<LayoutRoute><Configuracion /></LayoutRoute>} />
 
         {/* Session views — no sidebar */}
         <Route path="/sessions/:id" element={<PrivateRoute><Session /></PrivateRoute>} />
         <Route path="/sessions/:id/lineup" element={<PrivateRoute><SessionLineup /></PrivateRoute>} />
 
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/tournaments" replace />} />
       </Routes>
     </BrowserRouter>
   );

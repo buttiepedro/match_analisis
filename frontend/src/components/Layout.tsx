@@ -9,19 +9,15 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { label: "Clubes", path: "/clubs" },
   ],
   club_admin: [
-    { label: "Partidos", path: "/dashboard" },
-    { label: "Torneos", path: "/tournaments" },
-    { label: "Divisiones", path: "/divisions" },
-    { label: "Jugadores", path: "/players" },
-    { label: "Usuarios", path: "/users" },
-    { label: "Estadísticas", path: "/stats" },
+    { label: "Torneos",       path: "/tournaments" },
+    { label: "Estadísticas",  path: "/stats" },
+    { label: "Configuración", path: "/config" },
   ],
   match_director: [
-    { label: "Partidos", path: "/dashboard" },
+    { label: "Torneos",      path: "/tournaments" },
     { label: "Estadísticas", path: "/stats" },
   ],
   analyst: [
-    { label: "Partidos", path: "/dashboard" },
     { label: "Estadísticas", path: "/stats" },
   ],
 };

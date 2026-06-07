@@ -253,7 +253,19 @@ export default function SessionLineup() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setAddingFor(p.id); setAddForm((f) => ({ ...f, position: p.position ?? "" })); setError(null); }}
+                      onClick={() => {
+                        const count = lineup.filter((e) => e.team === teamView).length;
+                        const next = count + 1;
+                        setAddingFor(p.id);
+                        setAddForm((f) => ({
+                          ...f,
+                          position: p.position ?? "",
+                          jersey_number: String(next),
+                          status: next <= 15 ? "on_field" : "bench",
+                          team: teamView,
+                        }));
+                        setError(null);
+                      }}
                       className="w-full flex items-center justify-between bg-gray-700 hover:bg-gray-600 rounded-lg px-3 py-2 transition-colors"
                     >
                       <span className="text-sm text-white">{p.name}</span>
