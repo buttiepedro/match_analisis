@@ -85,6 +85,11 @@ async def update_player(
         player.position = body.position
     if body.is_active is not None:
         player.is_active = body.is_active
+    if body.division_id is not None:
+        new_div = await db.scalar(select(Division).where(Division.id == body.division_id))
+        if not new_div or new_div.club_id != division.club_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid division")
+        player.division_id = body.division_id
 
     await db.commit()
     await db.refresh(player)

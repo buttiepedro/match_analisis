@@ -12,6 +12,7 @@ class PlayerUpdate(BaseModel):
     name: Optional[str] = None
     position: Optional[str] = None
     is_active: Optional[bool] = None
+    division_id: Optional[uuid.UUID] = None
 
 
 class PlayerResponse(BaseModel):

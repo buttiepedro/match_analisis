@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
@@ -65,14 +66,25 @@ export default function Configuracion() {
   };
 
   // ── Players ────────────────────────────────────────────────────────────────
-  const [allPlayers,         setAllPlayers]         = useState<PlayerWithDivision[]>([]);
-  const [playersLoaded,      setPlayersLoaded]      = useState(false);
-  const [loadingPlayers,     setLoadingPlayers]     = useState(false);
-  const [playerDivFilter,    setPlayerDivFilter]    = useState("");
-  const [addingPlayer,       setAddingPlayer]       = useState(false);
-  const [playerForm,         setPlayerForm]         = useState({ name: "", position: "", divisionId: "" });
-  const [playerSubmitting,   setPlayerSubmitting]   = useState(false);
-  const [playerError,        setPlayerError]        = useState<string | null>(null);
+  const [allPlayers,       setAllPlayers]       = useState<PlayerWithDivision[]>([]);
+  const [playersLoaded,    setPlayersLoaded]    = useState(false);
+  const [loadingPlayers,   setLoadingPlayers]   = useState(false);
+  const [playerDivFilter,  setPlayerDivFilter]  = useState("");
+  const [addingPlayer,     setAddingPlayer]     = useState(false);
+  const [playerForm,       setPlayerForm]       = useState({ name: "", position: "", divisionId: "" });
+  const [playerSubmitting, setPlayerSubmitting] = useState(false);
+  const [playerError,      setPlayerError]      = useState<string | null>(null);
+
+  // Edit player
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+  const [editForm,        setEditForm]        = useState({ name: "", position: "", divisionId: "" });
+  const [editSubmitting,  setEditSubmitting]  = useState(false);
+  const [editError,       setEditError]       = useState<string | null>(null);
+
+  // Import/export
+  const importRef = useRef<HTMLInputElement>(null);
+  const [importing,     setImporting]     = useState(false);
+  const [importResult,  setImportResult]  = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab !== "players" || playersLoaded || !clubId) return;
@@ -99,7 +111,7 @@ export default function Configuracion() {
     setPlayerSubmitting(true);
     setPlayerError(null);
     try {
-      const { data: raw } = await api.post<{ id: string; division_id: string; name: string; position: string | null; is_active: boolean }>(
+      const { data: raw } = await api.post<Omit<PlayerWithDivision, "division_name">>(
         `/divisions/${playerForm.divisionId}/players`,
         { name: playerForm.name, position: playerForm.position || null }
       );
@@ -111,6 +123,105 @@ export default function Configuracion() {
       setPlayerError(parseApiError(err, "Error al agregar jugador"));
     } finally {
       setPlayerSubmitting(false);
+    }
+  };
+
+  const openEditPlayer = (p: PlayerWithDivision) => {
+    setEditingPlayerId(p.id);
+    setEditForm({ name: p.name, position: p.position ?? "", divisionId: p.division_id });
+    setEditError(null);
+  };
+
+  const handleEditPlayer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPlayerId) return;
+    const player = allPlayers.find((p) => p.id === editingPlayerId);
+    if (!player) return;
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      const body: Record<string, unknown> = {
+        name: editForm.name,
+        position: editForm.position || null,
+      };
+      if (editForm.divisionId !== player.division_id) body.division_id = editForm.divisionId;
+      await api.patch(`/divisions/${player.division_id}/players/${player.id}`, body);
+      const newDivName = divisions.find((d) => d.id === editForm.divisionId)?.name ?? player.division_name;
+      setAllPlayers((prev) =>
+        prev.map((p) =>
+          p.id === editingPlayerId
+            ? { ...p, name: editForm.name, position: editForm.position || null, division_id: editForm.divisionId, division_name: newDivName }
+            : p
+        )
+      );
+      setEditingPlayerId(null);
+    } catch (err) {
+      setEditError(parseApiError(err, "Error al actualizar jugador"));
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const exportPlayersExcel = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["ID", "Jugador", "Posicion", "Division"],
+      ...allPlayers.map((p) => [p.id, p.name, p.position ?? "", p.division_name]),
+    ]);
+    ws["!cols"] = [{ wch: 38 }, { wch: 30 }, { wch: 18 }, { wch: 20 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Jugadores");
+    XLSX.writeFile(wb, "jugadores.xlsx");
+  };
+
+  const handleImportPlayers = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
+
+      let created = 0, updated = 0, errors = 0;
+
+      for (const row of rows) {
+        const name = (row["Jugador"] ?? "").trim();
+        const position = (row["Posicion"] ?? "").trim() || null;
+        const divisionName = (row["Division"] ?? "").trim();
+        const rowId = (row["ID"] ?? "").trim();
+        if (!name || !divisionName) continue;
+
+        const div = divisions.find((d) => d.name.toLowerCase() === divisionName.toLowerCase());
+        if (!div) { errors++; continue; }
+
+        try {
+          if (rowId) {
+            const existing = allPlayers.find((p) => p.id === rowId);
+            if (existing) {
+              const body: Record<string, unknown> = { name, position };
+              if (existing.division_id !== div.id) body.division_id = div.id;
+              await api.patch(`/divisions/${existing.division_id}/players/${existing.id}`, body);
+              updated++;
+            } else {
+              await api.post(`/divisions/${div.id}/players`, { name, position });
+              created++;
+            }
+          } else {
+            await api.post(`/divisions/${div.id}/players`, { name, position });
+            created++;
+          }
+        } catch { errors++; }
+      }
+
+      setImportResult(`✓ ${created} creados, ${updated} actualizados${errors > 0 ? `, ${errors} errores` : ""}`);
+      setPlayersLoaded(false); // trigger reload
+    } catch {
+      setImportResult("Error al leer el archivo");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -260,19 +371,51 @@ export default function Configuracion() {
                 </div>
               )}
 
+              {/* Header row */}
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm text-gray-400">
                   {filteredPlayers.length} jugador{filteredPlayers.length !== 1 ? "es" : ""}
                 </p>
-                {!addingPlayer && (
+                <div className="flex items-center gap-1">
                   <button
-                    onClick={openAddPlayer}
-                    className="text-sm bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+                    onClick={exportPlayersExcel}
+                    disabled={allPlayers.length === 0}
+                    className="text-xs text-gray-400 hover:text-white px-2 py-1.5 rounded transition-colors disabled:opacity-40"
+                    title="Exportar a Excel"
                   >
-                    + Agregar jugador
+                    ↓ Exportar
                   </button>
-                )}
+                  <button
+                    onClick={() => importRef.current?.click()}
+                    disabled={importing}
+                    className="text-xs text-gray-400 hover:text-white px-2 py-1.5 rounded transition-colors disabled:opacity-40"
+                    title="Importar desde Excel"
+                  >
+                    {importing ? "Importando..." : "↑ Importar"}
+                  </button>
+                  <input
+                    ref={importRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleImportPlayers}
+                    className="hidden"
+                  />
+                  {!addingPlayer && (
+                    <button
+                      onClick={openAddPlayer}
+                      className="text-sm bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg transition-colors ml-1"
+                    >
+                      + Agregar
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {importResult && (
+                <p className={`text-xs mb-3 ${importResult.startsWith("✓") ? "text-green-400" : "text-red-400"}`}>
+                  {importResult}
+                </p>
+              )}
 
               {addingPlayer && (
                 <form onSubmit={handleCreatePlayer} className="bg-gray-800 rounded-xl p-4 mb-4 space-y-3">
@@ -324,15 +467,65 @@ export default function Configuracion() {
               ) : (
                 <ul className="space-y-2">
                   {filteredPlayers.map((p) => (
-                    <li key={p.id} className="bg-gray-800 rounded-xl px-4 py-3 flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-white text-sm font-medium">{p.name}</span>
-                        {p.position && <span className="text-gray-400 text-xs ml-2">{p.position}</span>}
-                      </div>
-                      {divisions.length > 1 && (
-                        <span className="text-xs text-gray-500 bg-gray-700 px-2 py-0.5 rounded-full shrink-0">
-                          {p.division_name}
-                        </span>
+                    <li key={p.id} className="bg-gray-800 rounded-xl overflow-hidden">
+                      {editingPlayerId === p.id ? (
+                        <form onSubmit={handleEditPlayer} className="p-4 space-y-3">
+                          <p className="text-xs text-gray-400 uppercase tracking-wide">Editar jugador</p>
+                          <input
+                            required
+                            value={editForm.name}
+                            onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                            placeholder="Nombre"
+                            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                          />
+                          <input
+                            value={editForm.position}
+                            onChange={(e) => setEditForm((f) => ({ ...f, position: e.target.value }))}
+                            placeholder="Posición (opcional)"
+                            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                          />
+                          <select
+                            required
+                            value={editForm.divisionId}
+                            onChange={(e) => setEditForm((f) => ({ ...f, divisionId: e.target.value }))}
+                            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                          >
+                            {divisions.map((d) => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                          </select>
+                          {editError && <p className="text-red-400 text-xs">{editError}</p>}
+                          <div className="flex gap-2">
+                            <button type="submit" disabled={editSubmitting}
+                              className="text-sm bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg transition-colors">
+                              {editSubmitting ? "Guardando..." : "Guardar"}
+                            </button>
+                            <button type="button"
+                              onClick={() => { setEditingPlayerId(null); setEditError(null); }}
+                              className="text-sm text-gray-400 hover:text-white px-4 py-1.5 rounded-lg transition-colors">
+                              Cancelar
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="px-4 py-3 flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-white text-sm font-medium">{p.name}</span>
+                            {p.position && <span className="text-gray-400 text-xs ml-2">{p.position}</span>}
+                          </div>
+                          {divisions.length > 1 && (
+                            <span className="text-xs text-gray-500 bg-gray-700 px-2 py-0.5 rounded-full shrink-0">
+                              {p.division_name}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => openEditPlayer(p)}
+                            className="text-gray-500 hover:text-white text-sm px-1.5 py-0.5 rounded transition-colors"
+                            title="Editar"
+                          >
+                            ✎
+                          </button>
+                        </div>
                       )}
                     </li>
                   ))}

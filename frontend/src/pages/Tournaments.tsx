@@ -1,8 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
+
+interface LineupEntryFull {
+  id: string;
+  jersey_number: number;
+  position: string | null;
+  team: string;
+  status: string;
+  player: { id: string; name: string; position: string | null };
+}
+interface EventData {
+  id: string;
+  event_type: string;
+  team: string;
+  reason?: string;
+  metadata?: { obtained?: boolean; converted?: boolean; team?: string };
+}
 
 interface Division {
   id: string;
@@ -68,6 +85,12 @@ export default function Tournaments() {
   const [sError, setSError] = useState<string | null>(null);
 
   const [confirmDeleteSession, setConfirmDeleteSession] = useState<string | null>(null);
+
+  // Planilla export/import
+  const [exportingSession,  setExportingSession]  = useState<string | null>(null);
+  const [importingPlanilla, setImportingPlanilla] = useState(false);
+  const planillaImportRef   = useRef<HTMLInputElement>(null);
+  const importTournamentRef = useRef<string>("");
   const [deletingSession, setDeletingSession] = useState<string | null>(null);
 
   const handleDeleteSession = async (sessionId: string, tournamentId: string) => {
@@ -166,8 +189,152 @@ export default function Tournaments() {
     }
   };
 
+  const exportPlanilla = async (sessionId: string) => {
+    setExportingSession(sessionId);
+    try {
+      const [{ data: lineupData }, { data: eventsData }] = await Promise.all([
+        api.get<LineupEntryFull[]>(`/sessions/${sessionId}/lineup`),
+        api.get<EventData[]>(`/sessions/${sessionId}/events`),
+      ]);
+      const session = Object.values(sessionsMap).flat().find((s) => s.id === sessionId);
+
+      const wb = XLSX.utils.book_new();
+
+      const wsInfo = XLSX.utils.aoa_to_sheet([
+        ["Campo", "Valor"],
+        ["Local",     session?.home_team ?? ""],
+        ["Visitante", session?.away_team ?? ""],
+        ["Fecha",     session?.scheduled_at ? new Date(session.scheduled_at).toLocaleDateString("es-AR") : ""],
+      ]);
+      wsInfo["!cols"] = [{ wch: 15 }, { wch: 30 }];
+      XLSX.utils.book_append_sheet(wb, wsInfo, "Partido");
+
+      const wsPlantel = XLSX.utils.aoa_to_sheet([
+        ["Camiseta", "Nombre", "Posicion", "Equipo", "Estado"],
+        ...lineupData.map((e) => [
+          e.jersey_number,
+          e.player.name,
+          e.position ?? e.player.position ?? "",
+          e.team === "home" ? "Local" : "Visitante",
+          e.status === "on_field" ? "Titular" : "Suplente",
+        ]),
+      ]);
+      wsPlantel["!cols"] = [{ wch: 10 }, { wch: 30 }, { wch: 15 }, { wch: 12 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, wsPlantel, "Plantel");
+
+      const wsEventos = XLSX.utils.aoa_to_sheet([
+        ["Tipo", "Equipo", "Razon", "Convertido"],
+        ...eventsData.map((e) => [
+          e.event_type,
+          e.team === "home" ? "Local" : "Visitante",
+          e.reason ?? "",
+          e.metadata?.converted !== undefined ? (e.metadata.converted ? "Si" : "No") : "",
+        ]),
+      ]);
+      wsEventos["!cols"] = [{ wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, wsEventos, "Eventos");
+
+      const safe = (s: string) => s.replace(/[^a-z0-9áéíóúñ\s]/gi, "").trim();
+      XLSX.writeFile(wb, `planilla-${safe(session?.home_team ?? "local")}-vs-${safe(session?.away_team ?? "visitante")}.xlsx`);
+    } catch (err) {
+      alert(parseApiError(err, "Error al exportar planilla"));
+    } finally {
+      setExportingSession(null);
+    }
+  };
+
+  const handleImportPlanilla = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const tournamentId = importTournamentRef.current;
+    if (!file || !tournamentId || !clubId) return;
+    e.target.value = "";
+    setImportingPlanilla(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+
+      // Parse Partido sheet
+      const wsInfo = wb.Sheets["Partido"];
+      const infoKV: Record<string, string> = {};
+      if (wsInfo) {
+        XLSX.utils.sheet_to_json<{ Campo: string; Valor: string }>(wsInfo)
+          .forEach((r) => { if (r.Campo) infoKV[r.Campo] = String(r.Valor ?? ""); });
+      }
+
+      // Create session
+      const { data: newSession } = await api.post<Session>(`/tournaments/${tournamentId}/sessions`, {
+        home_team: clubName,
+        away_team: (infoKV["Visitante"] ?? "").trim() || "Visitante",
+        scheduled_at: null,
+        half_duration_minutes: 40,
+      });
+
+      // Parse Plantel
+      const wsPlantel = wb.Sheets["Plantel"];
+      if (wsPlantel) {
+        const { data: clubPlayers } = await api.get<Array<{ id: string; name: string }>>(`/clubs/${clubId}/players`);
+        const plantelRows = XLSX.utils.sheet_to_json<{
+          Camiseta?: number; Nombre?: string; Posicion?: string; Equipo?: string; Estado?: string;
+        }>(wsPlantel);
+        for (const row of plantelRows) {
+          if (!row.Nombre) continue;
+          const player = clubPlayers.find((p) => p.name.toLowerCase() === row.Nombre!.toLowerCase());
+          if (!player) continue;
+          try {
+            await api.post(`/sessions/${newSession.id}/lineup`, {
+              player_id: player.id,
+              jersey_number: row.Camiseta ?? 0,
+              position: row.Posicion || null,
+              team:   row.Equipo === "Local" ? "home" : "away",
+              status: row.Estado === "Titular" ? "on_field" : "bench",
+            });
+          } catch { /* skip unmatchable entries */ }
+        }
+      }
+
+      // Parse Eventos
+      const wsEventos = wb.Sheets["Eventos"];
+      if (wsEventos) {
+        const eventRows = XLSX.utils.sheet_to_json<{
+          Tipo?: string; Equipo?: string; Razon?: string; Convertido?: string;
+        }>(wsEventos);
+        for (const row of eventRows) {
+          if (!row.Tipo) continue;
+          const payload: Record<string, unknown> = {
+            event_type: row.Tipo,
+            team: row.Equipo === "Local" ? "home" : "away",
+          };
+          if (row.Razon) payload.reason = row.Razon;
+          if (row.Convertido === "Si" || row.Convertido === "No") {
+            payload.metadata = { converted: row.Convertido === "Si" };
+          }
+          try { await api.post(`/sessions/${newSession.id}/events`, payload); } catch { /* skip */ }
+        }
+      }
+
+      setSessionsMap((prev) => ({
+        ...prev,
+        [tournamentId]: [newSession, ...(prev[tournamentId] ?? [])],
+      }));
+      setExpandedId(tournamentId);
+    } catch (err) {
+      alert(parseApiError(err, "Error al importar planilla"));
+    } finally {
+      setImportingPlanilla(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-2xl">
+      {/* Hidden file input for planilla import */}
+      <input
+        ref={planillaImportRef}
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={handleImportPlanilla}
+        className="hidden"
+      />
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-white">Torneos</h1>
         <button
@@ -253,12 +420,21 @@ export default function Tournaments() {
                             </span>
                           </button>
                           <div className="border-t border-gray-600 px-3 py-1.5 flex items-center justify-between">
-                            <button
-                              onClick={() => navigate(`/sessions/${s.id}/lineup`)}
-                              className="text-xs text-green-400 hover:text-green-300 transition-colors"
-                            >
-                              Alineación →
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => navigate(`/sessions/${s.id}/lineup`)}
+                                className="text-xs text-green-400 hover:text-green-300 transition-colors"
+                              >
+                                Alineación →
+                              </button>
+                              <button
+                                onClick={() => exportPlanilla(s.id)}
+                                disabled={exportingSession === s.id}
+                                className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50 transition-colors"
+                              >
+                                {exportingSession === s.id ? "..." : "Planilla ↓"}
+                              </button>
+                            </div>
                             {confirmDeleteSession === s.id ? (
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-400">¿Eliminar?</span>
@@ -340,12 +516,21 @@ export default function Tournaments() {
                       </div>
                     </form>
                   ) : (
-                    <button
-                      onClick={() => { setAddingSessionFor(t.id); setSError(null); setSForm(EMPTY_SESSION_FORM); }}
-                      className="text-sm text-green-400 hover:text-green-300 transition-colors"
-                    >
-                      + Nuevo partido
-                    </button>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => { setAddingSessionFor(t.id); setSError(null); setSForm(EMPTY_SESSION_FORM); }}
+                        className="text-sm text-green-400 hover:text-green-300 transition-colors"
+                      >
+                        + Nuevo partido
+                      </button>
+                      <button
+                        onClick={() => { importTournamentRef.current = t.id; planillaImportRef.current?.click(); }}
+                        disabled={importingPlanilla}
+                        className="text-sm text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
+                      >
+                        {importingPlanilla ? "Importando..." : "↑ Importar planilla"}
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
