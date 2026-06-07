@@ -28,6 +28,7 @@ interface Division {
 
 interface Session {
   id: string;
+  tournament_id: string;
   home_team: string;
   away_team: string;
   scheduled_at: string | null;
@@ -51,6 +52,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const EMPTY_TOURNAMENT_FORM = { name: "", division_id: "", season: "" };
 const EMPTY_SESSION_FORM = { away_team: "", scheduled_at: "", half_duration_minutes: "40" };
+const EMPTY_EDIT_SESSION_FORM = { away_team: "", scheduled_at: "", tournament_id: "" };
 
 export default function Tournaments() {
   const clubId = useAuthStore((s) => s.user?.club_id);
@@ -93,6 +95,11 @@ export default function Tournaments() {
   const importTournamentRef = useRef<string>("");
   const [deletingSession, setDeletingSession] = useState<string | null>(null);
 
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editSessionForm, setEditSessionForm] = useState(EMPTY_EDIT_SESSION_FORM);
+  const [editSessionSubmitting, setEditSessionSubmitting] = useState(false);
+  const [editSessionError, setEditSessionError] = useState<string | null>(null);
+
   const handleDeleteSession = async (sessionId: string, tournamentId: string) => {
     setDeletingSession(sessionId);
     try {
@@ -106,6 +113,37 @@ export default function Tournaments() {
       alert(parseApiError(err, "Error al eliminar el partido"));
     } finally {
       setDeletingSession(null);
+    }
+  };
+
+  const handleEditSession = async (sessionId: string, originalTournamentId: string) => {
+    setEditSessionSubmitting(true);
+    setEditSessionError(null);
+    try {
+      const payload: Record<string, unknown> = {};
+      if (editSessionForm.away_team) payload.away_team = editSessionForm.away_team;
+      if (editSessionForm.scheduled_at) payload.scheduled_at = editSessionForm.scheduled_at;
+      if (editSessionForm.tournament_id && editSessionForm.tournament_id !== originalTournamentId) {
+        payload.tournament_id = editSessionForm.tournament_id;
+      }
+      const { data: updated } = await api.patch<Session>(`/sessions/${sessionId}`, payload);
+      const newTournamentId = (payload.tournament_id as string | undefined) ?? originalTournamentId;
+      setSessionsMap((prev) => {
+        const next = { ...prev };
+        if (newTournamentId !== originalTournamentId) {
+          next[originalTournamentId] = (next[originalTournamentId] ?? []).filter((s) => s.id !== sessionId);
+          next[newTournamentId] = [updated, ...(next[newTournamentId] ?? [])];
+        } else {
+          next[originalTournamentId] = (next[originalTournamentId] ?? []).map((s) => s.id === sessionId ? updated : s);
+        }
+        return next;
+      });
+      setEditingSessionId(null);
+      setEditSessionForm(EMPTY_EDIT_SESSION_FORM);
+    } catch (err) {
+      setEditSessionError(parseApiError(err, "Error al editar el partido"));
+    } finally {
+      setEditSessionSubmitting(false);
     }
   };
 
@@ -218,7 +256,7 @@ export default function Tournaments() {
           e.jersey_number,
           e.player.name,
           e.position ?? e.player.position ?? "",
-          e.team === "home" ? homeTeam : awayTeam,
+          e.team === "user" ? homeTeam : awayTeam,
           e.status === "on_field" ? "Titular" : "Suplente",
         ]),
       ]);
@@ -229,7 +267,7 @@ export default function Tournaments() {
         ["Tipo", "Equipo", "Razon", "Convertido"],
         ...eventsData.map((e) => [
           e.event_type,
-          e.team === "home" ? homeTeam : awayTeam,
+          e.team === "user" ? homeTeam : awayTeam,
           e.reason ?? "",
           e.metadata?.converted !== undefined ? (e.metadata.converted ? "Si" : "No") : "",
         ]),
@@ -288,7 +326,7 @@ export default function Tournaments() {
               player_id: player.id,
               jersey_number: row.Camiseta ?? 0,
               position: row.Posicion || null,
-              team:   row.Equipo === clubName ? "home" : "away",
+              team:   row.Equipo === clubName ? "user" : "rival",
               status: row.Estado === "Titular" ? "on_field" : "bench",
             });
           } catch { /* skip unmatchable entries */ }
@@ -305,7 +343,7 @@ export default function Tournaments() {
           if (!row.Tipo) continue;
           const payload: Record<string, unknown> = {
             event_type: row.Tipo,
-            team: row.Equipo === clubName ? "home" : "away",
+            team: row.Equipo === clubName ? "user" : "rival",
           };
           if (row.Razon) payload.reason = row.Razon;
           if (row.Convertido === "Si" || row.Convertido === "No") {
@@ -456,14 +494,71 @@ export default function Tournaments() {
                                 </button>
                               </div>
                             ) : (
-                              <button
-                                onClick={() => setConfirmDeleteSession(s.id)}
-                                className="text-xs text-gray-600 hover:text-red-400 transition-colors"
-                              >
-                                Eliminar
-                              </button>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => {
+                                    setEditingSessionId(s.id);
+                                    setEditSessionError(null);
+                                    setEditSessionForm({
+                                      away_team: s.away_team,
+                                      scheduled_at: s.scheduled_at ? s.scheduled_at.slice(0, 16) : "",
+                                      tournament_id: t.id,
+                                    });
+                                  }}
+                                  className="text-xs text-gray-500 hover:text-white transition-colors"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteSession(s.id)}
+                                  className="text-xs text-gray-600 hover:text-red-400 transition-colors"
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
                             )}
                           </div>
+                          {editingSessionId === s.id && (
+                            <div className="border-t border-gray-600 px-3 py-3 space-y-2">
+                              <input
+                                placeholder="Rival"
+                                value={editSessionForm.away_team}
+                                onChange={(e) => setEditSessionForm((f) => ({ ...f, away_team: e.target.value }))}
+                                className="w-full bg-gray-600 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                              />
+                              <input
+                                type="datetime-local"
+                                value={editSessionForm.scheduled_at}
+                                onChange={(e) => setEditSessionForm((f) => ({ ...f, scheduled_at: e.target.value }))}
+                                className="w-full bg-gray-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                              />
+                              <select
+                                value={editSessionForm.tournament_id}
+                                onChange={(e) => setEditSessionForm((f) => ({ ...f, tournament_id: e.target.value }))}
+                                className="w-full bg-gray-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                              >
+                                {tournaments.map((tor) => (
+                                  <option key={tor.id} value={tor.id}>{tor.name}</option>
+                                ))}
+                              </select>
+                              {editSessionError && <p className="text-red-400 text-xs">{editSessionError}</p>}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleEditSession(s.id, t.id)}
+                                  disabled={editSessionSubmitting}
+                                  className="text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
+                                >
+                                  {editSessionSubmitting ? "..." : "Guardar"}
+                                </button>
+                                <button
+                                  onClick={() => { setEditingSessionId(null); setEditSessionError(null); }}
+                                  className="text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>

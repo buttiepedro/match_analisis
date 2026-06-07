@@ -10,7 +10,7 @@ interface RawEvent {
   event_type: string;
   player_id: string | null;
   player_number: number | null;
-  team: "home" | "away";
+  team: "user" | "rival";
   half: number;
   timer_seconds: number;
   reason?: string | null;
@@ -39,7 +39,7 @@ interface SessionInfo {
 interface LoadedSession extends SessionInfo {
   events: RawEvent[];
   playerNames: Record<string, string>;
-  userTeam: "home" | "away";
+  userTeam: "user" | "rival";
 }
 
 interface TeamScore {
@@ -485,8 +485,8 @@ function timelineOption(session: LoadedSession) {
   });
 
   const allData  = dataByHalf.flat();
-  const homeData = allData.filter((d) => d.team === "home");
-  const awayData = allData.filter((d) => d.team === "away");
+  const homeData = allData.filter((d) => d.team === "user");
+  const awayData = allData.filter((d) => d.team === "rival");
   const maxSeconds = Math.max(...session.events.map((e) => e.timer_seconds), 40 * 60);
 
   return {
@@ -710,7 +710,7 @@ export default function Stats() {
             for (const e of luRes) {
               playerNames[e.player_id] = `#${e.jersey_number} ${e.player.name}`;
             }
-            const userTeam: "home" | "away" = s.home_team === club.name ? "home" : "away";
+            const userTeam: "user" | "rival" = s.home_team === club.name ? "user" : "rival";
             return { ...s, events: evRes, playerNames, userTeam } as LoadedSession;
           })
         );
@@ -759,7 +759,7 @@ export default function Stats() {
 
   const displayClubName = clubName || "Local";
   const opponentName = selectedSession
-    ? (selectedSession.userTeam === "home" ? selectedSession.away_team : selectedSession.home_team)
+    ? (selectedSession.userTeam === "user" ? selectedSession.away_team : selectedSession.home_team)
     : "Rivales";
 
   const clubEvents  = allEvents.filter((e) => e.isUserClub);
@@ -839,7 +839,7 @@ export default function Stats() {
           <option value="all">Todos los partidos</option>
           {sessionsInDivision.map((s) => (
             <option key={s.id} value={s.id}>
-              {displayClubName} vs {s.userTeam === "home" ? s.away_team : s.home_team}
+              {displayClubName} vs {s.userTeam === "user" ? s.away_team : s.home_team}
               {s.scheduled_at
                 ? ` · ${new Date(s.scheduled_at).toLocaleDateString("es-AR", { day: "numeric", month: "short" })}`
                 : ""}

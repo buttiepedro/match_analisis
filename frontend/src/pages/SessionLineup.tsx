@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
+import { RUGBY_POSITIONS, positionByJersey } from "../lib/rugby";
 
 interface SessionInfo {
   id: string;
@@ -30,7 +31,7 @@ interface LineupEntry {
 const EMPTY_ADD_FORM = {
   jersey_number: "",
   position: "",
-  team: "home" as "home" | "away",
+  team: "user" as "user" | "rival",
   status: "on_field" as "on_field" | "bench",
 };
 
@@ -45,7 +46,7 @@ export default function SessionLineup() {
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [teamView, setTeamView] = useState<"home" | "away">("home");
+  const [teamView, setTeamView] = useState<"user" | "rival">("user");
   const [search, setSearch] = useState("");
 
   const [addingFor, setAddingFor] = useState<string | null>(null);
@@ -161,7 +162,7 @@ export default function SessionLineup() {
 
       {/* Team toggle */}
       <div className="flex gap-2 mb-5">
-        {(["home", "away"] as const).map((t) => (
+        {(["user", "rival"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTeamView(t)}
@@ -169,7 +170,7 @@ export default function SessionLineup() {
               teamView === t ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300"
             }`}
           >
-            {t === "home" ? session?.home_team : session?.away_team}
+            {t === "user" ? session?.home_team : session?.away_team}
           </button>
         ))}
       </div>
@@ -210,19 +211,25 @@ export default function SessionLineup() {
                           onChange={(e) => setAddForm((f) => ({ ...f, jersey_number: e.target.value }))}
                           className="bg-gray-600 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
                         />
-                        <input
-                          placeholder="Posición"
+                        <select
                           value={addForm.position}
                           onChange={(e) => setAddForm((f) => ({ ...f, position: e.target.value }))}
-                          className="bg-gray-600 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
-                        />
-                        <select
-                          value={addForm.team}
-                          onChange={(e) => setAddForm((f) => ({ ...f, team: e.target.value as "home" | "away" }))}
                           className="bg-gray-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
                         >
-                          <option value="home">{session?.home_team}</option>
-                          <option value="away">{session?.away_team}</option>
+                          <option value="">— Posición —</option>
+                          {RUGBY_POSITIONS.map((pos) => (
+                            <option key={pos.number} value={pos.name}>
+                              {pos.number} - {pos.name}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={addForm.team}
+                          onChange={(e) => setAddForm((f) => ({ ...f, team: e.target.value as "user" | "rival" }))}
+                          className="bg-gray-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                        >
+                          <option value="user">{session?.home_team}</option>
+                          <option value="rival">{session?.away_team}</option>
                         </select>
                         <select
                           value={addForm.status}
@@ -253,12 +260,12 @@ export default function SessionLineup() {
                   ) : (
                     <button
                       onClick={() => {
-                        const count = lineup.filter((e) => e.team === teamView).length;
+                        const count = lineup.filter((e) => e.team === teamView && e.status !== "substituted_out").length;
                         const next = count + 1;
                         setAddingFor(p.id);
                         setAddForm((f) => ({
                           ...f,
-                          position: p.position ?? "",
+                          position: next <= 15 ? positionByJersey(next) : (p.position ?? ""),
                           jersey_number: String(next),
                           status: next <= 15 ? "on_field" : "bench",
                           team: teamView,

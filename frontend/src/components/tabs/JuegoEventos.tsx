@@ -42,10 +42,10 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const activeTeam = mode === "attack" ? "home" : "away";
+  const activeTeam = mode === "attack" ? "user" : "rival";
 
   const events = useSessionStore((s) => s.events);
-  const homeEvents = events.filter((e) => JUEGO_EVENT_TYPES.includes(e.event_type) && e.team === "home");
+  const homeEvents = events.filter((e) => JUEGO_EVENT_TYPES.includes(e.event_type) && e.team === "user");
   const attackCount  = homeEvents.filter((e) => ["line_break", "offload"].includes(e.event_type)).length;
   const defenseCount = homeEvents.filter((e) => ["tackle_effective", "tackle_missed", "tackle_positive"].includes(e.event_type)).length;
 

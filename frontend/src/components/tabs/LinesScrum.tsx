@@ -68,7 +68,7 @@ function ObtentionModal({
     try {
       await api.post(`/sessions/${sessionId}/events`, {
         event_type: action.eventType,
-        team: "home",
+        team: "user",
         metadata: { obtained },
       });
       onEvent();

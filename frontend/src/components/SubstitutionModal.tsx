@@ -12,8 +12,8 @@ export default function SubstitutionModal({ sessionId, onClose }: Props) {
   const lineup = useSessionStore((s) => s.lineup);
   const applySubstitution = useSessionStore((s) => s.applySubstitution);
 
-  const onField = lineup.filter((p) => p.team === "home" && p.status === "on_field");
-  const bench = lineup.filter((p) => p.team === "home" && p.status === "bench");
+  const onField = lineup.filter((p) => p.team === "user" && p.status === "on_field");
+  const bench = lineup.filter((p) => p.team === "user" && p.status === "bench");
 
   const [outId, setOutId] = useState("");
   const [inId, setInId] = useState("");

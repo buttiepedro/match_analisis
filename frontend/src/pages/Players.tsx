@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
+import { RUGBY_POSITIONS } from "../lib/rugby";
 
 interface Division {
   id: string;
@@ -127,12 +128,18 @@ export default function Players() {
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
           />
-          <input
-            placeholder="Posición (opcional)"
+          <select
             value={form.position}
             onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))}
-            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
-          />
+            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+          >
+            <option value="">— Posición (opcional) —</option>
+            {RUGBY_POSITIONS.map((pos) => (
+              <option key={pos.number} value={pos.name}>
+                {pos.number} - {pos.name}
+              </option>
+            ))}
+          </select>
           {error && <p className="text-red-400 text-xs">{error}</p>}
           <div className="flex gap-2">
             <button

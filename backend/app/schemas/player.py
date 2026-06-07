@@ -38,7 +38,7 @@ class LineupEntryCreate(BaseModel):
     player_id: uuid.UUID
     jersey_number: int
     position: Optional[str] = None
-    team: Literal["home", "away"] = "home"
+    team: Literal["user", "rival"] = "user"
     status: Literal["on_field", "bench"] = "on_field"
 
 

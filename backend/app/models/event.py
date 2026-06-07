@@ -8,8 +8,8 @@ from app.models.base import Base
 
 
 class TeamSide(str, enum.Enum):
-    home = "home"
-    away = "away"
+    user = "user"
+    rival = "rival"
 
 
 class Event(Base):

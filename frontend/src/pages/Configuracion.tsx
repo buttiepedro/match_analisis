@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
+import { RUGBY_POSITIONS } from "../lib/rugby";
 
 type ConfigTab = "divisions" | "players" | "users";
 
@@ -426,12 +427,18 @@ export default function Configuracion() {
                     onChange={(e) => setPlayerForm((f) => ({ ...f, name: e.target.value }))}
                     className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
                   />
-                  <input
-                    placeholder="Posición (opcional)"
+                  <select
                     value={playerForm.position}
                     onChange={(e) => setPlayerForm((f) => ({ ...f, position: e.target.value }))}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
-                  />
+                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                  >
+                    <option value="">— Posición (opcional) —</option>
+                    {RUGBY_POSITIONS.map((pos) => (
+                      <option key={pos.number} value={pos.name}>
+                        {pos.number} - {pos.name}
+                      </option>
+                    ))}
+                  </select>
                   <select
                     required
                     value={playerForm.divisionId}
@@ -478,12 +485,18 @@ export default function Configuracion() {
                             placeholder="Nombre"
                             className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
                           />
-                          <input
+                          <select
                             value={editForm.position}
                             onChange={(e) => setEditForm((f) => ({ ...f, position: e.target.value }))}
-                            placeholder="Posición (opcional)"
-                            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
-                          />
+                            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                          >
+                            <option value="">— Posición —</option>
+                            {RUGBY_POSITIONS.map((pos) => (
+                              <option key={pos.number} value={pos.name}>
+                                {pos.number} - {pos.name}
+                              </option>
+                            ))}
+                          </select>
                           <select
                             required
                             value={editForm.divisionId}

@@ -12,7 +12,7 @@ export interface EventData {
   event_type: string;
   half: number;
   timer_seconds: number;
-  team: "home" | "away";
+  team: "user" | "rival";
   player_id?: string | null;
   player_number?: number | null;
   reason?: string | null;
@@ -33,7 +33,7 @@ export interface LineupPlayer {
   player_id: string;
   jersey_number: number;
   position?: string | null;
-  team: "home" | "away";
+  team: "user" | "rival";
   status: "on_field" | "bench" | "substituted_out";
   player: {
     id: string;
@@ -90,14 +90,18 @@ export const useSessionStore = create<SessionStore>((set) => ({
 export function countEvents(
   events: EventData[],
   types: string[]
-): { home: number; away: number } {
+): { user: number; rival: number } {
   return events
     .filter((e) => types.includes(e.event_type))
     .reduce(
       (acc, e) => {
-        acc[e.team]++;
+        // Guard for legacy "home"/"away" values during migration transitions
+        const key = (e.team as string) === "home" ? "user"
+          : (e.team as string) === "away" ? "rival"
+          : e.team;
+        acc[key]++;
         return acc;
       },
-      { home: 0, away: 0 }
+      { user: 0, rival: 0 }
     );
 }

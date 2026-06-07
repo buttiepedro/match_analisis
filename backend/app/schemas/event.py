@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class EventCreate(BaseModel):
     event_type: str
-    team: Literal["home", "away"]
+    team: Literal["user", "rival"]
     player_id: Optional[uuid.UUID] = None
     reason: Optional[str] = None
     metadata: dict = {}

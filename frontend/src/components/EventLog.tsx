@@ -162,9 +162,9 @@ export default function EventLog({ sessionId, types }: Props) {
                 {fmt(e.half, e.timer_seconds)}
               </span>
               <span className={`text-xs shrink-0 font-semibold px-1.5 py-0.5 rounded ${
-                e.team === "home" ? "bg-blue-900/60 text-blue-300" : "bg-orange-900/60 text-orange-300"
+                e.team === "user" ? "bg-blue-900/60 text-blue-300" : "bg-orange-900/60 text-orange-300"
               }`}>
-                {e.team === "home" ? "L" : "V"}
+                {e.team === "user" ? "L" : "V"}
               </span>
               <span className="text-xs truncate">
                 <EventDescription e={e} lineup={lineup} />

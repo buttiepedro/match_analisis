@@ -33,6 +33,12 @@ class SessionResponse(BaseModel):
     timer_state: Optional[TimerStateResponse]
 
 
+class SessionUpdate(BaseModel):
+    away_team: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+    tournament_id: Optional[uuid.UUID] = None
+
+
 class TimerControlRequest(BaseModel):
     action: Literal["start", "pause", "resume", "halftime", "finish", "reset", "set"]
     seconds: Optional[int] = None

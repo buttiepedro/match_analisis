@@ -9,12 +9,12 @@ type Flow = "yellow_card" | "red_card" | null;
 
 interface ModalState {
   flow: Flow;
-  team: "home" | "away" | null;
+  team: "user" | "rival" | null;
 }
 
 const CLOSED: ModalState = { flow: null, team: null };
 
-function calcPoints(events: EventData[], team: "home" | "away"): number {
+function calcPoints(events: EventData[], team: "user" | "rival"): number {
   return events.filter((e) => e.team === team).reduce((pts, e) => {
     if (e.event_type === "try") {
       pts += 5;
@@ -44,8 +44,8 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
 
   const yellows = countEvents(events, ["yellow_card"]);
   const reds    = countEvents(events, ["red_card"]);
-  const homePoints = calcPoints(events, "home");
-  const awayPoints = calcPoints(events, "away");
+  const homePoints = calcPoints(events, "user");
+  const awayPoints = calcPoints(events, "rival");
 
   function open(flow: Flow) {
     setError("");
@@ -57,7 +57,7 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
     setError("");
   }
 
-  function selectTeam(team: "home" | "away") {
+  function selectTeam(team: "user" | "rival") {
     const { flow } = modal;
     if (!flow) return;
     setLoading(true);
@@ -89,13 +89,13 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
         <div className="border-t border-gray-700 px-4 py-2 space-y-1">
           <div className="flex justify-between text-xs">
             <span className="text-yellow-400 font-semibold">Amarillas</span>
-            <span className="text-gray-300">{homeTeam} <span className="text-white font-bold">{yellows.home}</span></span>
-            <span className="text-gray-300">{awayTeam} <span className="text-white font-bold">{yellows.away}</span></span>
+            <span className="text-gray-300">{homeTeam} <span className="text-white font-bold">{yellows.user}</span></span>
+            <span className="text-gray-300">{awayTeam} <span className="text-white font-bold">{yellows.rival}</span></span>
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-red-400 font-semibold">Rojas</span>
-            <span className="text-gray-300">{homeTeam} <span className="text-white font-bold">{reds.home}</span></span>
-            <span className="text-gray-300">{awayTeam} <span className="text-white font-bold">{reds.away}</span></span>
+            <span className="text-gray-300">{homeTeam} <span className="text-white font-bold">{reds.user}</span></span>
+            <span className="text-gray-300">{awayTeam} <span className="text-white font-bold">{reds.rival}</span></span>
           </div>
         </div>
       </div>
@@ -144,14 +144,14 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <div className="space-y-2">
               <button
-                onClick={() => selectTeam("home")}
+                onClick={() => selectTeam("user")}
                 disabled={loading}
                 className="w-full bg-blue-700 active:bg-blue-600 disabled:opacity-50 text-white font-semibold rounded-xl py-4 text-base transition-colors"
               >
                 De {homeTeam}
               </button>
               <button
-                onClick={() => selectTeam("away")}
+                onClick={() => selectTeam("rival")}
                 disabled={loading}
                 className="w-full bg-orange-700 active:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-xl py-4 text-base transition-colors"
               >

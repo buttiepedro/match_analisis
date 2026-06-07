@@ -37,7 +37,7 @@ class MatchLineup(Base):
     player_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("players.id"), nullable=False)
     jersey_number: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     position: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    team: Mapped[str] = mapped_column(String(10), nullable=False, server_default="home")
+    team: Mapped[str] = mapped_column(String(10), nullable=False, server_default="user")
     status: Mapped[LineupStatus] = mapped_column(
         Enum(LineupStatus), nullable=False, server_default="on_field"
     )

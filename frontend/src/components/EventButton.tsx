@@ -6,7 +6,7 @@ import { useSessionStore } from "../store/sessionStore";
 interface EventButtonProps {
   label: string;
   eventType: string;
-  team: "home" | "away";
+  team: "user" | "rival";
   sessionId: string;
   showPlayerInput?: boolean;
   reasons?: string[];
@@ -53,7 +53,7 @@ export default function EventButton({
     }
   };
 
-  const teamColor = team === "home" ? "bg-blue-700 active:bg-blue-600" : "bg-orange-700 active:bg-orange-600";
+  const teamColor = team === "user" ? "bg-blue-700 active:bg-blue-600" : "bg-orange-700 active:bg-orange-600";
 
   return (
     <>
@@ -77,7 +77,7 @@ export default function EventButton({
           <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4">
             <p className="text-white font-bold text-base">{label}</p>
             <p className="text-gray-400 text-xs">
-              {team === "home" ? "Local" : "Visitante"}
+              {team === "user" ? "Local" : "Visitante"}
             </p>
 
             {showPlayerInput && (

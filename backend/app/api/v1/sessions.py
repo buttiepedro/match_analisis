@@ -14,7 +14,7 @@ from app.core.security import decode_token
 from app.models import Event, MatchLineup, Session, TimerState, Tournament, User, UserRole
 from app.models.session import SessionStatus, TimerStatus
 from app.schemas.event import EventCreate, EventResponse
-from app.schemas.session import SessionCreate, SessionResponse, TimerControlRequest
+from app.schemas.session import SessionCreate, SessionResponse, SessionUpdate, TimerControlRequest
 from app.ws.manager import manager
 
 # ── Routers ───────────────────────────────────────────────────────────────────
@@ -155,6 +155,37 @@ async def delete_session(
     await db.commit()
 
     manager.remove_session(str(session_id))
+
+
+@session_router.patch("/{session_id}", response_model=SessionResponse)
+async def update_session(
+    session_id: uuid.UUID,
+    body: SessionUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_club_admin)],
+):
+    session = await _get_session_or_404(session_id, db)
+    tournament = await _get_tournament_or_404(session.tournament_id, db)
+    if current_user.role != UserRole.superadmin and current_user.club_id != tournament.club_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    if body.away_team is not None:
+        session.away_team = body.away_team
+    if body.scheduled_at is not None:
+        session.scheduled_at = body.scheduled_at
+    if body.tournament_id is not None:
+        new_tournament = await _get_tournament_or_404(body.tournament_id, db)
+        if current_user.role != UserRole.superadmin and new_tournament.club_id != current_user.club_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        session.tournament_id = body.tournament_id
+
+    await db.commit()
+    result = await db.scalar(
+        select(Session)
+        .where(Session.id == session_id)
+        .options(selectinload(Session.timer_state))
+    )
+    return result
 
 
 @session_router.get("/{session_id}", response_model=SessionResponse)
