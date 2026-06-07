@@ -35,7 +35,7 @@ Navegación por swipe horizontal disponible entre los 3 tabs (umbral: 50px).
 Registra eventos de ataque y defensa. El equipo se deriva automáticamente del modo activo — no hay selector manual:
 
 ```typescript
-const activeTeam = mode === "attack" ? "home" : "away";
+const activeTeam = mode === "attack" ? "user" : "rival";
 ```
 
 No hay granularidad por jugador.
@@ -51,24 +51,24 @@ Un toggle Ataque / Defensa controla qué botones se muestran. Se auto-cambia:
 
 | event_type | team | Descripción | Modal |
 |---|---|---|---|
-| `line_break` | `home` | Quiebre de línea | Ninguno — registra directo |
-| `offload` | `home` | Offload | Ninguno — registra directo |
-| `possession_lost` | `home` | Posesión perdida | Popup motivo (ver abajo) |
-| `penalty` | `home` | Penal | Popup motivo → opcional conversión |
-| `try` | `home` | Try | Popup conversión |
-| `drop` | `home` | Drop | Ninguno — registra directo |
+| `line_break` | `user` | Quiebre de línea | Ninguno — registra directo |
+| `offload` | `user` | Offload | Ninguno — registra directo |
+| `possession_lost` | `user` | Posesión perdida | Popup motivo (ver abajo) |
+| `penalty` | `user` | Penal | Popup motivo → opcional conversión |
+| `try` | `user` | Try | Popup conversión |
+| `drop` | `user` | Drop | Ninguno — registra directo |
 
 ### Vista Defensa
 
 | event_type | team | Descripción | Modal |
 |---|---|---|---|
-| `tackle_effective` | `away` | Tackle concretado | Ninguno — registra directo |
-| `tackle_missed` | `away` | Tackle errado | Ninguno — registra directo |
-| `tackle_positive` | `away` | Tackle positivo | Ninguno — registra directo |
-| `ball_won` | `away` | Pelota ganada | Popup motivo (ver abajo) |
-| `penalty` | `away` | Penal | Popup motivo → opcional conversión |
-| `try` | `away` | Try | Popup conversión |
-| `drop` | `away` | Drop | Ninguno — registra directo |
+| `tackle_effective` | `rival` | Tackle concretado | Ninguno — registra directo |
+| `tackle_missed` | `rival` | Tackle errado | Ninguno — registra directo |
+| `tackle_positive` | `rival` | Tackle positivo | Ninguno — registra directo |
+| `ball_won` | `rival` | Pelota ganada | Popup motivo (ver abajo) |
+| `penalty` | `rival` | Penal | Popup motivo → opcional conversión |
+| `try` | `rival` | Try | Popup conversión |
+| `drop` | `rival` | Drop | Ninguno — registra directo |
 
 ### Popup de motivo (Perdida / Pelota Ganada)
 
@@ -76,7 +76,7 @@ Opciones compartidas: `ruck` | `maul` | `contacto` | `pesca` | `patada` | `knock
 
 ```
 event:   possession_lost | ball_won
-payload: { event_type, team: activeTeam, reason: <motivo> }
+payload: { event_type, team: "user"|"rival", reason: <motivo> }
 ```
 
 ### Flujo Penal
@@ -87,7 +87,7 @@ Tap "Penal"
     - Si Line/Scrum/Juega → submit inmediato
     - Si "A los palos" → paso "conversion"
   → Paso "conversion": [Convertido] [No] + "← Volver"
-  → submit: { event_type:"penalty", team:activeTeam, reason, metadata:{converted} }
+  → submit: { event_type:"penalty", team:"user"|"rival", reason, metadata:{converted} }
 ```
 
 ### Flujo Try
@@ -95,7 +95,7 @@ Tap "Penal"
 ```
 Tap "Try"
   → [Convertido] [No]
-  → submit: { event_type:"try", team:activeTeam, metadata:{converted} }
+  → submit: { event_type:"try", team:"user"|"rival", metadata:{converted} }
 ```
 
 ### Contadores en header

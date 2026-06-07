@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
+import { newWorkbook, appendSheet, downloadWorkbook, addr, sc, merge, type StyledWorksheet } from "../lib/xlsxStyle";
+import { calcPoints, countTries, countPenalties, countDrops, countCards, countTackles, countAttack, countSetpiece } from "../lib/stats";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
@@ -235,35 +237,246 @@ export default function Tournaments() {
         api.get<EventData[]>(`/sessions/${sessionId}/events`),
       ]);
       const session = Object.values(sessionsMap).flat().find((s) => s.id === sessionId);
+      const homeTeam = session?.home_team ?? "Local";
+      const awayTeam = session?.away_team ?? "Visitante";
+      const fechaStr = session?.scheduled_at
+        ? new Date(session.scheduled_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
+        : "—";
 
-      const wb = XLSX.utils.book_new();
+      // Cast for stats helpers (same shape at runtime)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ev = eventsData as any[];
 
-      const homeTeam = session?.home_team ?? "";
-      const awayTeam = session?.away_team ?? "";
+      const homePoints = calcPoints(ev, "user");
+      const awayPoints = calcPoints(ev, "rival");
+      const homeTries  = countTries(ev, "user");
+      const awayTries  = countTries(ev, "rival");
+      const homePen    = countPenalties(ev, "user");
+      const awayPen    = countPenalties(ev, "rival");
+      const homeDrops  = countDrops(ev, "user");
+      const awayDrops  = countDrops(ev, "rival");
+      const homeCards  = countCards(ev, "user");
+      const awayCards  = countCards(ev, "rival");
+      const tackles    = countTackles(ev);
+      const attack     = countAttack(ev);
+      const lineout    = countSetpiece(ev, "lineout");
+      const scrum      = countSetpiece(ev, "scrum");
+      const exit_      = countSetpiece(ev, "exit");
 
-      const wsInfo = XLSX.utils.aoa_to_sheet([
-        ["Campo", "Valor"],
-        ["Local",  homeTeam],
-        ["Rival",  awayTeam],
-        ["Fecha",  session?.scheduled_at ? new Date(session.scheduled_at).toLocaleDateString("es-AR") : ""],
-      ]);
-      wsInfo["!cols"] = [{ wch: 15 }, { wch: 30 }];
-      XLSX.utils.book_append_sheet(wb, wsInfo, "Partido");
+      // ── Styles ────────────────────────────────────────────────────────────
+      const S = {
+        title:     { fill: { fgColor: { rgb: "1B4332" } }, font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center" as const } },
+        score:     { fill: { fgColor: { rgb: "2D6A4F" } }, font: { bold: true, sz: 20, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center" as const } },
+        meta:      { fill: { fgColor: { rgb: "40916C" } }, font: { sz: 10, color: { rgb: "D8F3DC" } }, alignment: { horizontal: "center" as const } },
+        secHeader: { fill: { fgColor: { rgb: "2D3748" } }, font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } } },
+        colHeader: { fill: { fgColor: { rgb: "374151" } }, font: { bold: true, sz: 10, color: { rgb: "D1FAE5" } }, alignment: { horizontal: "center" as const } },
+        label:     { font: { sz: 10, color: { rgb: "D1D5DB" } } },
+        numHome:   { font: { bold: true, sz: 11, color: { rgb: "6EE7B7" } }, alignment: { horizontal: "center" as const } },
+        numAway:   { font: { bold: true, sz: 11, color: { rgb: "FCA5A5" } }, alignment: { horizontal: "center" as const } },
+        totalHome: { fill: { fgColor: { rgb: "064E3B" } }, font: { bold: true, sz: 12, color: { rgb: "6EE7B7" } }, alignment: { horizontal: "center" as const } },
+        totalAway: { fill: { fgColor: { rgb: "7F1D1D" } }, font: { bold: true, sz: 12, color: { rgb: "FCA5A5" } }, alignment: { horizontal: "center" as const } },
+        totalLabel:{ fill: { fgColor: { rgb: "111827" } }, font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } } },
+        yellow:    { font: { bold: true, sz: 10, color: { rgb: "FCD34D" } }, alignment: { horizontal: "center" as const } },
+        red:       { font: { bold: true, sz: 10, color: { rgb: "F87171" } }, alignment: { horizontal: "center" as const } },
+        infoLine:  { font: { sz: 10, color: { rgb: "9CA3AF" } } },
+        // Plantel
+        teamHeaderHome: { fill: { fgColor: { rgb: "14532D" } }, font: { bold: true, sz: 11, color: { rgb: "BBF7D0" } }, alignment: { horizontal: "center" as const } },
+        teamHeaderAway: { fill: { fgColor: { rgb: "7C2D12" } }, font: { bold: true, sz: 11, color: { rgb: "FED7AA" } }, alignment: { horizontal: "center" as const } },
+        subHeader:  { fill: { fgColor: { rgb: "1F2937" } }, font: { bold: true, sz: 10, color: { rgb: "9CA3AF" } } },
+        rowEven:    { fill: { fgColor: { rgb: "111827" } }, font: { sz: 10, color: { rgb: "E5E7EB" } } },
+        rowOdd:     { fill: { fgColor: { rgb: "1F2937" } }, font: { sz: 10, color: { rgb: "E5E7EB" } } },
+        jerseyHome: { fill: { fgColor: { rgb: "111827" } }, font: { bold: true, sz: 11, color: { rgb: "6EE7B7" } }, alignment: { horizontal: "center" as const } },
+        jerseyOdd:  { fill: { fgColor: { rgb: "1F2937" } }, font: { bold: true, sz: 11, color: { rgb: "6EE7B7" } }, alignment: { horizontal: "center" as const } },
+        jerseyAway: { fill: { fgColor: { rgb: "111827" } }, font: { bold: true, sz: 11, color: { rgb: "FCA5A5" } }, alignment: { horizontal: "center" as const } },
+        jerseyAwayOdd: { fill: { fgColor: { rgb: "1F2937" } }, font: { bold: true, sz: 11, color: { rgb: "FCA5A5" } }, alignment: { horizontal: "center" as const } },
+      };
 
-      const wsPlantel = XLSX.utils.aoa_to_sheet([
-        ["Camiseta", "Nombre", "Posicion", "Equipo", "Estado"],
-        ...lineupData.map((e) => [
-          e.jersey_number,
-          e.player.name,
-          e.position ?? e.player.position ?? "",
-          e.team === "user" ? homeTeam : awayTeam,
-          e.status === "on_field" ? "Titular" : "Suplente",
-        ]),
-      ]);
-      wsPlantel["!cols"] = [{ wch: 10 }, { wch: 30 }, { wch: 15 }, { wch: 12 }, { wch: 12 }];
-      XLSX.utils.book_append_sheet(wb, wsPlantel, "Plantel");
+      const wb = newWorkbook();
 
-      const wsEventos = XLSX.utils.aoa_to_sheet([
+      // ── Sheet 1: Resumen ──────────────────────────────────────────────────
+      const wsR: StyledWorksheet = {};
+      const merges = [];
+      let r = 0;
+
+      const setRow = (row: number, cells: Array<[number, ReturnType<typeof sc>]>) => {
+        cells.forEach(([c, cell]) => { wsR[addr(row, c)] = cell; });
+      };
+
+      // Title
+      wsR[addr(r, 0)] = sc("PLANILLA DE PARTIDO", S.title);
+      merges.push(merge(r, 0, r, 4)); r++;
+
+      // Score
+      wsR[addr(r, 0)] = sc(`${homeTeam}   ${homePoints}  —  ${awayPoints}   ${awayTeam}`, S.score);
+      merges.push(merge(r, 0, r, 4)); r++;
+
+      // Meta
+      wsR[addr(r, 0)] = sc(`Fecha: ${fechaStr}`, S.meta);
+      merges.push(merge(r, 0, r, 4)); r++;
+
+      r++; // spacer
+
+      // PUNTUACIÓN section
+      wsR[addr(r, 0)] = sc("PUNTUACIÓN", S.secHeader);
+      merges.push(merge(r, 0, r, 2)); r++;
+
+      setRow(r, [[0, sc("", S.colHeader)], [1, sc(homeTeam, S.colHeader)], [2, sc(awayTeam, S.colHeader)]]); r++;
+      setRow(r, [[0, sc("Tries (×5)", S.label)],           [1, sc(homeTries.total,      S.numHome)], [2, sc(awayTries.total,      S.numAway)]]); r++;
+      setRow(r, [[0, sc("Conversiones (×2)", S.label)],    [1, sc(homeTries.converted,  S.numHome)], [2, sc(awayTries.converted,  S.numAway)]]); r++;
+      setRow(r, [[0, sc("Penales a palos (×3)", S.label)], [1, sc(homePen.converted,    S.numHome)], [2, sc(awayPen.converted,    S.numAway)]]); r++;
+      setRow(r, [[0, sc("Drops (×3)", S.label)],           [1, sc(homeDrops,             S.numHome)], [2, sc(awayDrops,            S.numAway)]]); r++;
+
+      // Total row
+      wsR[addr(r, 0)] = sc("TOTAL",       S.totalLabel);
+      wsR[addr(r, 1)] = sc(homePoints,    S.totalHome);
+      wsR[addr(r, 2)] = sc(awayPoints,    S.totalAway);
+      r++;
+
+      r++; // spacer
+
+      // DISCIPLINA section
+      wsR[addr(r, 0)] = sc("DISCIPLINA", S.secHeader);
+      merges.push(merge(r, 0, r, 2)); r++;
+
+      setRow(r, [[0, sc("", S.colHeader)], [1, sc(homeTeam, S.colHeader)], [2, sc(awayTeam, S.colHeader)]]); r++;
+      setRow(r, [[0, sc("Amarillas", S.label)], [1, sc(homeCards.yellow, S.yellow)], [2, sc(awayCards.yellow, S.yellow)]]); r++;
+      setRow(r, [[0, sc("Rojas",     S.label)], [1, sc(homeCards.red,    S.red)],    [2, sc(awayCards.red,    S.red)]]); r++;
+
+      r++; // spacer
+
+      // JUEGO section
+      wsR[addr(r, 0)] = sc(`JUEGO — ${homeTeam}`, S.secHeader);
+      merges.push(merge(r, 0, r, 4)); r++;
+
+      const infoLine = (text: string) => {
+        wsR[addr(r, 0)] = sc(text, S.infoLine);
+        merges.push(merge(r, 0, r, 4));
+        r++;
+      };
+
+      infoLine(`Tackles: Concretados ${tackles.effective} · Errados ${tackles.missed} · Positivos ${tackles.positive}`);
+      infoLine(`Ataque: Quiebres ${attack.line_break} · Offloads ${attack.offload}`);
+
+      const lostTotal = ev.filter((e) => e.event_type === "possession_lost").length;
+      const wonTotal  = ev.filter((e) => e.event_type === "ball_won").length;
+      if (lostTotal > 0 || wonTotal > 0) {
+        const byReason = (type: string) => {
+          const motivos = ["ruck", "maul", "contacto", "pesca", "patada", "knock_on"];
+          return motivos
+            .map((m) => `${m.charAt(0).toUpperCase() + m.slice(1)}: ${ev.filter((e) => e.event_type === type && e.reason === m).length}`)
+            .filter((s) => !s.endsWith(": 0"))
+            .join(" · ") || "—";
+        };
+        if (lostTotal > 0) infoLine(`Posesión perdida: ${byReason("possession_lost")}`);
+        if (wonTotal  > 0) infoLine(`Pelota ganada: ${byReason("ball_won")}`);
+      }
+
+      r++; // spacer
+
+      // LÍNEAS Y SCRUMS section
+      wsR[addr(r, 0)] = sc("LÍNEAS Y SCRUMS", S.secHeader);
+      merges.push(merge(r, 0, r, 4)); r++;
+
+      if (lineout.favor_con + lineout.favor_sin + lineout.contra_con + lineout.contra_sin > 0) {
+        infoLine(`Lines a favor: ${lineout.favor_con + lineout.favor_sin} (${lineout.favor_con} con obtención)`);
+        infoLine(`Lines en contra: ${lineout.contra_con + lineout.contra_sin} (${lineout.contra_con} con obtención)`);
+      } else {
+        infoLine("Lines: sin datos");
+      }
+
+      if (scrum.favor_con + scrum.favor_sin + scrum.contra_con + scrum.contra_sin > 0) {
+        infoLine(`Scrums a favor: ${scrum.favor_con + scrum.favor_sin} (${scrum.favor_con} con obtención)`);
+        infoLine(`Scrums en contra: ${scrum.contra_con + scrum.contra_sin} (${scrum.contra_con} con obtención)`);
+      } else {
+        infoLine("Scrums: sin datos");
+      }
+
+      if (exit_.favor_con + exit_.favor_sin + exit_.contra_con + exit_.contra_sin > 0) {
+        infoLine(`Salidas a favor: ${exit_.favor_con + exit_.favor_sin} (${exit_.favor_con} con obtención)`);
+        infoLine(`Salidas en contra: ${exit_.contra_con + exit_.contra_sin} (${exit_.contra_con} con obtención)`);
+      }
+
+      // Sheet range, merges, col widths, row heights
+      wsR["!ref"]    = addr(0, 0) + ":" + addr(r - 1, 4);
+      wsR["!merges"] = merges;
+      wsR["!cols"]   = [{ wch: 26 }, { wch: 18 }, { wch: 18 }, { wch: 10 }, { wch: 10 }];
+      wsR["!rows"]   = [{ hpt: 28 }, { hpt: 30 }, { hpt: 18 }];
+
+      appendSheet(wb, wsR, "Resumen");
+
+      // ── Sheet 2: Plantel ──────────────────────────────────────────────────
+      const wsP: StyledWorksheet = {};
+      let pr = 0;
+
+      const addPlantelRow = (
+        jersey: string | number, name: string, pos: string, estado: string,
+        isHome: boolean, odd: boolean
+      ) => {
+        const jStyle = isHome
+          ? (odd ? S.jerseyOdd  : S.jerseyHome)
+          : (odd ? S.jerseyAwayOdd : S.jerseyAway);
+        const rStyle = odd ? S.rowOdd : S.rowEven;
+        wsP[addr(pr, 0)] = sc(jersey, jStyle);
+        wsP[addr(pr, 1)] = sc(name,   rStyle);
+        wsP[addr(pr, 2)] = sc(pos,    rStyle);
+        wsP[addr(pr, 3)] = sc(estado, rStyle);
+        pr++;
+      };
+
+      const plantelMerges: typeof merges = [];
+
+      // Column headers
+      const phStyle = S.colHeader;
+      [["N°", 0], ["Nombre", 1], ["Posición", 2], ["Estado", 3]].forEach(([h, c]) => {
+        wsP[addr(pr, c as number)] = sc(h as string, phStyle);
+      });
+      pr++;
+
+      const home = lineupData.filter((e) => e.team === "user").sort((a, b) => a.jersey_number - b.jersey_number);
+      const away = lineupData.filter((e) => e.team === "rival").sort((a, b) => a.jersey_number - b.jersey_number);
+      const homeTitulares = home.filter((e) => e.status === "on_field");
+      const homeSuplentes = home.filter((e) => e.status !== "on_field");
+      const awayTitulares = away.filter((e) => e.status === "on_field");
+      const awaySuplentes = away.filter((e) => e.status !== "on_field");
+
+      const addTeamSection = (name: string, titulares: typeof home, suplentes: typeof home, isHome: boolean) => {
+        // Team header
+        wsP[addr(pr, 0)] = sc(name, isHome ? S.teamHeaderHome : S.teamHeaderAway);
+        plantelMerges.push(merge(pr, 0, pr, 3));
+        pr++;
+
+        // Titulares subheader
+        wsP[addr(pr, 0)] = sc("Titulares", S.subHeader);
+        plantelMerges.push(merge(pr, 0, pr, 3));
+        pr++;
+
+        titulares.forEach((e, i) => {
+          addPlantelRow(e.jersey_number, e.player.name, e.position ?? e.player.position ?? "—", "Titular", isHome, i % 2 === 1);
+        });
+
+        if (suplentes.length > 0) {
+          wsP[addr(pr, 0)] = sc("Suplentes", S.subHeader);
+          plantelMerges.push(merge(pr, 0, pr, 3));
+          pr++;
+
+          suplentes.forEach((e, i) => {
+            addPlantelRow(e.jersey_number, e.player.name, e.position ?? e.player.position ?? "—", "Suplente", isHome, i % 2 === 1);
+          });
+        }
+        pr++; // spacer
+      };
+
+      addTeamSection(homeTeam, homeTitulares, homeSuplentes, true);
+      addTeamSection(awayTeam, awayTitulares, awaySuplentes, false);
+
+      wsP["!ref"]    = addr(0, 0) + ":" + addr(pr - 1, 3);
+      wsP["!merges"] = plantelMerges;
+      wsP["!cols"]   = [{ wch: 6 }, { wch: 30 }, { wch: 18 }, { wch: 10 }];
+
+      appendSheet(wb, wsP, "Plantel");
+
+      // ── Sheet 3: Eventos (raw — para re-import) ───────────────────────────
+      const wsE = XLSX.utils.aoa_to_sheet([
         ["Tipo", "Equipo", "Razon", "Convertido"],
         ...eventsData.map((e) => [
           e.event_type,
@@ -272,11 +485,11 @@ export default function Tournaments() {
           e.metadata?.converted !== undefined ? (e.metadata.converted ? "Si" : "No") : "",
         ]),
       ]);
-      wsEventos["!cols"] = [{ wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 12 }];
-      XLSX.utils.book_append_sheet(wb, wsEventos, "Eventos");
+      wsE["!cols"] = [{ wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb as never, wsE, "Eventos");
 
       const safe = (s: string) => s.replace(/[^a-z0-9áéíóúñ\s]/gi, "").trim();
-      XLSX.writeFile(wb, `planilla-${safe(session?.home_team ?? "local")}-vs-${safe(session?.away_team ?? "visitante")}.xlsx`);
+      downloadWorkbook(wb, `planilla-${safe(homeTeam)}-vs-${safe(awayTeam)}.xlsx`);
     } catch (err) {
       alert(parseApiError(err, "Error al exportar planilla"));
     } finally {

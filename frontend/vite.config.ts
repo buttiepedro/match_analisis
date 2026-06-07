@@ -10,6 +10,9 @@ export default defineConfig({
       "/health": "http://localhost:8000",
       "/clubs": "http://localhost:8000",
       "/sessions": "http://localhost:8000",
+      "/tournaments": "http://localhost:8000",
+      "/divisions": "http://localhost:8000",
+      "/import": "http://localhost:8000",
       "/ws": {
         target: "ws://localhost:8000",
         ws: true,
