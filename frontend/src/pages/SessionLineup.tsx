@@ -65,11 +65,10 @@ export default function SessionLineup() {
     Promise.all([
       api.get<SessionInfo>(`/sessions/${sessionId}`),
       api.get<LineupEntry[]>(`/sessions/${sessionId}/lineup`),
-    ]).then(async ([sRes, lRes]) => {
+      api.get<AvailablePlayer[]>(`/clubs/${user.club_id}/players`),
+    ]).then(([sRes, lRes, pRes]) => {
       setSession(sRes.data);
       setLineup(lRes.data);
-      const tRes = await api.get(`/clubs/${user.club_id}/tournaments/${sRes.data.tournament_id}`);
-      const pRes = await api.get<AvailablePlayer[]>(`/divisions/${tRes.data.division_id}/players`);
       setAllPlayers(pRes.data);
     }).finally(() => setLoading(false));
   }, [sessionId, user?.club_id]);

@@ -49,6 +49,15 @@ export default function Tournaments() {
   const [tSubmitting, setTSubmitting] = useState(false);
   const [tError, setTError] = useState<string | null>(null);
 
+  const [divisionFilter, setDivisionFilter] = useState("");
+
+  const filterDivisions = Array.from(
+    new Map(tournaments.map((t) => [t.division.id, t.division])).values()
+  );
+  const visibleTournaments = divisionFilter
+    ? tournaments.filter((t) => t.division.id === divisionFilter)
+    : tournaments;
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sessionsMap, setSessionsMap] = useState<Record<string, Session[]>>({});
   const [sessionsLoading, setSessionsLoading] = useState<string | null>(null);
@@ -173,13 +182,40 @@ export default function Tournaments() {
         </button>
       </div>
 
+      {/* Division filter pills */}
+      {!loading && filterDivisions.length > 1 && (
+        <div className="flex gap-2 mb-5 flex-wrap">
+          <button
+            onClick={() => setDivisionFilter("")}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              divisionFilter === "" ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+            }`}
+          >
+            Todas
+          </button>
+          {filterDivisions.map((d) => (
+            <button
+              key={d.id}
+              onClick={() => setDivisionFilter(d.id)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                divisionFilter === d.id ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+            >
+              {d.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <p className="text-gray-400 text-sm">Cargando...</p>
-      ) : tournaments.length === 0 ? (
-        <p className="text-gray-500 text-sm">No hay torneos todavía.</p>
+      ) : visibleTournaments.length === 0 ? (
+        <p className="text-gray-500 text-sm">
+          {divisionFilter ? "No hay torneos en esta división." : "No hay torneos todavía."}
+        </p>
       ) : (
         <div className="space-y-3">
-          {tournaments.map((t) => (
+          {visibleTournaments.map((t) => (
             <div key={t.id} className="bg-gray-800 rounded-xl overflow-hidden">
               <button
                 onClick={() => toggleTournament(t.id)}

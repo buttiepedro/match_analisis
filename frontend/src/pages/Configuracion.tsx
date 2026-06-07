@@ -6,7 +6,14 @@ import { useAuthStore } from "../store/authStore";
 type ConfigTab = "divisions" | "players" | "users";
 
 interface Division { id: string; name: string; is_active: boolean }
-interface Player   { id: string; name: string; position: string | null; is_active: boolean }
+interface PlayerWithDivision {
+  id: string;
+  division_id: string;
+  division_name: string;
+  name: string;
+  position: string | null;
+  is_active: boolean;
+}
 interface ClubUser { id: string; email: string; full_name: string; role: string }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -36,10 +43,7 @@ export default function Configuracion() {
   useEffect(() => {
     if (!clubId) return;
     api.get<Division[]>(`/clubs/${clubId}/divisions`)
-      .then(({ data }) => {
-        setDivisions(data);
-        if (data.length > 0 && !selectedDivisionId) setSelectedDivisionId(data[0].id);
-      })
+      .then(({ data }) => setDivisions(data))
       .finally(() => setLoadingDivs(false));
   }, [clubId]);
 
@@ -61,34 +65,47 @@ export default function Configuracion() {
   };
 
   // ── Players ────────────────────────────────────────────────────────────────
-  const [selectedDivisionId, setSelectedDivisionId] = useState("");
-  const [players,            setPlayers]            = useState<Player[]>([]);
+  const [allPlayers,         setAllPlayers]         = useState<PlayerWithDivision[]>([]);
+  const [playersLoaded,      setPlayersLoaded]      = useState(false);
   const [loadingPlayers,     setLoadingPlayers]     = useState(false);
+  const [playerDivFilter,    setPlayerDivFilter]    = useState("");
   const [addingPlayer,       setAddingPlayer]       = useState(false);
-  const [playerForm,         setPlayerForm]         = useState({ name: "", position: "" });
+  const [playerForm,         setPlayerForm]         = useState({ name: "", position: "", divisionId: "" });
   const [playerSubmitting,   setPlayerSubmitting]   = useState(false);
   const [playerError,        setPlayerError]        = useState<string | null>(null);
 
   useEffect(() => {
-    if (!selectedDivisionId) return;
+    if (activeTab !== "players" || playersLoaded || !clubId) return;
     setLoadingPlayers(true);
-    api.get<Player[]>(`/divisions/${selectedDivisionId}/players`)
-      .then(({ data }) => setPlayers(data))
+    api.get<PlayerWithDivision[]>(`/clubs/${clubId}/players`)
+      .then(({ data }) => { setAllPlayers(data); setPlayersLoaded(true); })
       .finally(() => setLoadingPlayers(false));
-  }, [selectedDivisionId]);
+  }, [activeTab, clubId, playersLoaded]);
+
+  const filteredPlayers = playerDivFilter
+    ? allPlayers.filter((p) => p.division_id === playerDivFilter)
+    : allPlayers;
+
+  const openAddPlayer = () => {
+    const defaultDivId = playerDivFilter || divisions[0]?.id || "";
+    setPlayerForm({ name: "", position: "", divisionId: defaultDivId });
+    setPlayerError(null);
+    setAddingPlayer(true);
+  };
 
   const handleCreatePlayer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDivisionId) return;
+    if (!playerForm.divisionId) return;
     setPlayerSubmitting(true);
     setPlayerError(null);
     try {
-      const { data } = await api.post<Player>(`/divisions/${selectedDivisionId}/players`, {
-        name: playerForm.name,
-        position: playerForm.position || null,
-      });
-      setPlayers((prev) => [...prev, data]);
-      setPlayerForm({ name: "", position: "" });
+      const { data: raw } = await api.post<{ id: string; division_id: string; name: string; position: string | null; is_active: boolean }>(
+        `/divisions/${playerForm.divisionId}/players`,
+        { name: playerForm.name, position: playerForm.position || null }
+      );
+      const divName = divisions.find((d) => d.id === playerForm.divisionId)?.name ?? "";
+      setAllPlayers((prev) => [...prev, { ...raw, division_name: divName }]);
+      setPlayerForm((f) => ({ ...f, name: "", position: "" }));
       setAddingPlayer(false);
     } catch (err) {
       setPlayerError(parseApiError(err, "Error al agregar jugador"));
@@ -115,7 +132,7 @@ export default function Configuracion() {
     api.get<ClubUser[]>(`/clubs/${clubId}/users`)
       .then(({ data }) => { setUsers(data); setUsersLoaded(true); })
       .finally(() => setLoadingUsers(false));
-  }, [activeTab, clubId]);
+  }, [activeTab, clubId, usersLoaded]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,36 +229,44 @@ export default function Configuracion() {
       {/* ── Jugadores ──────────────────────────────────────────────────── */}
       {activeTab === "players" && (
         <>
-          {loadingDivs ? (
+          {loadingDivs && !playersLoaded ? (
             <p className="text-gray-400 text-sm">Cargando...</p>
           ) : divisions.length === 0 ? (
             <p className="text-gray-500 text-sm">Primero creá una división en la pestaña Divisiones.</p>
           ) : (
             <>
-              {/* Division pills */}
-              <div className="flex gap-2 flex-wrap mb-5">
-                {divisions.map((d) => (
+              {/* Division filter pills */}
+              {divisions.length > 1 && (
+                <div className="flex gap-2 flex-wrap mb-4">
                   <button
-                    key={d.id}
-                    onClick={() => { setSelectedDivisionId(d.id); setAddingPlayer(false); }}
+                    onClick={() => setPlayerDivFilter("")}
                     className={`text-sm px-4 py-1.5 rounded-full transition-colors ${
-                      selectedDivisionId === d.id
-                        ? "bg-green-700 text-white"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      playerDivFilter === "" ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                     }`}
                   >
-                    {d.name}
+                    Todas
                   </button>
-                ))}
-              </div>
+                  {divisions.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => setPlayerDivFilter(d.id)}
+                      className={`text-sm px-4 py-1.5 rounded-full transition-colors ${
+                        playerDivFilter === d.id ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      }`}
+                    >
+                      {d.name}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">
-                  {divisions.find((d) => d.id === selectedDivisionId)?.name}
+                <p className="text-sm text-gray-400">
+                  {filteredPlayers.length} jugador{filteredPlayers.length !== 1 ? "es" : ""}
                 </p>
                 {!addingPlayer && (
                   <button
-                    onClick={() => { setAddingPlayer(true); setPlayerError(null); }}
+                    onClick={openAddPlayer}
                     className="text-sm bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg transition-colors"
                   >
                     + Agregar jugador
@@ -264,6 +289,17 @@ export default function Configuracion() {
                     onChange={(e) => setPlayerForm((f) => ({ ...f, position: e.target.value }))}
                     className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
                   />
+                  <select
+                    required
+                    value={playerForm.divisionId}
+                    onChange={(e) => setPlayerForm((f) => ({ ...f, divisionId: e.target.value }))}
+                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                  >
+                    <option value="">— División —</option>
+                    {divisions.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
                   {playerError && <p className="text-red-400 text-xs">{playerError}</p>}
                   <div className="flex gap-2">
                     <button type="submit" disabled={playerSubmitting}
@@ -271,7 +307,7 @@ export default function Configuracion() {
                       {playerSubmitting ? "Guardando..." : "Guardar"}
                     </button>
                     <button type="button"
-                      onClick={() => { setAddingPlayer(false); setPlayerError(null); setPlayerForm({ name: "", position: "" }); }}
+                      onClick={() => { setAddingPlayer(false); setPlayerError(null); }}
                       className="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg transition-colors">
                       Cancelar
                     </button>
@@ -281,14 +317,23 @@ export default function Configuracion() {
 
               {loadingPlayers ? (
                 <p className="text-gray-400 text-sm">Cargando jugadores...</p>
-              ) : players.length === 0 ? (
-                <p className="text-gray-500 text-sm">No hay jugadores en esta división.</p>
+              ) : filteredPlayers.length === 0 ? (
+                <p className="text-gray-500 text-sm">
+                  {playerDivFilter ? "No hay jugadores en esta división." : "No hay jugadores todavía."}
+                </p>
               ) : (
                 <ul className="space-y-2">
-                  {players.map((p) => (
-                    <li key={p.id} className="bg-gray-800 rounded-xl px-4 py-3 flex items-center justify-between">
-                      <span className="text-white text-sm font-medium">{p.name}</span>
-                      {p.position && <span className="text-xs text-gray-400">{p.position}</span>}
+                  {filteredPlayers.map((p) => (
+                    <li key={p.id} className="bg-gray-800 rounded-xl px-4 py-3 flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-white text-sm font-medium">{p.name}</span>
+                        {p.position && <span className="text-gray-400 text-xs ml-2">{p.position}</span>}
+                      </div>
+                      {divisions.length > 1 && (
+                        <span className="text-xs text-gray-500 bg-gray-700 px-2 py-0.5 rounded-full shrink-0">
+                          {p.division_name}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -24,6 +24,15 @@ class PlayerResponse(BaseModel):
     is_active: bool
 
 
+class PlayerWithDivisionResponse(BaseModel):
+    id: uuid.UUID
+    division_id: uuid.UUID
+    division_name: str
+    name: str
+    position: Optional[str]
+    is_active: bool
+
+
 class LineupEntryCreate(BaseModel):
     player_id: uuid.UUID
     jersey_number: int

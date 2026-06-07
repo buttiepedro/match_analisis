@@ -9,8 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin, require_superadmin
 from app.core.security import get_password_hash
-from app.models import Club, User, UserRole
+from app.models import Club, Division, Player, User, UserRole
 from app.schemas.club import ClubCreate, ClubResponse
+from app.schemas.player import PlayerWithDivisionResponse
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/clubs")
@@ -148,6 +149,34 @@ async def update_user(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.get("/{club_id}/players", response_model=list[PlayerWithDivisionResponse])
+async def list_club_players(
+    club_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    club = await get_club_or_404(club_id, db)
+    assert_club_access(club, current_user)
+
+    result = await db.execute(
+        select(Player, Division.name.label("division_name"))
+        .join(Division, Player.division_id == Division.id)
+        .where(Division.club_id == club.id, Player.is_active.is_(True))
+        .order_by(Player.name)
+    )
+    return [
+        PlayerWithDivisionResponse(
+            id=p.id,
+            division_id=p.division_id,
+            division_name=div_name,
+            name=p.name,
+            position=p.position,
+            is_active=p.is_active,
+        )
+        for p, div_name in result.all()
+    ]
 
 
 @router.delete("/{club_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
