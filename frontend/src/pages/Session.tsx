@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Timer from "../components/Timer";
 import JuegoEventos from "../components/tabs/JuegoEventos";
@@ -14,8 +14,10 @@ type Tab = "tackles" | "lines" | "events";
 const TABS: { id: Tab; label: string }[] = [
   { id: "tackles", label: "Juego" },
   { id: "lines", label: "Lines & Scrum" },
-  { id: "events", label: "Eventos" },
+  { id: "events", label: "Cambios" },
 ];
+
+const TAB_ORDER: Tab[] = ["tackles", "lines", "events"];
 
 export default function Session() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +31,22 @@ export default function Session() {
 
   const [activeTab, setActiveTab] = useState<Tab>("tackles");
   const [loading, setLoading] = useState(true);
+  const touchStartX = useRef<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) < 50) return;
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    if (diff > 0 && currentIndex < TAB_ORDER.length - 1) {
+      setActiveTab(TAB_ORDER[currentIndex + 1]);
+    } else if (diff < 0 && currentIndex > 0) {
+      setActiveTab(TAB_ORDER[currentIndex - 1]);
+    }
+  };
 
   const canControl =
     user?.role === "superadmin" ||
@@ -135,7 +153,11 @@ export default function Session() {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto pb-8">
+      <div
+        className="flex-1 overflow-y-auto pb-8"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {activeTab === "tackles" && (
           <JuegoEventos sessionId={session.id} homeTeam={session.home_team} />
         )}

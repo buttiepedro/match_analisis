@@ -18,7 +18,7 @@ El tablero de una sesión tiene tres tabs de registro de eventos más el timer s
 │  [1T]  23:45  ▶ ⏸ ⏹  ↺     │  ← Timer + controles (solo admin/director)
 │  Equipo Local  vs  Visitante│
 ├─────────────────────────────┤
-│ [Juego] [Lines & Scrum] [Eventos] │  ← 3 tabs
+│ [Juego] [Lines & Scrum] [Cambios] │  ← 3 tabs (swipe para navegar)
 ├─────────────────────────────┤
 │    CONTENIDO DEL TAB        │
 ├─────────────────────────────┤
@@ -26,34 +26,49 @@ El tablero de una sesión tiene tres tabs de registro de eventos más el timer s
 └─────────────────────────────┘
 ```
 
+Navegación por swipe horizontal disponible entre los 3 tabs (umbral: 50px).
+
 ---
 
 ## Tab 1: Juego
 
-Registra eventos de ataque y defensa **siempre para el equipo del club usuario** (`team: "home"`). No hay granularidad por jugador.
+Registra eventos de ataque y defensa. El equipo se deriva automáticamente del modo activo — no hay selector manual:
+
+```typescript
+const activeTeam = mode === "attack" ? "home" : "away";
+```
+
+No hay granularidad por jugador.
 
 ### Toggle de modo
 
 Un toggle Ataque / Defensa controla qué botones se muestran. Se auto-cambia:
 - Perdida registrada → cambia a **Defensa**
 - Pelota Ganada registrada → cambia a **Ataque**
+- Try / Penal / Drop NO cambian el modo
 
 ### Vista Ataque
 
-| event_type | Descripción | Modal |
-|---|---|---|
-| `line_break` | Quiebre de línea | Ninguno — registra directo |
-| `offload` | Offload | Ninguno — registra directo |
-| `possession_lost` | Posesión perdida | Popup motivo (ver abajo) |
+| event_type | team | Descripción | Modal |
+|---|---|---|---|
+| `line_break` | `home` | Quiebre de línea | Ninguno — registra directo |
+| `offload` | `home` | Offload | Ninguno — registra directo |
+| `possession_lost` | `home` | Posesión perdida | Popup motivo (ver abajo) |
+| `penalty` | `home` | Penal | Popup motivo → opcional conversión |
+| `try` | `home` | Try | Popup conversión |
+| `drop` | `home` | Drop | Ninguno — registra directo |
 
 ### Vista Defensa
 
-| event_type | Descripción | Modal |
-|---|---|---|
-| `tackle_effective` | Tackle concretado | Ninguno — registra directo |
-| `tackle_missed` | Tackle errado | Ninguno — registra directo |
-| `tackle_positive` | Tackle positivo | Ninguno — registra directo |
-| `ball_won` | Pelota ganada | Popup motivo (ver abajo) |
+| event_type | team | Descripción | Modal |
+|---|---|---|---|
+| `tackle_effective` | `away` | Tackle concretado | Ninguno — registra directo |
+| `tackle_missed` | `away` | Tackle errado | Ninguno — registra directo |
+| `tackle_positive` | `away` | Tackle positivo | Ninguno — registra directo |
+| `ball_won` | `away` | Pelota ganada | Popup motivo (ver abajo) |
+| `penalty` | `away` | Penal | Popup motivo → opcional conversión |
+| `try` | `away` | Try | Popup conversión |
+| `drop` | `away` | Drop | Ninguno — registra directo |
 
 ### Popup de motivo (Perdida / Pelota Ganada)
 
@@ -61,7 +76,26 @@ Opciones compartidas: `ruck` | `maul` | `contacto` | `pesca` | `patada` | `knock
 
 ```
 event:   possession_lost | ball_won
-payload: { event_type, team: "home", reason: <motivo> }
+payload: { event_type, team: activeTeam, reason: <motivo> }
+```
+
+### Flujo Penal
+
+```
+Tap "Penal"
+  → Paso "reason": [Line] [Scrum] [Juega] [A los palos]
+    - Si Line/Scrum/Juega → submit inmediato
+    - Si "A los palos" → paso "conversion"
+  → Paso "conversion": [Convertido] [No] + "← Volver"
+  → submit: { event_type:"penalty", team:activeTeam, reason, metadata:{converted} }
+```
+
+### Flujo Try
+
+```
+Tap "Try"
+  → [Convertido] [No]
+  → submit: { event_type:"try", team:activeTeam, metadata:{converted} }
 ```
 
 ### Contadores en header
@@ -99,62 +133,23 @@ Calculados en tiempo real desde los eventos en el store local.
 
 ---
 
-## Tab 3: Eventos
+## Tab 3: Cambios
 
-Cubre todos los eventos de puntuación, errores y disciplina. También incluye el registro de cambios de jugadores.
+Tab simplificado — exclusivo para disciplina y cambios de jugadores. Los eventos de puntuación (Try, Penal, Drop) se registran desde Tab 1 (Juego).
 
 ### Header de estadísticas
 
 Card con:
-- **Marcador**: puntos por equipo (izquierda = local, derecha = visitante)
+- **Marcador**: puntos por equipo calculados desde eventos de Juego (izquierda = local, derecha = visitante)
 - **Tarjetas**: Amarillas y Rojas por equipo
 
-### Eventos y flujo multi-paso
-
-Cada botón abre un bottom-sheet multi-paso. El último paso auto-submite. Siempre hay "← Volver" y "Cancelar".
-
-#### Try
+### Disciplina
 ```
-Botón "Try"
-  → Paso 1: De {local} / De {visitante}
-  → Paso 2: Convertido / No
-  → submit: event_type="try", team, metadata={converted: bool}
-```
-Puntuación: 5 pts + 2 pts si convertido.
-
-#### Penal
-```
-Botón "Penal"
-  → Paso 1: De {local} / De {visitante}
-  → Paso 2: Line / Scrum / Juega / A los palos
-     - Si "A los palos": Paso 3: Convertido / No
-  → submit: event_type="penalty", team, reason, metadata={converted: bool} (solo a_los_palos)
-```
-Puntuación: 3 pts solo si `reason="a_los_palos"` y `converted=true`.
-
-#### Drop
-```
-Botón "Drop"
-  → Paso 1: De {local} / De {visitante}
-  → submit: event_type="drop", team
-```
-Puntuación: 3 pts.
-
-#### Error
-```
-Botón "Error"
-  → Paso 1: De {local} / De {visitante}
-  → Paso 2: Knock-on / Forward / Perdida en contacto
-  → submit: event_type="knock_on"|"forward_pass"|"lost_in_contact", team
+[Amarilla]  →  De {local} / De {visitante}  → submit: event_type="yellow_card", team
+[Roja]      →  De {local} / De {visitante}  → submit: event_type="red_card", team
 ```
 
-#### Disciplina
-```
-[Amarilla]  →  De {local} / De {visitante}  → submit: event_type="yellow_card"
-[Roja]      →  De {local} / De {visitante}  → submit: event_type="red_card"
-```
-
-#### Registrar Cambio
+### Registrar Cambio
 
 Botón "Registrar Cambio" abre `SubstitutionModal`. Selecciona jugador que sale (on_field) y entra (bench). Registra `event_type="substitution"` con `metadata: { player_out_name, player_out_number, player_in_name, player_in_number }`. Actualiza el estado del lineup en tiempo real.
 
@@ -162,17 +157,11 @@ Botón "Registrar Cambio" abre `SubstitutionModal`. Selecciona jugador que sale 
 
 | event_type | reason | metadata |
 |---|---|---|
-| `try` | — | `{converted: bool}` |
-| `penalty` | `line\|scrum\|juega\|a_los_palos` | `{converted: bool}` si a_los_palos |
-| `drop` | — | — |
-| `knock_on` | — | — |
-| `forward_pass` | — | — |
-| `lost_in_contact` | — | — |
 | `yellow_card` | — | — |
 | `red_card` | — | — |
 | `substitution` | — | `{player_out_name, player_out_number, player_in_name, player_in_number}` |
 
-### Cálculo de puntos
+### Cálculo de puntos (desde eventos de Juego)
 
 ```
 pts(try)              = 5 + (converted ? 2 : 0)
