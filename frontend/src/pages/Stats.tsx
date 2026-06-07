@@ -33,6 +33,7 @@ interface SessionInfo {
   away_team: string;
   scheduled_at: string | null;
   tournament_name: string;
+  division: { id: string; name: string };
 }
 
 interface LoadedSession extends SessionInfo {
@@ -653,8 +654,9 @@ export default function Stats() {
   const [clubName,   setClubName]   = useState<string>("");
   const [loading,    setLoading]    = useState(true);
   const [loadError,  setLoadError]  = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string>("all");
-  const [catFilter,  setCatFilter]  = useState<CatFilter>("all");
+  const [selectedId,     setSelectedId]     = useState<string>("all");
+  const [catFilter,      setCatFilter]      = useState<CatFilter>("all");
+  const [divisionFilter, setDivisionFilter] = useState<string>("");
   const [objectives, setObjectives] = useState<Objectives>(() => {
     try {
       const stored = localStorage.getItem(OBJECTIVES_KEY);
@@ -678,7 +680,7 @@ export default function Stats() {
       try {
         const [{ data: club }, { data: tournaments }] = await Promise.all([
           api.get<{ id: string; name: string }>(`/clubs/${clubId}`),
-          api.get<{ id: string; name: string; season: string | null }[]>(`/clubs/${clubId}/tournaments`),
+          api.get<{ id: string; name: string; season: string | null; division: { id: string; name: string } }[]>(`/clubs/${clubId}/tournaments`),
         ]);
 
         setClubName(club.name);
@@ -688,7 +690,11 @@ export default function Stats() {
             api.get<{ id: string; home_team: string; away_team: string; scheduled_at: string | null }[]>(
               `/tournaments/${t.id}/sessions`
             ).then(({ data }) =>
-              data.map((s) => ({ ...s, tournament_name: `${t.name}${t.season ? ` ${t.season}` : ""}` }))
+              data.map((s) => ({
+                ...s,
+                tournament_name: `${t.name}${t.season ? ` ${t.season}` : ""}`,
+                division: t.division,
+              }))
             ).catch(() => [])
           )
         );
@@ -709,7 +715,13 @@ export default function Stats() {
           })
         );
 
-        setSessions(loaded);
+        const sorted = loaded.sort((a, b) => {
+          if (!a.scheduled_at && !b.scheduled_at) return 0;
+          if (!a.scheduled_at) return 1;
+          if (!b.scheduled_at) return -1;
+          return new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime();
+        });
+        setSessions(sorted);
       } catch {
         setLoadError("Error al cargar estadísticas. Revisá la conexión e intentá de nuevo.");
       } finally {
@@ -718,7 +730,25 @@ export default function Stats() {
     })();
   }, [user?.club_id]);
 
-  const filteredSessions = selectedId === "all" ? sessions : sessions.filter((s) => s.id === selectedId);
+  const divisions = Array.from(
+    new Map(sessions.map((s) => [s.division.id, s.division])).values()
+  );
+
+  const sessionsInDivision = divisionFilter
+    ? sessions.filter((s) => s.division.id === divisionFilter)
+    : sessions;
+
+  const handleDivisionChange = (divId: string) => {
+    setDivisionFilter(divId);
+    if (divId && selectedId !== "all") {
+      const sel = sessions.find((s) => s.id === selectedId);
+      if (sel?.division.id !== divId) setSelectedId("all");
+    }
+  };
+
+  const filteredSessions = selectedId === "all"
+    ? sessionsInDivision
+    : sessions.filter((s) => s.id === selectedId);
 
   const allEvents: NormalizedEvent[] = filteredSessions.flatMap((s) =>
     s.events.map((e) => ({ ...e, isUserClub: e.team === s.userTeam }))
@@ -799,7 +829,7 @@ export default function Stats() {
   return (
     <div className="p-4 max-w-3xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h1 className="text-xl font-bold text-white">Estadísticas</h1>
         <select
           value={selectedId}
@@ -807,7 +837,7 @@ export default function Stats() {
           className="bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
         >
           <option value="all">Todos los partidos</option>
-          {sessions.map((s) => (
+          {sessionsInDivision.map((s) => (
             <option key={s.id} value={s.id}>
               {displayClubName} vs {s.userTeam === "home" ? s.away_team : s.home_team}
               {s.scheduled_at
@@ -817,6 +847,35 @@ export default function Stats() {
           ))}
         </select>
       </div>
+
+      {/* Division filter pills */}
+      {!loading && divisions.length > 1 && (
+        <div className="flex gap-2 mb-3 flex-wrap">
+          <button
+            onClick={() => handleDivisionChange("")}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              divisionFilter === ""
+                ? "bg-green-700 text-white"
+                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+            }`}
+          >
+            Todas
+          </button>
+          {divisions.map((d) => (
+            <button
+              key={d.id}
+              onClick={() => handleDivisionChange(d.id)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                divisionFilter === d.id
+                  ? "bg-green-700 text-white"
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+            >
+              {d.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Category filter */}
       <div className="mb-5">
