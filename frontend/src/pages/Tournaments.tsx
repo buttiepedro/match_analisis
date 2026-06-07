@@ -200,11 +200,14 @@ export default function Tournaments() {
 
       const wb = XLSX.utils.book_new();
 
+      const homeTeam = session?.home_team ?? "";
+      const awayTeam = session?.away_team ?? "";
+
       const wsInfo = XLSX.utils.aoa_to_sheet([
         ["Campo", "Valor"],
-        ["Local",     session?.home_team ?? ""],
-        ["Visitante", session?.away_team ?? ""],
-        ["Fecha",     session?.scheduled_at ? new Date(session.scheduled_at).toLocaleDateString("es-AR") : ""],
+        ["Local",  homeTeam],
+        ["Rival",  awayTeam],
+        ["Fecha",  session?.scheduled_at ? new Date(session.scheduled_at).toLocaleDateString("es-AR") : ""],
       ]);
       wsInfo["!cols"] = [{ wch: 15 }, { wch: 30 }];
       XLSX.utils.book_append_sheet(wb, wsInfo, "Partido");
@@ -215,7 +218,7 @@ export default function Tournaments() {
           e.jersey_number,
           e.player.name,
           e.position ?? e.player.position ?? "",
-          e.team === "home" ? "Local" : "Visitante",
+          e.team === "home" ? homeTeam : awayTeam,
           e.status === "on_field" ? "Titular" : "Suplente",
         ]),
       ]);
@@ -226,7 +229,7 @@ export default function Tournaments() {
         ["Tipo", "Equipo", "Razon", "Convertido"],
         ...eventsData.map((e) => [
           e.event_type,
-          e.team === "home" ? "Local" : "Visitante",
+          e.team === "home" ? homeTeam : awayTeam,
           e.reason ?? "",
           e.metadata?.converted !== undefined ? (e.metadata.converted ? "Si" : "No") : "",
         ]),
@@ -264,7 +267,7 @@ export default function Tournaments() {
       // Create session
       const { data: newSession } = await api.post<Session>(`/tournaments/${tournamentId}/sessions`, {
         home_team: clubName,
-        away_team: (infoKV["Visitante"] ?? "").trim() || "Visitante",
+        away_team: (infoKV["Rival"] ?? infoKV["Visitante"] ?? "").trim() || "Rival",
         scheduled_at: null,
         half_duration_minutes: 40,
       });
@@ -285,7 +288,7 @@ export default function Tournaments() {
               player_id: player.id,
               jersey_number: row.Camiseta ?? 0,
               position: row.Posicion || null,
-              team:   row.Equipo === "Local" ? "home" : "away",
+              team:   row.Equipo === clubName ? "home" : "away",
               status: row.Estado === "Titular" ? "on_field" : "bench",
             });
           } catch { /* skip unmatchable entries */ }
@@ -302,7 +305,7 @@ export default function Tournaments() {
           if (!row.Tipo) continue;
           const payload: Record<string, unknown> = {
             event_type: row.Tipo,
-            team: row.Equipo === "Local" ? "home" : "away",
+            team: row.Equipo === clubName ? "home" : "away",
           };
           if (row.Razon) payload.reason = row.Razon;
           if (row.Convertido === "Si" || row.Convertido === "No") {
