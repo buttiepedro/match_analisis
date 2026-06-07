@@ -49,7 +49,17 @@ interface TeamScore {
   total: number;
 }
 
-type CatFilter = "all" | "points" | "game" | "errors" | "discipline";
+type CatFilter = "all" | "points" | "game" | "errors" | "discipline" | "objectives";
+
+interface Objectives {
+  lines: number;
+  scrums: number;
+  exits: number;
+  tackles: number;
+}
+
+const OBJECTIVES_KEY = "match_analisis_objectives";
+const DEFAULT_OBJECTIVES: Objectives = { lines: 80, scrums: 80, exits: 75, tackles: 85 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -633,6 +643,7 @@ const CAT_OPTIONS: { label: string; value: CatFilter }[] = [
   { value: "game",       label: "Juego" },
   { value: "errors",     label: "Errores" },
   { value: "discipline", label: "Disciplina" },
+  { value: "objectives", label: "Objetivos" },
 ];
 
 export default function Stats() {
@@ -644,6 +655,20 @@ export default function Stats() {
   const [loadError,  setLoadError]  = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>("all");
   const [catFilter,  setCatFilter]  = useState<CatFilter>("all");
+  const [objectives, setObjectives] = useState<Objectives>(() => {
+    try {
+      const stored = localStorage.getItem(OBJECTIVES_KEY);
+      return stored ? { ...DEFAULT_OBJECTIVES, ...JSON.parse(stored) } : DEFAULT_OBJECTIVES;
+    } catch {
+      return DEFAULT_OBJECTIVES;
+    }
+  });
+
+  const updateObjective = (key: keyof Objectives, value: number) => {
+    const next = { ...objectives, [key]: Math.max(0, Math.min(100, value)) };
+    setObjectives(next);
+    localStorage.setItem(OBJECTIVES_KEY, JSON.stringify(next));
+  };
 
   useEffect(() => {
     const clubId = user?.club_id;
@@ -710,10 +735,51 @@ export default function Stats() {
   const clubEvents  = allEvents.filter((e) => e.isUserClub);
   const rivalEvents = allEvents.filter((e) => !e.isUserClub);
 
-  const showPoints = catFilter === "all" || catFilter === "points";
-  const showGame   = catFilter === "all" || catFilter === "game";
-  const showErrors = catFilter === "all" || catFilter === "errors";
-  const showDisc   = catFilter === "all" || catFilter === "discipline";
+  const showPoints     = catFilter === "all" || catFilter === "points";
+  const showGame       = catFilter === "all" || catFilter === "game";
+  const showErrors     = catFilter === "all" || catFilter === "errors";
+  const showDisc       = catFilter === "all" || catFilter === "discipline";
+  const showObjetivos  = catFilter === "objectives";
+
+  function obPct(numerator: number, denominator: number): number | null {
+    return denominator === 0 ? null : Math.round((numerator / denominator) * 100);
+  }
+
+  const linesFavor  = allEvents.filter(e => e.event_type === "lineout_favor");
+  const scrumsFavor = allEvents.filter(e => e.event_type === "scrum_favor");
+  const exitsFavor  = allEvents.filter(e => e.event_type === "exit_favor");
+  const allTackles  = allEvents.filter(e => ["tackle_effective", "tackle_missed", "tackle_positive"].includes(e.event_type));
+
+  const metrics = [
+    {
+      key: "lines" as keyof Objectives,
+      label: "Obtención en lines propios",
+      actual: obPct(linesFavor.filter(e => e.metadata?.obtained === true).length, linesFavor.length),
+      num: linesFavor.filter(e => e.metadata?.obtained === true).length,
+      den: linesFavor.length,
+    },
+    {
+      key: "scrums" as keyof Objectives,
+      label: "Obtención en scrums propios",
+      actual: obPct(scrumsFavor.filter(e => e.metadata?.obtained === true).length, scrumsFavor.length),
+      num: scrumsFavor.filter(e => e.metadata?.obtained === true).length,
+      den: scrumsFavor.length,
+    },
+    {
+      key: "exits" as keyof Objectives,
+      label: "Obtención en salidas",
+      actual: obPct(exitsFavor.filter(e => e.metadata?.obtained === true).length, exitsFavor.length),
+      num: exitsFavor.filter(e => e.metadata?.obtained === true).length,
+      den: exitsFavor.length,
+    },
+    {
+      key: "tackles" as keyof Objectives,
+      label: "Efectividad de tackles",
+      actual: obPct(allEvents.filter(e => e.event_type === "tackle_effective").length, allTackles.length),
+      num: allEvents.filter(e => e.event_type === "tackle_effective").length,
+      den: allTackles.length,
+    },
+  ];
 
   const triesOpt   = triesOption(allEvents, displayClubName, opponentName);
   const penaltyOpt = penaltyBreakdownOption(allEvents, displayClubName, opponentName);
@@ -852,6 +918,66 @@ export default function Stats() {
                 ? <ReactECharts option={cardsOpt} style={chartStyle} />
                 : <Empty msg="Sin tarjetas con jugador asociado." />}
             </Section>
+          )}
+
+          {/* ── Objetivos ────────────────────────────────────────────────── */}
+          {showObjetivos && (
+            <div className="space-y-3">
+              {metrics.map((m) => {
+                const target = objectives[m.key];
+                const isGood = m.actual !== null && m.actual >= target;
+                const barWidth = m.actual !== null ? Math.min(m.actual, 100) : 0;
+
+                return (
+                  <div key={m.key} className="bg-gray-800 rounded-xl p-4 space-y-3">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-white text-sm font-semibold">{m.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-400 text-xs">Objetivo:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={target}
+                          onChange={(e) => updateObjective(m.key, Number(e.target.value))}
+                          className="w-12 bg-gray-700 text-white text-xs text-center rounded-lg px-1.5 py-1 outline-none focus:ring-1 focus:ring-green-600"
+                        />
+                        <span className="text-gray-400 text-xs">%</span>
+                      </div>
+                    </div>
+
+                    {/* Actual value + bar */}
+                    <div className="flex items-center gap-4">
+                      <span className={`text-3xl font-bold w-16 shrink-0 ${
+                        m.actual === null ? "text-gray-600" : isGood ? "text-green-400" : "text-red-400"
+                      }`}>
+                        {m.actual === null ? "—" : `${m.actual}%`}
+                      </span>
+
+                      <div className="flex-1 space-y-1">
+                        {/* Bar */}
+                        <div className="relative h-3 bg-gray-700 rounded-full overflow-visible">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${isGood ? "bg-green-500" : "bg-red-500"}`}
+                            style={{ width: `${barWidth}%` }}
+                          />
+                          {/* Target marker */}
+                          <div
+                            className="absolute top-[-3px] bottom-[-3px] w-0.5 bg-white/50 rounded-full"
+                            style={{ left: `${target}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {m.den === 0 ? "Sin datos" : `${m.num} de ${m.den}`}
+                          <span className="ml-2 text-gray-600">· objetivo {target}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           {/* ── Timeline (solo "Todos", partido específico) ─────────────── */}
