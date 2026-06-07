@@ -36,7 +36,6 @@ const STATUS_COLOR: Record<string, string> = {
 
 const EMPTY_FORM = {
   tournament_id: "",
-  home_team: "",
   away_team: "",
   scheduled_at: "",
   half_duration_minutes: "40",
@@ -47,6 +46,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const canCreate = user?.role === "club_admin" || user?.role === "superadmin";
 
+  const [clubName, setClubName] = useState("");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +77,11 @@ export default function Dashboard() {
     if (!clubId) { setLoading(false); return; }
 
     try {
-      const { data: tours } = await api.get<Tournament[]>(`/clubs/${clubId}/tournaments`);
+      const [{ data: club }, { data: tours }] = await Promise.all([
+        api.get<{ id: string; name: string }>(`/clubs/${clubId}`),
+        api.get<Tournament[]>(`/clubs/${clubId}/tournaments`),
+      ]);
+      setClubName(club.name);
       setTournaments(tours);
 
       const groups = await Promise.all(
@@ -109,7 +113,7 @@ export default function Dashboard() {
       const { data } = await api.post<Session>(
         `/tournaments/${form.tournament_id}/sessions`,
         {
-          home_team: form.home_team,
+          home_team: clubName,
           away_team: form.away_team,
           scheduled_at: form.scheduled_at || null,
           half_duration_minutes: parseInt(form.half_duration_minutes, 10),
@@ -251,16 +255,13 @@ export default function Dashboard() {
                     </option>
                   ))}
                 </select>
+                <div className="w-full bg-gray-700/50 rounded-lg px-3 py-2.5 flex items-center gap-2">
+                  <span className="text-xs text-gray-400">Tu equipo:</span>
+                  <span className="text-white text-sm font-medium">{clubName}</span>
+                </div>
                 <input
                   required
-                  placeholder="Equipo local"
-                  value={form.home_team}
-                  onChange={(e) => setForm((f) => ({ ...f, home_team: e.target.value }))}
-                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
-                />
-                <input
-                  required
-                  placeholder="Equipo visitante"
+                  placeholder="Rival"
                   value={form.away_team}
                   onChange={(e) => setForm((f) => ({ ...f, away_team: e.target.value }))}
                   className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"

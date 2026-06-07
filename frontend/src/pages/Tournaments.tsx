@@ -33,12 +33,13 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const EMPTY_TOURNAMENT_FORM = { name: "", division_id: "", season: "" };
-const EMPTY_SESSION_FORM = { home_team: "", away_team: "", scheduled_at: "", half_duration_minutes: "40" };
+const EMPTY_SESSION_FORM = { away_team: "", scheduled_at: "", half_duration_minutes: "40" };
 
 export default function Tournaments() {
   const clubId = useAuthStore((s) => s.user?.club_id);
   const navigate = useNavigate();
 
+  const [clubName, setClubName] = useState("");
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,9 +80,11 @@ export default function Tournaments() {
   useEffect(() => {
     if (!clubId) return;
     Promise.all([
+      api.get<{ id: string; name: string }>(`/clubs/${clubId}`),
       api.get<Division[]>(`/clubs/${clubId}/divisions`),
       api.get<Tournament[]>(`/clubs/${clubId}/tournaments`),
-    ]).then(([dRes, tRes]) => {
+    ]).then(([cRes, dRes, tRes]) => {
+      setClubName(cRes.data.name);
       setDivisions(dRes.data);
       setTournaments(tRes.data);
       if (EMPTY_TOURNAMENT_FORM.division_id === "" && dRes.data.length > 0) {
@@ -136,7 +139,7 @@ export default function Tournaments() {
     setSError(null);
     try {
       const { data } = await api.post<Session>(`/tournaments/${tournamentId}/sessions`, {
-        home_team: sForm.home_team,
+        home_team: clubName,
         away_team: sForm.away_team,
         scheduled_at: sForm.scheduled_at || null,
         half_duration_minutes: parseInt(sForm.half_duration_minutes, 10),
@@ -253,21 +256,18 @@ export default function Tournaments() {
 
                   {addingSessionFor === t.id ? (
                     <form onSubmit={(e) => handleCreateSession(e, t.id)} className="space-y-2 mt-2">
+                      <div className="flex items-center gap-2 bg-gray-600/50 rounded-lg px-3 py-2">
+                        <span className="text-xs text-gray-400">Tu equipo:</span>
+                        <span className="text-white text-sm font-medium">{clubName}</span>
+                      </div>
+                      <input
+                        required
+                        placeholder="Rival"
+                        value={sForm.away_team}
+                        onChange={(e) => setSForm((f) => ({ ...f, away_team: e.target.value }))}
+                        className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                      />
                       <div className="grid grid-cols-2 gap-2">
-                        <input
-                          required
-                          placeholder="Equipo local"
-                          value={sForm.home_team}
-                          onChange={(e) => setSForm((f) => ({ ...f, home_team: e.target.value }))}
-                          className="bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
-                        />
-                        <input
-                          required
-                          placeholder="Equipo visitante"
-                          value={sForm.away_team}
-                          onChange={(e) => setSForm((f) => ({ ...f, away_team: e.target.value }))}
-                          className="bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
-                        />
                         <input
                           type="datetime-local"
                           value={sForm.scheduled_at}
