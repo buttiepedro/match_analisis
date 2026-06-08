@@ -49,12 +49,15 @@ def _parse_lineup_table(rows: list) -> list[dict]:
         nombre_raw = cells[2] if len(cells) > 2 else ""
         if not nombre_raw:
             continue
+        raw_doc = cells[3] if len(cells) > 3 else ""
+        doc_num = re.sub(r"\D", "", raw_doc)
         players.append({
             "pos": pos,
             "dor": dor,
             "nombre_pdf": nombre_raw,
             "nombre_norm": _normalize_name(nombre_raw),
             "status": "on_field" if pos <= 15 else "bench",
+            "doc_num": doc_num,
         })
     return players
 
@@ -235,6 +238,7 @@ class _LineupEntry(BaseModel):
     position: Optional[str] = None
     team: Literal["user", "rival"] = "user"
     status: Literal["on_field", "bench"] = "on_field"
+    dni: Optional[str] = None
 
 
 class _EventEntry(BaseModel):
@@ -287,6 +291,8 @@ async def import_confirm(
         )
         if not player:
             raise HTTPException(status_code=404, detail=f"Jugador {entry.player_id} no encontrado")
+        if entry.dni and not player.dni:
+            player.dni = entry.dni
         db.add(MatchLineup(
             id=uuid.uuid4(),
             session_id=session.id,

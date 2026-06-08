@@ -3,6 +3,7 @@ import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 import { RUGBY_POSITIONS } from "../lib/rugby";
+import UnifyPlayersModal from "../components/UnifyPlayersModal";
 
 interface Division {
   id: string;
@@ -13,6 +14,7 @@ interface Player {
   id: string;
   name: string;
   position: string | null;
+  dni: string | null;
   is_active: boolean;
 }
 
@@ -31,6 +33,8 @@ export default function Players() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [unifyKeepPlayer, setUnifyKeepPlayer] = useState<Player | null>(null);
 
   useEffect(() => {
     if (!clubId) return;
@@ -168,13 +172,41 @@ export default function Players() {
         <ul className="space-y-2">
           {players.map((p) => (
             <li key={p.id} className="bg-gray-800 rounded-xl px-4 py-3 flex items-center justify-between">
-              <span className="text-white text-sm font-medium">{p.name}</span>
-              {p.position && (
-                <span className="text-xs text-gray-400">{p.position}</span>
-              )}
+              <div>
+                <span className="text-white text-sm font-medium">{p.name}</span>
+                {p.dni && <span className="block text-xs text-gray-500">DNI {p.dni}</span>}
+              </div>
+              <div className="flex items-center gap-3">
+                {p.position && (
+                  <span className="text-xs text-gray-400">{p.position}</span>
+                )}
+                {players.length >= 2 && (
+                  <button
+                    onClick={() => setUnifyKeepPlayer(p)}
+                    className="text-xs text-gray-500 hover:text-yellow-400 transition-colors"
+                    title="Unificar con otro jugador"
+                  >
+                    Unificar →
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
+      )}
+
+      {unifyKeepPlayer && (
+        <UnifyPlayersModal
+          isOpen={true}
+          keepPlayer={unifyKeepPlayer}
+          allPlayers={players}
+          divisionId={selectedDivisionId}
+          onDone={(absorbedId) => {
+            setPlayers((prev) => prev.filter((p) => p.id !== absorbedId));
+            setUnifyKeepPlayer(null);
+          }}
+          onClose={() => setUnifyKeepPlayer(null)}
+        />
       )}
     </div>
   );

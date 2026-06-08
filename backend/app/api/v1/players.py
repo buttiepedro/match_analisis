@@ -2,12 +2,13 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from pydantic import BaseModel
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin
-from app.models import Division, Player, User
+from app.models import Division, Event, MatchLineup, Player, User
 from app.schemas.player import PlayerCreate, PlayerResponse, PlayerUpdate
 
 router = APIRouter(prefix="/divisions")
@@ -36,6 +37,7 @@ async def create_player(
         division_id=division.id,
         name=body.name,
         position=body.position,
+        dni=body.dni or None,
     )
     db.add(player)
     await db.commit()
@@ -83,6 +85,8 @@ async def update_player(
         player.name = body.name
     if body.position is not None:
         player.position = body.position
+    if body.dni is not None:
+        player.dni = body.dni or None
     if body.is_active is not None:
         player.is_active = body.is_active
     if body.division_id is not None:
@@ -115,3 +119,65 @@ async def delete_player(
 
     player.is_active = False
     await db.commit()
+
+
+class AbsorbRequest(BaseModel):
+    target_id: uuid.UUID
+
+
+@router.post("/{division_id}/players/{player_id}/absorb", response_model=PlayerResponse)
+async def absorb_player(
+    division_id: uuid.UUID,
+    player_id: uuid.UUID,
+    body: AbsorbRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_club_admin)],
+):
+    division = await _get_division_or_404(division_id, db)
+    club = await get_club_or_404(division.club_id, db)
+    assert_club_access(club, current_user)
+
+    keeper = await db.scalar(
+        select(Player).where(Player.id == player_id, Player.is_active.is_(True))
+    )
+    if not keeper:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jugador a mantener no encontrado")
+
+    target = await db.scalar(
+        select(Player).where(Player.id == body.target_id, Player.is_active.is_(True))
+    )
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jugador a absorber no encontrado")
+
+    if keeper.id == target.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se puede unificar un jugador consigo mismo")
+
+    # Verify both belong to the same club via their divisions
+    target_div = await db.scalar(select(Division).where(Division.id == target.division_id))
+    if not target_div or target_div.club_id != division.club_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Los jugadores deben pertenecer al mismo club")
+
+    # Reassign all lineup entries from target to keeper
+    await db.execute(
+        update(MatchLineup)
+        .where(MatchLineup.player_id == target.id)
+        .values(player_id=keeper.id)
+    )
+
+    # Reassign all event entries from target to keeper
+    await db.execute(
+        update(Event)
+        .where(Event.player_id == target.id)
+        .values(player_id=keeper.id)
+    )
+
+    # Copy DNI from target to keeper if keeper has none
+    if not keeper.dni and target.dni:
+        keeper.dni = target.dni
+
+    # Soft-delete the absorbed player
+    target.is_active = False
+
+    await db.commit()
+    await db.refresh(keeper)
+    return keeper

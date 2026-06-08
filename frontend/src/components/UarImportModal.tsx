@@ -23,6 +23,7 @@ interface PdfPlayer {
   nombre_pdf: string;
   nombre_norm: string;
   status: "on_field" | "bench";
+  doc_num: string;
 }
 
 interface PdfEvent {
@@ -54,6 +55,7 @@ interface DbPlayer {
   id: string;
   name: string;
   position: string | null;
+  dni: string | null;
 }
 
 interface Resolution {
@@ -170,11 +172,15 @@ export default function UarImportModal({
 
       const userLineup = side === "local" ? matchData.lineup_local : matchData.lineup_visitante;
       const resolvedList: Resolution[] = userLineup.map((p) => {
-        const pNorm = p.nombre_norm;
-        const match = players.find((db) => {
-          const dbNorm = db.name.toLowerCase().trim();
-          return dbNorm === pNorm || dbNorm.includes(pNorm) || pNorm.includes(dbNorm);
-        });
+        let match = p.doc_num
+          ? players.find((db) => db.dni === p.doc_num)
+          : undefined;
+        if (!match) {
+          match = players.find((db) => {
+            const dbNorm = db.name.toLowerCase().trim();
+            return dbNorm === p.nombre_norm || dbNorm.includes(p.nombre_norm) || p.nombre_norm.includes(dbNorm);
+          });
+        }
         return { pdfPlayer: p, dbPlayerId: match?.id ?? null };
       });
 
@@ -206,6 +212,7 @@ export default function UarImportModal({
       const { data: newPlayer } = await api.post<DbPlayer>(`/divisions/${divisionId}/players`, {
         name: titleCase(currentRes.pdfPlayer.nombre_norm),
         position: null,
+        dni: currentRes.pdfPlayer.doc_num || null,
       });
       const updated = resolutions.map((r) =>
         r.pdfPlayer.pos === currentRes.pdfPlayer.pos ? { ...r, dbPlayerId: newPlayer.id } : r
@@ -242,6 +249,7 @@ export default function UarImportModal({
           jersey_number: r.pdfPlayer.dor,
           status: r.pdfPlayer.status,
           team: "user",
+          dni: r.pdfPlayer.doc_num || null,
         }));
 
       const mapEvents = (evs: PdfEvent[], team: "user" | "rival") =>
@@ -407,7 +415,12 @@ export default function UarImportModal({
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 w-5 text-right">{r.pdfPlayer.dor}</span>
-                        <span className="text-sm text-white">{titleCase(r.pdfPlayer.nombre_norm)}</span>
+                        <div>
+                          <span className="text-sm text-white">{titleCase(r.pdfPlayer.nombre_norm)}</span>
+                          {r.pdfPlayer.doc_num && (
+                            <span className="block text-xs text-gray-500">DNI {r.pdfPlayer.doc_num}</span>
+                          )}
+                        </div>
                         <span className="text-xs text-gray-500">
                           {r.pdfPlayer.status === "on_field" ? "Titular" : "Suplente"}
                         </span>

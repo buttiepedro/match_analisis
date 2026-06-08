@@ -6,11 +6,13 @@ from pydantic import BaseModel, ConfigDict
 class PlayerCreate(BaseModel):
     name: str
     position: Optional[str] = None
+    dni: Optional[str] = None
 
 
 class PlayerUpdate(BaseModel):
     name: Optional[str] = None
     position: Optional[str] = None
+    dni: Optional[str] = None
     is_active: Optional[bool] = None
     division_id: Optional[uuid.UUID] = None
 
@@ -22,6 +24,7 @@ class PlayerResponse(BaseModel):
     division_id: uuid.UUID
     name: str
     position: Optional[str]
+    dni: Optional[str]
     is_active: bool
 
 
