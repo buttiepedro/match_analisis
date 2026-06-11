@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import boto3
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
@@ -19,6 +20,32 @@ from app.core.security import get_password_hash
 from app.models import User, UserRole
 
 
+def _configure_s3_cors() -> None:
+    if not (settings.AWS_S3_BUCKET and settings.AWS_ACCESS_KEY_ID):
+        return
+    try:
+        s3 = boto3.client(
+            "s3",
+            region_name=settings.AWS_REGION,
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        )
+        s3.put_bucket_cors(
+            Bucket=settings.AWS_S3_BUCKET,
+            CORSConfiguration={
+                "CORSRules": [{
+                    "AllowedHeaders": ["*"],
+                    "AllowedMethods": ["GET", "HEAD"],
+                    "AllowedOrigins": ["*"],
+                    "MaxAgeSeconds": 86400,
+                }]
+            },
+        )
+        print("[s3] CORS policy configured.", flush=True)
+    except Exception as e:
+        print(f"[s3] Could not configure CORS (non-fatal): {e}", flush=True)
+
+
 async def seed_superadmin() -> None:
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User).where(User.email == settings.SUPERADMIN_EMAIL))
@@ -36,6 +63,7 @@ async def seed_superadmin() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _configure_s3_cors()
     await seed_superadmin()
     yield
 

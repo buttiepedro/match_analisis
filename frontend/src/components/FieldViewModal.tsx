@@ -64,11 +64,25 @@ const POSITION_COORDS: Record<number, { x: number; y: number }> = {
   15: { x: 50, y: 75 },
 };
 
-function abbrevName(fullName: string): string {
+function lastName(fullName: string): string {
   const parts = fullName.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0];
-  const initials = parts.slice(0, -1).map((p) => p[0].toUpperCase() + ".").join(" ");
-  return `${initials} ${parts[parts.length - 1]}`;
+  return parts[parts.length - 1];
+}
+
+async function toDataUrl(url: string): Promise<string | null> {
+  try {
+    const resp = await fetch(url, { mode: "cors", cache: "force-cache" });
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
 function formatDate(iso: string | null): string {
@@ -150,13 +164,30 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
   async function handleExportPDF() {
     if (!printRef.current || !session) return;
     setExporting(true);
+
+    const svgEl = printRef.current.querySelector("svg");
+    const imgEls = svgEl ? Array.from(svgEl.querySelectorAll("image")) : [];
+    const origHrefs = imgEls.map((el) => el.getAttribute("href") ?? "");
+
     try {
+      // Pre-load S3 images as data URLs so html2canvas can render them
+      // (html2canvas can't fetch cross-origin images without CORS headers)
+      await Promise.all(
+        imgEls.map(async (el, i) => {
+          const href = origHrefs[i];
+          if (!href || href.startsWith("data:")) return;
+          const dataUrl = await toDataUrl(href);
+          if (dataUrl) el.setAttribute("href", dataUrl);
+        }),
+      );
+
       const canvas = await html2canvas(printRef.current, {
         backgroundColor: "#111827",
         scale: 2,
         useCORS: true,
         logging: false,
       });
+
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
@@ -169,9 +200,12 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
       const safe = (s: string) => s.replace(/[^a-z0-9áéíóúñ\s]/gi, "").trim().replace(/\s+/g, "_");
       const dateStr = session.scheduled_at ? session.scheduled_at.slice(0, 10) : "sin_fecha";
       pdf.save(`formacion_${safe(session.home_team)}_vs_${safe(session.away_team)}_${dateStr}.pdf`);
-    } catch {
+    } catch (err) {
+      console.error("PDF export error:", err);
       alert("Error al exportar PDF");
     } finally {
+      // Always restore original hrefs
+      imgEls.forEach((el, i) => el.setAttribute("href", origHrefs[i]));
       setExporting(false);
     }
   }
@@ -266,7 +300,6 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
                         const cx = (coords.x / 100) * fieldW;
                         const cy = (coords.y / 100) * fieldH;
                         const isSelected = selected === player.jersey_number;
-                        const posLabel = player.position ?? positionByJersey(slot) ?? "";
                         const imgSrc = photoSrc(player.player.profile_photo_url);
                         const r = 20;
 
@@ -322,23 +355,14 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
                                 </text>
                               </>
                             )}
-                            {/* Player name below circle */}
+                            {/* Player last name below circle */}
                             <text
-                              x={cx} y={cy + r + 9}
+                              x={cx} y={cy + r + 8}
                               textAnchor="middle" dominantBaseline="middle"
-                              fill="#d1fae5" fontSize="8.5"
+                              fill="#d1fae5" fontSize="8"
                               style={{ fontFamily: "system-ui, sans-serif", userSelect: "none" }}
                             >
-                              {abbrevName(player.player.name)}
-                            </text>
-                            {/* Position label above circle */}
-                            <text
-                              x={cx} y={cy - r - 7}
-                              textAnchor="middle" dominantBaseline="middle"
-                              fill="#6ee7b7" fontSize="7.5"
-                              style={{ fontFamily: "system-ui, sans-serif", userSelect: "none" }}
-                            >
-                              {posLabel}
+                              {lastName(player.player.name)}
                             </text>
                           </g>
                         );
