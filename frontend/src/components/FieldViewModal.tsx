@@ -257,22 +257,6 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
                       <line x1={fieldW/2 + 12} y1={fieldH-10} x2={fieldW/2 + 12} y2={fieldH-32} stroke="#22c55e" strokeWidth="1.5" opacity="0.6" />
                       <line x1={fieldW/2 - 12} y1={fieldH-32} x2={fieldW/2 + 12} y2={fieldH-32} stroke="#22c55e" strokeWidth="1.5" opacity="0.6" />
 
-                      {/* clipPath defs for circular photos */}
-                      <defs>
-                        {Object.entries(POSITION_COORDS).map(([slotStr, coords]) => {
-                          const slot = Number(slotStr);
-                          const player = slotToPlayer[slot];
-                          if (!player || !photoSrc(player.player.profile_photo_url)) return null;
-                          const cx = (coords.x / 100) * fieldW;
-                          const cy = (coords.y / 100) * fieldH;
-                          return (
-                            <clipPath key={`clip-${slot}`} id={`clip-${slot}`}>
-                              <circle cx={cx} cy={cy} r="20" />
-                            </clipPath>
-                          );
-                        })}
-                      </defs>
-
                       {/* Players */}
                       {Object.entries(POSITION_COORDS).map(([slotStr, coords]) => {
                         const slot = Number(slotStr);
@@ -306,13 +290,12 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
                               />
                             )}
                             {imgSrc ? (
-                              /* Photo */
+                              /* Photo — no clip, PNG transparency shows through */
                               <image
                                 href={imgSrc}
                                 x={cx - r} y={cy - r}
                                 width={r * 2} height={r * 2}
-                                clipPath={`url(#clip-${slot})`}
-                                preserveAspectRatio="xMidYMid slice"
+                                preserveAspectRatio="xMidYMid meet"
                               />
                             ) : (
                               /* Jersey number fallback */
