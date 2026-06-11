@@ -6,6 +6,7 @@ import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 import UarImportModal from "../components/UarImportModal";
+import FieldViewModal from "../components/FieldViewModal";
 
 interface LineupEntryFull {
   id: string;
@@ -99,6 +100,9 @@ export default function Tournaments() {
   const [editSessionError, setEditSessionError] = useState<string | null>(null);
 
   const [uarImportOpen, setUarImportOpen] = useState(false);
+
+  const [fieldViewSessionId, setFieldViewSessionId] = useState<string | null>(null);
+  const [openMenuSession, setOpenMenuSession] = useState<string | null>(null);
 
   const handleDeleteSession = async (sessionId: string, tournamentId: string) => {
     setDeletingSession(sessionId);
@@ -563,79 +567,126 @@ export default function Tournaments() {
                     <p className="text-gray-500 text-sm mb-3">Sin partidos.</p>
                   ) : (
                     <ul className="space-y-2 mb-3">
-                      {(sessionsMap[t.id] ?? []).map((s) => (
-                        <li key={s.id} className="bg-gray-700 rounded-lg overflow-hidden">
+                      {(sessionsMap[t.id] ?? []).map((s) => {
+                        const statusColors: Record<string, string> = {
+                          active:    "bg-green-900/60 text-green-300",
+                          halftime:  "bg-yellow-900/60 text-yellow-300",
+                          finished:  "bg-gray-700 text-gray-400",
+                          scheduled: "bg-blue-900/40 text-blue-300",
+                        };
+                        const dateStr = s.scheduled_at
+                          ? new Date(s.scheduled_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })
+                          : null;
+                        const timeStr = s.scheduled_at
+                          ? new Date(s.scheduled_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+                          : null;
+
+                        return (
+                        <li key={s.id} className="bg-gray-700 rounded-xl overflow-visible">
+
+                          {/* Info row */}
                           <button
                             onClick={() => navigate(`/sessions/${s.id}`)}
-                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-600 transition-colors"
+                            className="w-full px-4 pt-3 pb-2 text-left hover:bg-gray-600/40 transition-colors rounded-t-xl"
                           >
-                            <span className="text-sm text-white">
-                              {s.home_team} vs {s.away_team}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              {STATUS_LABEL[s.status] ?? s.status}
-                            </span>
-                          </button>
-                          <div className="border-t border-gray-600 px-3 py-1.5 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <button
-                                onClick={() => navigate(`/sessions/${s.id}/lineup`)}
-                                className="text-xs text-green-400 hover:text-green-300 transition-colors"
-                              >
-                                Alineación →
-                              </button>
-                              <button
-                                onClick={() => exportPlanilla(s.id)}
-                                disabled={exportingSession === s.id}
-                                className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50 transition-colors"
-                              >
-                                {exportingSession === s.id ? "..." : "Planilla ↓"}
-                              </button>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <span className="text-white font-semibold text-sm">{s.home_team}</span>
+                                <span className="text-gray-400 text-sm mx-1.5">vs</span>
+                                <span className="text-white font-semibold text-sm">{s.away_team}</span>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {dateStr && (
+                                  <span className="text-xs text-gray-400">{dateStr}{timeStr ? ` · ${timeStr}` : ""}</span>
+                                )}
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[s.status] ?? "bg-gray-600 text-gray-300"}`}>
+                                  {STATUS_LABEL[s.status] ?? s.status}
+                                </span>
+                              </div>
                             </div>
-                            {confirmDeleteSession === s.id ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-400">¿Eliminar?</span>
-                                <button
-                                  onClick={() => handleDeleteSession(s.id, t.id)}
-                                  disabled={deletingSession === s.id}
-                                  className="text-xs bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white px-2 py-0.5 rounded transition-colors"
-                                >
-                                  {deletingSession === s.id ? "..." : "Sí"}
-                                </button>
-                                <button
-                                  onClick={() => setConfirmDeleteSession(null)}
-                                  className="text-xs text-gray-400 hover:text-white transition-colors"
-                                >
-                                  No
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-3">
-                                <button
-                                  onClick={() => {
-                                    setEditingSessionId(s.id);
-                                    setEditSessionError(null);
-                                    setEditSessionForm({
-                                      away_team: s.away_team,
-                                      scheduled_at: s.scheduled_at ? s.scheduled_at.slice(0, 16) : "",
-                                      tournament_id: t.id,
-                                    });
-                                  }}
-                                  className="text-xs text-gray-500 hover:text-white transition-colors"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={() => setConfirmDeleteSession(s.id)}
-                                  className="text-xs text-gray-600 hover:text-red-400 transition-colors"
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
-                            )}
+                          </button>
+
+                          {/* Actions row */}
+                          <div className="border-t border-gray-600/50 px-3 py-2 flex items-center gap-1.5">
+                            <button
+                              onClick={() => { setFieldViewSessionId(s.id); setOpenMenuSession(null); }}
+                              className="text-xs bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
+                            >
+                              Cancha
+                            </button>
+                            <button
+                              onClick={() => navigate(`/sessions/${s.id}/lineup`)}
+                              className="text-xs bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Alineación
+                            </button>
+                            <button
+                              onClick={() => exportPlanilla(s.id)}
+                              disabled={exportingSession === s.id}
+                              className="text-xs bg-gray-600 hover:bg-gray-500 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              {exportingSession === s.id ? "..." : "Planilla ↓"}
+                            </button>
+
+                            {/* ··· menu */}
+                            <div className="ml-auto relative">
+                              <button
+                                onClick={() => setOpenMenuSession(openMenuSession === s.id ? null : s.id)}
+                                className="text-xs text-gray-400 hover:text-white px-2 py-1.5 rounded-lg transition-colors"
+                              >
+                                ···
+                              </button>
+                              {openMenuSession === s.id && (
+                                <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-600 rounded-xl shadow-xl z-20 py-1 min-w-[120px]">
+                                  <button
+                                    onClick={() => {
+                                      setEditingSessionId(s.id);
+                                      setEditSessionError(null);
+                                      setEditSessionForm({
+                                        away_team: s.away_team,
+                                        scheduled_at: s.scheduled_at ? s.scheduled_at.slice(0, 16) : "",
+                                        tournament_id: t.id,
+                                      });
+                                      setOpenMenuSession(null);
+                                    }}
+                                    className="w-full text-left text-xs text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 transition-colors"
+                                  >
+                                    Editar
+                                  </button>
+                                  {confirmDeleteSession === s.id ? (
+                                    <div className="px-3 py-2 border-t border-gray-700">
+                                      <p className="text-xs text-gray-400 mb-2">¿Confirmar?</p>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => handleDeleteSession(s.id, t.id)}
+                                          disabled={deletingSession === s.id}
+                                          className="text-xs bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white px-3 py-1 rounded transition-colors"
+                                        >
+                                          {deletingSession === s.id ? "..." : "Sí"}
+                                        </button>
+                                        <button
+                                          onClick={() => { setConfirmDeleteSession(null); setOpenMenuSession(null); }}
+                                          className="text-xs text-gray-400 hover:text-white transition-colors"
+                                        >
+                                          No
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setConfirmDeleteSession(s.id)}
+                                      className="w-full text-left text-xs text-red-400 hover:text-red-300 hover:bg-gray-700 px-4 py-2 transition-colors border-t border-gray-700"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
+
                           {editingSessionId === s.id && (
-                            <div className="border-t border-gray-600 px-3 py-3 space-y-2">
+                            <div className="border-t border-gray-600/50 px-3 py-3 space-y-2">
                               <input
                                 placeholder="Rival"
                                 value={editSessionForm.away_team}
@@ -676,7 +727,8 @@ export default function Tournaments() {
                             </div>
                           )}
                         </li>
-                      ))}
+                      );
+                      })}
                     </ul>
                   )}
 
@@ -743,6 +795,24 @@ export default function Tournaments() {
           ))}
         </div>
       )}
+
+      {/* Field view modal */}
+      {(() => {
+        const fvSession = fieldViewSessionId
+          ? Object.values(sessionsMap).flat().find((s) => s.id === fieldViewSessionId) ?? null
+          : null;
+        const fvTournament = fvSession
+          ? tournaments.find((t) => t.id === fvSession.tournament_id) ?? null
+          : null;
+        return (
+          <FieldViewModal
+            isOpen={fieldViewSessionId !== null}
+            session={fvSession}
+            tournament={fvTournament}
+            onClose={() => { setFieldViewSessionId(null); setOpenMenuSession(null); }}
+          />
+        );
+      })()}
 
       {/* UAR import modal */}
       <UarImportModal

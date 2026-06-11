@@ -23,6 +23,7 @@ class Player(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     position: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     dni: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    profile_photo_url: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

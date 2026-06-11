@@ -25,6 +25,7 @@ class PlayerResponse(BaseModel):
     name: str
     position: Optional[str]
     dni: Optional[str]
+    profile_photo_url: Optional[str] = None
     is_active: bool
 
 
