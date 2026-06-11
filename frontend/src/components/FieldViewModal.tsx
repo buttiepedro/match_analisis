@@ -40,22 +40,28 @@ interface Props {
 }
 
 // Fixed rugby formation coordinates (x%, y%) within the SVG field area
+// Layout: scrum at top, backs at bottom — same orientation as the image reference
 const POSITION_COORDS: Record<number, { x: number; y: number }> = {
-  1:  { x: 35, y: 20 },
-  2:  { x: 50, y: 17 },
-  3:  { x: 65, y: 20 },
-  4:  { x: 40, y: 29 },
-  5:  { x: 60, y: 29 },
-  6:  { x: 30, y: 38 },
-  7:  { x: 70, y: 38 },
-  8:  { x: 50, y: 40 },
-  9:  { x: 50, y: 50 },
-  10: { x: 65, y: 58 },
-  11: { x: 13, y: 64 },
-  12: { x: 40, y: 64 },
-  13: { x: 60, y: 64 },
-  14: { x: 87, y: 64 },
-  15: { x: 50, y: 78 },
+  // Front row
+  2:  { x: 50, y: 13 },
+  1:  { x: 34, y: 16 },
+  3:  { x: 66, y: 16 },
+  // Locks
+  4:  { x: 40, y: 26 },
+  5:  { x: 60, y: 26 },
+  // Back row — flankers wide, 8 in the middle
+  6:  { x: 19, y: 36 },
+  8:  { x: 50, y: 38 },
+  7:  { x: 81, y: 36 },
+  // Halfbacks
+  9:  { x: 36, y: 50 },
+  10: { x: 64, y: 53 },
+  // Backs line — wings at the edges, centers inside, fullback deepest
+  11: { x: 9,  y: 65 },
+  12: { x: 30, y: 64 },
+  13: { x: 70, y: 64 },
+  14: { x: 91, y: 65 },
+  15: { x: 50, y: 75 },
 };
 
 function abbrevName(fullName: string): string {
@@ -170,8 +176,8 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
     }
   }
 
-  const fieldW = 340;
-  const fieldH = 520;
+  const fieldW = 360;
+  const fieldH = 540;
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
