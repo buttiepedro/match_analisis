@@ -10,7 +10,6 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   ],
   club_admin: [
     { label: "Torneos",       path: "/tournaments" },
-    { label: "Jugadores",     path: "/players" },
     { label: "Estadísticas",  path: "/stats" },
     { label: "Configuración", path: "/config" },
   ],

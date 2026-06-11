@@ -296,13 +296,15 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
                             {isSelected && (
                               <circle cx={cx} cy={cy} r={r + 5} fill="none" stroke="#fbbf24" strokeWidth="2.5" opacity="0.9" />
                             )}
-                            {/* Player circle background */}
-                            <circle
-                              cx={cx} cy={cy} r={r}
-                              fill={imgSrc ? "none" : (isSelected ? "#064e3b" : "#065f46")}
-                              stroke={isSelected ? "#fbbf24" : "#34d399"}
-                              strokeWidth={isSelected ? "2.5" : "1.5"}
-                            />
+                            {/* Player circle background — only shown when no photo */}
+                            {!imgSrc && (
+                              <circle
+                                cx={cx} cy={cy} r={r}
+                                fill={isSelected ? "#064e3b" : "#065f46"}
+                                stroke={isSelected ? "#fbbf24" : "#34d399"}
+                                strokeWidth={isSelected ? "2.5" : "1.5"}
+                              />
+                            )}
                             {imgSrc ? (
                               /* Photo */
                               <image

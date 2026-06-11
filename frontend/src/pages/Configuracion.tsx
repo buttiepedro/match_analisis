@@ -4,6 +4,8 @@ import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 import { RUGBY_POSITIONS } from "../lib/rugby";
+import CropModal from "../components/CropModal";
+import UnifyPlayersModal from "../components/UnifyPlayersModal";
 
 type ConfigTab = "divisions" | "players" | "users";
 
@@ -14,7 +16,27 @@ interface PlayerWithDivision {
   division_name: string;
   name: string;
   position: string | null;
+  dni: string | null;
+  profile_photo_url: string | null;
   is_active: boolean;
+}
+
+function PlayerAvatar({ player, size = 38 }: { player: PlayerWithDivision; size?: number }) {
+  const src = player.profile_photo_url ?? null;
+  return (
+    <div
+      className="rounded-full overflow-hidden bg-gray-700 flex items-center justify-center flex-shrink-0"
+      style={{ width: size, height: size }}
+    >
+      {src ? (
+        <img src={src} alt={player.name} className="w-full h-full object-cover" />
+      ) : (
+        <span className="text-gray-300 font-bold" style={{ fontSize: size * 0.4 }}>
+          {player.name.trim()[0]?.toUpperCase() ?? "?"}
+        </span>
+      )}
+    </div>
+  );
 }
 interface ClubUser { id: string; email: string; full_name: string; role: string }
 
@@ -86,6 +108,15 @@ export default function Configuracion() {
   const importRef = useRef<HTMLInputElement>(null);
   const [importing,     setImporting]     = useState(false);
   const [importResult,  setImportResult]  = useState<string | null>(null);
+
+  // Photo upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<{ playerId: string; divisionId: string } | null>(null);
+  const [uploadingPlayerId, setUploadingPlayerId] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+
+  // Unify
+  const [unifyKeepPlayer, setUnifyKeepPlayer] = useState<PlayerWithDivision | null>(null);
 
   useEffect(() => {
     if (activeTab !== "players" || playersLoaded || !clubId) return;
@@ -225,6 +256,49 @@ export default function Configuracion() {
       setImporting(false);
     }
   };
+
+  // ── Photo upload ──────────────────────────────────────────────────────────
+  function triggerPhotoUpload(p: PlayerWithDivision) {
+    uploadTargetRef.current = { playerId: p.id, divisionId: p.division_id };
+    fileInputRef.current?.click();
+  }
+
+  function handlePhotoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !uploadTargetRef.current) return;
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function handleCropConfirm(blob: Blob) {
+    const target = uploadTargetRef.current;
+    if (!target) return;
+    setCropSrc(null);
+    setUploadingPlayerId(target.playerId);
+    try {
+      const formData = new FormData();
+      formData.append("file", blob, "photo.jpg");
+      const { data } = await api.post<{ id: string; profile_photo_url: string | null }>(
+        `/divisions/${target.divisionId}/players/${target.playerId}/photo`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      setAllPlayers((prev) =>
+        prev.map((p) => (p.id === target.playerId ? { ...p, profile_photo_url: data.profile_photo_url } : p)),
+      );
+    } catch (err) {
+      alert(parseApiError(err, "Error al subir la foto"));
+    } finally {
+      setUploadingPlayerId(null);
+    }
+  }
+
+  function handleCropCancel() {
+    setCropSrc(null);
+    uploadTargetRef.current = null;
+  }
 
   // ── Users ──────────────────────────────────────────────────────────────────
   const [users,          setUsers]          = useState<ClubUser[]>([]);
@@ -522,14 +596,43 @@ export default function Configuracion() {
                         </form>
                       ) : (
                         <div className="px-4 py-3 flex items-center gap-3">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-white text-sm font-medium">{p.name}</span>
-                            {p.position && <span className="text-gray-400 text-xs ml-2">{p.position}</span>}
+                          {/* Avatar + photo upload */}
+                          <div className="relative group flex-shrink-0">
+                            <PlayerAvatar player={p} size={40} />
+                            <button
+                              onClick={() => triggerPhotoUpload(p)}
+                              disabled={uploadingPlayerId === p.id}
+                              className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/50 flex items-center justify-center transition-all disabled:opacity-50"
+                              title="Subir foto"
+                            >
+                              {uploadingPlayerId === p.id ? (
+                                <span className="text-white text-xs">...</span>
+                              ) : (
+                                <span className="text-white text-lg opacity-0 group-hover:opacity-100 transition-opacity">📷</span>
+                              )}
+                            </button>
                           </div>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <span className="text-white text-sm font-medium block truncate">{p.name}</span>
+                            {p.position && <span className="text-gray-400 text-xs">{p.position}</span>}
+                            {p.dni && <span className="text-gray-500 text-xs block">DNI {p.dni}</span>}
+                          </div>
+                          {/* Division pill */}
                           {divisions.length > 1 && (
                             <span className="text-xs text-gray-500 bg-gray-700 px-2 py-0.5 rounded-full shrink-0">
                               {p.division_name}
                             </span>
+                          )}
+                          {/* Unify + Edit */}
+                          {filteredPlayers.length >= 2 && (
+                            <button
+                              onClick={() => setUnifyKeepPlayer(p)}
+                              className="text-xs text-gray-500 hover:text-yellow-400 transition-colors shrink-0"
+                              title="Unificar con otro jugador"
+                            >
+                              Unificar →
+                            </button>
                           )}
                           <button
                             onClick={() => openEditPlayer(p)}
@@ -624,6 +727,37 @@ export default function Configuracion() {
             </div>
           )}
         </>
+      )}
+
+      {/* Hidden photo upload input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={handlePhotoFileChange}
+      />
+
+      {cropSrc && (
+        <CropModal
+          imageSrc={cropSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
+
+      {unifyKeepPlayer && (
+        <UnifyPlayersModal
+          isOpen={true}
+          keepPlayer={unifyKeepPlayer}
+          allPlayers={filteredPlayers}
+          divisionId={unifyKeepPlayer.division_id}
+          onDone={(absorbedId) => {
+            setAllPlayers((prev) => prev.filter((p) => p.id !== absorbedId));
+            setUnifyKeepPlayer(null);
+          }}
+          onClose={() => setUnifyKeepPlayer(null)}
+        />
       )}
     </div>
   );

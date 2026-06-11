@@ -5,7 +5,6 @@ import Login from "./pages/Login";
 import Session from "./pages/Session";
 import Clubs from "./pages/Clubs";
 import Tournaments from "./pages/Tournaments";
-import Players from "./pages/Players";
 import SessionLineup from "./pages/SessionLineup";
 import Stats from "./pages/Stats";
 import Configuracion from "./pages/Configuracion";
@@ -31,7 +30,6 @@ export default function App() {
 
         <Route path="/clubs" element={<LayoutRoute><Clubs /></LayoutRoute>} />
         <Route path="/tournaments" element={<LayoutRoute><Tournaments /></LayoutRoute>} />
-        <Route path="/players" element={<LayoutRoute><Players /></LayoutRoute>} />
         <Route path="/stats" element={<LayoutRoute><Stats /></LayoutRoute>} />
         <Route path="/config" element={<LayoutRoute><Configuracion /></LayoutRoute>} />
 
