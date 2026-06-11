@@ -299,7 +299,7 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
                             {/* Player circle background */}
                             <circle
                               cx={cx} cy={cy} r={r}
-                              fill={isSelected ? "#064e3b" : "#065f46"}
+                              fill={imgSrc ? "none" : (isSelected ? "#064e3b" : "#065f46")}
                               stroke={isSelected ? "#fbbf24" : "#34d399"}
                               strokeWidth={isSelected ? "2.5" : "1.5"}
                             />

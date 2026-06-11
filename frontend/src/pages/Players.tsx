@@ -4,6 +4,7 @@ import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 import { RUGBY_POSITIONS } from "../lib/rugby";
 import UnifyPlayersModal from "../components/UnifyPlayersModal";
+import CropModal from "../components/CropModal";
 
 interface Division {
   id: string;
@@ -59,6 +60,7 @@ export default function Players() {
 
   const [unifyKeepPlayer, setUnifyKeepPlayer] = useState<Player | null>(null);
   const [uploadingPlayerId, setUploadingPlayerId] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetId = useRef<string | null>(null);
@@ -106,20 +108,28 @@ export default function Players() {
     fileInputRef.current?.click();
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    const playerId = uploadTargetId.current;
-    if (!file || !playerId || !selectedDivisionId) return;
-
+    if (!file || !uploadTargetId.current) return;
     e.target.value = "";
+
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function handleCropConfirm(blob: Blob) {
+    const playerId = uploadTargetId.current;
+    if (!playerId || !selectedDivisionId) return;
+    setCropSrc(null);
     setUploadingPlayerId(playerId);
     try {
-      const form = new FormData();
-      form.append("file", file);
+      const formData = new FormData();
+      formData.append("file", blob, "photo.jpg");
       const { data } = await api.post<Player>(
         `/divisions/${selectedDivisionId}/players/${playerId}/photo`,
-        form,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
       );
       setPlayers((prev) => prev.map((p) => (p.id === playerId ? data : p)));
     } catch (err) {
@@ -127,6 +137,11 @@ export default function Players() {
     } finally {
       setUploadingPlayerId(null);
     }
+  }
+
+  function handleCropCancel() {
+    setCropSrc(null);
+    uploadTargetId.current = null;
   }
 
   if (loadingDivisions) {
@@ -291,6 +306,14 @@ export default function Players() {
             setUnifyKeepPlayer(null);
           }}
           onClose={() => setUnifyKeepPlayer(null)}
+        />
+      )}
+
+      {cropSrc && (
+        <CropModal
+          imageSrc={cropSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
         />
       )}
     </div>
