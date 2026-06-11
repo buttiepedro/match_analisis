@@ -16,7 +16,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate("/dashboard");
+      navigate("/tournaments");
     } catch {
       setError("Email o contrasena incorrectos");
     } finally {

@@ -18,8 +18,7 @@ async function getCroppedImg(imageSrc: string, cropPixels: Area): Promise<Blob> 
       );
       canvas.toBlob(
         (blob) => (blob ? resolve(blob) : reject(new Error("canvas vacío"))),
-        "image/jpeg",
-        0.92,
+        "image/png",
       );
     };
     img.onerror = reject;

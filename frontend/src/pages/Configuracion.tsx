@@ -279,7 +279,7 @@ export default function Configuracion() {
     setUploadingPlayerId(target.playerId);
     try {
       const formData = new FormData();
-      formData.append("file", blob, "photo.jpg");
+      formData.append("file", blob, "photo.png");
       const { data } = await api.post<{ id: string; profile_photo_url: string | null }>(
         `/divisions/${target.divisionId}/players/${target.playerId}/photo`,
         formData,
