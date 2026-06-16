@@ -508,9 +508,7 @@ export default function Configuracion() {
                   >
                     <option value="">— Posición (opcional) —</option>
                     {RUGBY_POSITIONS.map((pos) => (
-                      <option key={pos.number} value={pos.name}>
-                        {pos.number} - {pos.name}
-                      </option>
+                      <option key={pos} value={pos}>{pos}</option>
                     ))}
                   </select>
                   <select
@@ -566,9 +564,7 @@ export default function Configuracion() {
                           >
                             <option value="">— Posición —</option>
                             {RUGBY_POSITIONS.map((pos) => (
-                              <option key={pos.number} value={pos.name}>
-                                {pos.number} - {pos.name}
-                              </option>
+                              <option key={pos} value={pos}>{pos}</option>
                             ))}
                           </select>
                           <select

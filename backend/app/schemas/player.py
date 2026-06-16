@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict
 
@@ -7,12 +8,24 @@ class PlayerCreate(BaseModel):
     name: str
     position: Optional[str] = None
     dni: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    sex: Optional[Literal["M", "F"]] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    obra_social: Optional[str] = None
 
 
 class PlayerUpdate(BaseModel):
     name: Optional[str] = None
     position: Optional[str] = None
     dni: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    sex: Optional[Literal["M", "F"]] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    obra_social: Optional[str] = None
     is_active: Optional[bool] = None
     division_id: Optional[uuid.UUID] = None
 
@@ -25,6 +38,12 @@ class PlayerResponse(BaseModel):
     name: str
     position: Optional[str]
     dni: Optional[str]
+    date_of_birth: Optional[date] = None
+    sex: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    obra_social: Optional[str] = None
     profile_photo_url: Optional[str] = None
     is_active: bool
 

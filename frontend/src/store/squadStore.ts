@@ -79,6 +79,15 @@ interface SquadState {
 
   batchMovePlayers: (playerIds: string[], toDivisionId: string) => Promise<void>;
   movePlayerOptimistic: (playerIds: string[], toDivisionId: string) => void;
+  importPlayersXlsx: (file: File, divisionId: string) => Promise<ImportResult>;
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: { row: number; reason: string }[];
+  total_rows: number;
 }
 
 export const useSquadStore = create<SquadState>((set, get) => ({
@@ -178,6 +187,16 @@ export const useSquadStore = create<SquadState>((set, get) => ({
         playerIds.includes(p.id) ? { ...p, division_id: toDivisionId } : p
       ),
     }));
+  },
+
+  importPlayersXlsx: async (file, divisionId) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("division_id", divisionId);
+    const { data } = await api.post("/import/players-xlsx", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data as ImportResult;
   },
 
   batchMovePlayers: async (playerIds, toDivisionId) => {

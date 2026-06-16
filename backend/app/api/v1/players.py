@@ -108,6 +108,18 @@ async def update_player(
         player.position = body.position
     if body.dni is not None:
         player.dni = body.dni or None
+    if body.date_of_birth is not None:
+        player.date_of_birth = body.date_of_birth
+    if body.sex is not None:
+        player.sex = body.sex
+    if body.email is not None:
+        player.email = body.email or None
+    if body.phone is not None:
+        player.phone = body.phone or None
+    if body.emergency_phone is not None:
+        player.emergency_phone = body.emergency_phone or None
+    if body.obra_social is not None:
+        player.obra_social = body.obra_social or None
     if body.is_active is not None:
         player.is_active = body.is_active
     if body.division_id is not None:
