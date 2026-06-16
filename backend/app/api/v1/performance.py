@@ -241,10 +241,10 @@ async def delete_physical_test(
 )
 async def division_test_ranking(
     division_id: uuid.UUID,
-    test_type: str = Query(...),
-    test_date: Optional[date] = Query(None),
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    test_type: str = Query(...),
+    test_date: Optional[date] = Query(None),
 ):
     div = await db.scalar(select(Division).where(Division.id == division_id))
     if not div:
