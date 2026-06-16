@@ -6,7 +6,7 @@ from app.models.tournament import Tournament
 from app.models.session import Session, TimerState, SessionStatus, TimerStatus
 from app.models.event import Event, TeamSide
 from app.models.refresh_token import RefreshToken
-from app.models.player import Player, MatchLineup, LineupStatus
+from app.models.player import Player, MatchLineup, LineupStatus, PlayerDivisionHistory, PlayerMeasurement, PhysicalTest
 
 __all__ = [
     "Base",
@@ -25,4 +25,7 @@ __all__ = [
     "Player",
     "MatchLineup",
     "LineupStatus",
+    "PlayerDivisionHistory",
+    "PlayerMeasurement",
+    "PhysicalTest",
 ]

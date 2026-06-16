@@ -11,6 +11,7 @@ from app.api.v1.divisions import router as divisions_router
 from app.api.v1.health import router as health_router
 from app.api.v1.import_ import router as import_router
 from app.api.v1.lineup import router as lineup_router
+from app.api.v1.performance import router as performance_router
 from app.api.v1.players import router as players_router
 from app.api.v1.sessions import session_router, sessions_router, ws_router
 from app.api.v1.tournaments import router as tournaments_router
@@ -89,3 +90,4 @@ app.include_router(session_router, tags=["sessions"])
 app.include_router(ws_router, tags=["websocket"])
 app.include_router(players_router, tags=["players"])
 app.include_router(lineup_router, tags=["lineup"])
+app.include_router(performance_router, tags=["performance"])
