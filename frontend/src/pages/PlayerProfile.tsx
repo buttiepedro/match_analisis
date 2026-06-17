@@ -3,12 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import {
   useSquadStore,
-  Measurement,
   PhysicalTest,
   TEST_TYPE_META,
   formatTestValue,
 } from "../store/squadStore";
-import api from "../lib/axios";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

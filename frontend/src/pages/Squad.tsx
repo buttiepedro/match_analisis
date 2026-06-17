@@ -368,7 +368,7 @@ export default function Squad() {
   const navigate = useNavigate();
   const {
     players, divisions, loading,
-    fetchDivisions, fetchPlayers, fetchAllPlayers,
+    fetchDivisions, fetchAllPlayers,
     batchMovePlayers,
   } = useSquadStore();
 
