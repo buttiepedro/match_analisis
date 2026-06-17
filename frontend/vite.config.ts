@@ -9,6 +9,7 @@ export default defineConfig({
       "/auth": "http://localhost:8000",
       "/health": "http://localhost:8000",
       "/clubs": "http://localhost:8000",
+      "/players": "http://localhost:8000",
       "/sessions": "http://localhost:8000",
       "/tournaments": "http://localhost:8000",
       "/divisions": "http://localhost:8000",
