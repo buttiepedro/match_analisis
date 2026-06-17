@@ -16,8 +16,8 @@ interface PlayerWithDivision {
   division_name: string;
   name: string;
   position: string | null;
-  dni: string | null;
-  profile_photo_url: string | null;
+  dni?: string | null;
+  profile_photo_url?: string | null;
   is_active: boolean;
 }
 
@@ -63,11 +63,13 @@ export default function Configuracion() {
   const [divName,       setDivName]       = useState("");
   const [divSubmitting, setDivSubmitting] = useState(false);
   const [divError,      setDivError]      = useState<string | null>(null);
+  const [divLoadError,  setDivLoadError]  = useState<string | null>(null);
 
   useEffect(() => {
     if (!clubId) return;
     api.get<Division[]>(`/clubs/${clubId}/divisions`)
       .then(({ data }) => setDivisions(data))
+      .catch(() => setDivLoadError("Error al cargar divisiones"))
       .finally(() => setLoadingDivs(false));
   }, [clubId]);
 
@@ -396,7 +398,9 @@ export default function Configuracion() {
             </form>
           )}
 
-          {loadingDivs ? (
+          {divLoadError ? (
+            <p className="text-red-400 text-sm">{divLoadError}</p>
+          ) : loadingDivs ? (
             <p className="text-gray-400 text-sm">Cargando...</p>
           ) : divisions.length === 0 ? (
             <p className="text-gray-500 text-sm">No hay divisiones todavía.</p>

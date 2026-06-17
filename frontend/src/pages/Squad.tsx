@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useSquadStore, Division, Player, ImportResult } from "../store/squadStore";
+import { RUGBY_POSITIONS } from "../lib/rugby";
 import api from "../lib/axios";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -193,29 +194,32 @@ function ImportResultModal({
 // ─── Inline player form ────────────────────────────────────────────────────────
 
 function AddPlayerModal({
-  divisionId,
+  divisions,
+  defaultDivisionId,
   onClose,
   onCreated,
 }: {
-  divisionId: string;
+  divisions: Division[];
+  defaultDivisionId: string;
   onClose: () => void;
   onCreated: (p: Player) => void;
 }) {
   const [name, setName] = useState("");
   const [position, setPosition] = useState("");
   const [dni, setDni] = useState("");
+  const [divisionId, setDivisionId] = useState(defaultDivisionId || divisions[0]?.id || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !divisionId) return;
     setSaving(true);
     setError("");
     try {
       const { data } = await api.post(`/divisions/${divisionId}/players`, {
         name: name.trim(),
-        position: position.trim() || null,
+        position: position || null,
         dni: dni.trim() || null,
       });
       onCreated(data);
@@ -246,13 +250,31 @@ function AddPlayerModal({
             />
           </div>
           <div>
+            <label className="text-xs text-gray-400 block mb-1">División *</label>
+            <select
+              required
+              value={divisionId}
+              onChange={(e) => setDivisionId(e.target.value)}
+              className="w-full bg-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">— Seleccionar división —</option>
+              {divisions.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="text-xs text-gray-400 block mb-1">Posición</label>
-            <input
+            <select
               value={position}
               onChange={(e) => setPosition(e.target.value)}
               className="w-full bg-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="ej. Apertura"
-            />
+            >
+              <option value="">— Posición (opcional) —</option>
+              {RUGBY_POSITIONS.map((pos) => (
+                <option key={pos} value={pos}>{pos}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="text-xs text-gray-400 block mb-1">DNI</label>
@@ -266,7 +288,7 @@ function AddPlayerModal({
           {error && <p className="text-red-400 text-xs">{error}</p>}
           <button
             type="submit"
-            disabled={saving || !name.trim()}
+            disabled={saving || !name.trim() || !divisionId}
             className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
           >
             {saving ? "Guardando..." : "Crear jugador"}
@@ -687,7 +709,8 @@ export default function Squad() {
       )}
       {showAddModal && (
         <AddPlayerModal
-          divisionId={activeDivId !== "all" ? activeDivId : (divisions[0]?.id ?? "")}
+          divisions={divisions}
+          defaultDivisionId={activeDivId !== "all" ? activeDivId : (divisions[0]?.id ?? "")}
           onClose={() => setShowAddModal(false)}
           onCreated={handlePlayerCreated}
         />
