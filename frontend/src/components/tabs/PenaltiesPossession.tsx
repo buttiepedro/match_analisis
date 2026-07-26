@@ -85,13 +85,13 @@ export default function Events({ sessionId, homeTeam, awayTeam }: Props) {
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => open("yellow_card")}
-          className="bg-yellow-600 active:bg-yellow-500 text-white font-semibold rounded-xl px-4 py-4 text-base transition-colors"
+          className="pressable bg-yellow-600 active:bg-yellow-500 text-white font-semibold rounded-xl px-4 py-4 text-base transition-colors duration-150"
         >
           Amarilla
         </button>
         <button
           onClick={() => open("red_card")}
-          className="bg-red-600 active:bg-red-500 text-white font-semibold rounded-xl px-4 py-4 text-base transition-colors"
+          className="pressable bg-red-600 active:bg-red-500 text-white font-semibold rounded-xl px-4 py-4 text-base transition-colors duration-150"
         >
           Roja
         </button>
@@ -99,7 +99,7 @@ export default function Events({ sessionId, homeTeam, awayTeam }: Props) {
 
       <button
         onClick={() => setShowSub(true)}
-        className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl py-3 text-sm transition-colors"
+        className="pressable w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl py-3 text-sm transition-colors duration-150"
       >
         Registrar Cambio
       </button>
@@ -116,8 +116,8 @@ export default function Events({ sessionId, homeTeam, awayTeam }: Props) {
       {/* Team selector modal */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/60" onClick={close} />
-          <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4">
+          <div className="absolute inset-0 bg-black/60 animate-overlay" onClick={close} />
+          <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4 animate-sheet">
             <p className="text-white font-bold text-base">
               {modal.flow === "yellow_card" ? "Tarjeta Amarilla" : "Tarjeta Roja"}
             </p>
@@ -126,14 +126,14 @@ export default function Events({ sessionId, homeTeam, awayTeam }: Props) {
               <button
                 onClick={() => selectTeam("user")}
                 disabled={loading}
-                className="w-full bg-blue-700 active:bg-blue-600 disabled:opacity-50 text-white font-semibold rounded-xl py-4 text-base transition-colors"
+                className="pressable w-full bg-blue-700 active:bg-blue-600 disabled:opacity-50 text-white font-semibold rounded-xl py-4 text-base transition-colors duration-150"
               >
                 De {homeTeam}
               </button>
               <button
                 onClick={() => selectTeam("rival")}
                 disabled={loading}
-                className="w-full bg-orange-700 active:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-xl py-4 text-base transition-colors"
+                className="pressable w-full bg-orange-700 active:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-xl py-4 text-base transition-colors duration-150"
               >
                 De {awayTeam}
               </button>

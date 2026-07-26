@@ -67,8 +67,8 @@ function ObtentionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4">
+      <div className="absolute inset-0 bg-black/60 animate-overlay" onClick={onClose} />
+      <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4 animate-sheet">
         <p className="text-white font-bold text-lg">{action.label}</p>
         <p className="text-gray-400 text-sm">¿Con obtención del balón?</p>
 
@@ -78,14 +78,14 @@ function ObtentionModal({
           <button
             onClick={() => register(true)}
             disabled={loading}
-            className="bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors"
+            className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
           >
             ✓ Con obtención
           </button>
           <button
             onClick={() => register(false)}
             disabled={loading}
-            className="bg-red-800 hover:bg-red-700 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors"
+            className="pressable bg-red-800 hover:bg-red-700 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
           >
             ✗ Sin obtención
           </button>

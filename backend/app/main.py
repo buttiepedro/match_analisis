@@ -10,11 +10,14 @@ from app.api.v1.clubs import router as clubs_router
 from app.api.v1.divisions import router as divisions_router
 from app.api.v1.health import router as health_router
 from app.api.v1.import_ import router as import_router
+from app.api.v1.injuries import router as injuries_router
 from app.api.v1.lineup import router as lineup_router
 from app.api.v1.performance import router as performance_router
 from app.api.v1.players import router as players_router
+from app.api.v1.season import router as season_router
 from app.api.v1.sessions import session_router, sessions_router, ws_router
 from app.api.v1.tournaments import router as tournaments_router
+from app.api.v1.trainings import router as trainings_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.security import get_password_hash
@@ -102,3 +105,6 @@ app.include_router(ws_router, tags=["websocket"])
 app.include_router(players_router, tags=["players"])
 app.include_router(lineup_router, tags=["lineup"])
 app.include_router(performance_router, tags=["performance"])
+app.include_router(trainings_router, tags=["trainings"])
+app.include_router(injuries_router, tags=["injuries"])
+app.include_router(season_router, tags=["season"])

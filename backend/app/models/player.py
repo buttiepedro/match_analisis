@@ -4,7 +4,19 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Numeric, SmallInteger, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -14,6 +26,19 @@ class LineupStatus(str, enum.Enum):
     on_field = "on_field"
     bench = "bench"
     substituted_out = "substituted_out"
+
+
+class Availability(str, enum.Enum):
+    disponible = "disponible"
+    lesionado = "lesionado"
+    suspendido = "suspendido"
+    baja_temporal = "baja_temporal"
+
+
+class InjurySeverity(str, enum.Enum):
+    leve = "leve"
+    moderada = "moderada"
+    grave = "grave"
 
 
 class Player(Base):
@@ -32,9 +57,19 @@ class Player(Base):
     obra_social: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     profile_photo_url: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Desnormalizado a propósito: es derivable de lesiones y suspensiones, pero la
+    # grilla de armado lo consulta para 40 jugadores a la vez. Lo escriben sólo los
+    # endpoints de lesión.
+    availability: Mapped[Availability] = mapped_column(
+        Enum(Availability), nullable=False, default=Availability.disponible,
+        server_default="disponible",
+    )
+    medical_clearance_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    medical_clearance_expires: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     division: Mapped["Division"] = relationship(back_populates="players")
+    injuries: Mapped[list["PlayerInjury"]] = relationship(back_populates="player")
     lineup_entries: Mapped[list["MatchLineup"]] = relationship(back_populates="player")
     division_history: Mapped[list["PlayerDivisionHistory"]] = relationship(back_populates="player")
     measurements: Mapped[list["PlayerMeasurement"]] = relationship(back_populates="player")
@@ -43,6 +78,11 @@ class Player(Base):
 
 class MatchLineup(Base):
     __tablename__ = "match_lineup"
+    # Los eventos se asocian al jugador por `player_number`: dos camisetas iguales
+    # en el mismo equipo hacen que las estadísticas se atribuyan mal.
+    __table_args__ = (
+        UniqueConstraint("session_id", "team", "jersey_number", name="uq_lineup_session_team_jersey"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sessions.id"), nullable=False)
@@ -62,6 +102,39 @@ class MatchLineup(Base):
     player: Mapped["Player"] = relationship(back_populates="lineup_entries")
 
 
+class SquadStatus(str, enum.Enum):
+    convocado = "convocado"
+    confirmado = "confirmado"
+    baja = "baja"
+
+
+class MatchSquad(Base):
+    """
+    Convocatoria: el paso de la semana, previo al lineup del sábado.
+
+    Vive aparte de `match_lineup` porque ocurren en momentos distintos y las
+    decide gente distinta — el entrenador convoca 25, el sábado salen 23.
+    """
+
+    __tablename__ = "match_squad"
+    __table_args__ = (
+        UniqueConstraint("session_id", "player_id", name="uq_squad_session_player"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    player_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("players.id"), nullable=False)
+    status: Mapped[SquadStatus] = mapped_column(
+        Enum(SquadStatus), nullable=False, default=SquadStatus.convocado,
+        server_default="convocado",
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    player: Mapped["Player"] = relationship()
+
+
 class PlayerDivisionHistory(Base):
     __tablename__ = "player_division_history"
 
@@ -75,6 +148,27 @@ class PlayerDivisionHistory(Base):
 
     player: Mapped["Player"] = relationship(back_populates="division_history")
     division: Mapped["Division"] = relationship()
+
+
+class PlayerInjury(Base):
+    __tablename__ = "player_injuries"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    player_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("players.id"), nullable=False)
+    injury_date: Mapped[date] = mapped_column(Date, nullable=False)
+    body_zone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    injury_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    severity: Mapped[InjurySeverity] = mapped_column(
+        Enum(InjurySeverity), nullable=False, default=InjurySeverity.leve, server_default="leve"
+    )
+    expected_return: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    #: Cargada = lesión cerrada. Es lo que distingue una lesión activa de una vieja.
+    actual_return: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    recorded_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    player: Mapped["Player"] = relationship(back_populates="injuries")
 
 
 class PlayerMeasurement(Base):

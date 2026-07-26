@@ -175,7 +175,7 @@ export default function Timer({
           />
           <button
             onClick={applyCorrection}
-            className="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors"
+            className="pressable text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors duration-150"
           >
             OK
           </button>
@@ -202,7 +202,7 @@ function CtrlBtn({ onClick, label, color }: { onClick: () => void; label: string
   return (
     <button
       onClick={onClick}
-      className={`${colors[color]} text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors`}
+      className={`pressable ${colors[color]} text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors duration-150`}
     >
       {label}
     </button>

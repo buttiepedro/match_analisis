@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Curvas de easing propias. Las de CSS son demasiado suaves: les falta el golpe
+  que hace que una animación se sienta intencional en vez de accidental.
+  `ease-in` no aparece a propósito — arranca lento justo en el momento que el
+  usuario está mirando, y hace sentir lenta a la interfaz.
+*/
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 * {
   -webkit-tap-highlight-color: transparent;
 }
@@ -9,4 +21,90 @@
 body {
   @apply bg-gray-900 text-white;
   overscroll-behavior: none;
+}
+
+@layer components {
+  /*
+    Feedback de presión. Se aplica a todo lo apretable: sin esto la interfaz no
+    da señal de haber escuchado el tap, que es lo que la hace sentir muerta.
+  */
+  .pressable {
+    transition: transform 160ms var(--ease-out);
+  }
+
+  .pressable:active {
+    transform: scale(0.97);
+  }
+
+  /* En un casillero grande el 0.97 casi no se ve; acá conviene más marcado. */
+  .pressable-strong {
+    transition: transform 140ms var(--ease-out);
+  }
+
+  .pressable-strong:active {
+    transform: scale(0.94);
+  }
+}
+
+@layer utilities {
+  /* Tiras de solapas que scrollean: la barra nativa taparía el borde activo. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .animate-overlay {
+    animation: overlay-in 200ms var(--ease-out);
+  }
+
+  .animate-sheet {
+    animation: sheet-in 260ms var(--ease-drawer);
+  }
+
+  .animate-modal {
+    animation: modal-in 200ms var(--ease-out);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+/*
+  Arranca en 0.96 y no en 0: nada en el mundo real aparece de la nada, y una
+  escala desde cero se lee como un salto.
+*/
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+    Menos movimiento, no cero animación: se conservan opacidad y color, que
+    ayudan a entender qué cambió, y se saca el desplazamiento.
+  */
+  .animate-sheet,
+  .animate-modal {
+    animation: overlay-in 150ms var(--ease-out);
+  }
+
+  .pressable:active,
+  .pressable-strong:active {
+    transform: none;
+  }
 }

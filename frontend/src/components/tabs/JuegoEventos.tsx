@@ -92,21 +92,21 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
         <button
           onClick={() => setModalFlow("penal")}
           disabled={loading}
-          className="bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors"
+          className="pressable bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors duration-150"
         >
           Penal
         </button>
         <button
           onClick={() => setModalFlow("try")}
           disabled={loading}
-          className="bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors"
+          className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors duration-150"
         >
           Try
         </button>
         <button
           onClick={() => registerEvent("drop")}
           disabled={loading}
-          className="bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors"
+          className="pressable bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors duration-150"
         >
           Drop
         </button>
@@ -153,21 +153,21 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
             <button
               onClick={() => registerEvent("line_break")}
               disabled={loading}
-              className="bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors"
+              className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
             >
               Quiebre
             </button>
             <button
               onClick={() => registerEvent("offload")}
               disabled={loading}
-              className="bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors"
+              className="pressable bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
             >
               Offload
             </button>
             <button
               onClick={() => setModalFlow("perdida")}
               disabled={loading}
-              className="bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors"
+              className="pressable bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
             >
               Perdida
             </button>
@@ -183,21 +183,21 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
             <button
               onClick={() => registerEvent("tackle_effective")}
               disabled={loading}
-              className="bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors"
+              className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
             >
               Concretado
             </button>
             <button
               onClick={() => registerEvent("tackle_missed")}
               disabled={loading}
-              className="bg-red-800 hover:bg-red-700 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors"
+              className="pressable bg-red-800 hover:bg-red-700 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
             >
               Errado
             </button>
             <button
               onClick={() => registerEvent("tackle_positive")}
               disabled={loading}
-              className="bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors"
+              className="pressable bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
             >
               Positivo
             </button>
@@ -205,7 +205,7 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
           <button
             onClick={() => setModalFlow("ball_won")}
             disabled={loading}
-            className="w-full bg-yellow-700 hover:bg-yellow-600 disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors"
+            className="pressable w-full bg-yellow-700 hover:bg-yellow-600 disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors duration-150"
           >
             Pelota Ganada
           </button>
@@ -218,8 +218,8 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
       {/* Modals */}
       {modalFlow !== null && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/60" onClick={closeModal} />
-          <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4">
+          <div className="absolute inset-0 bg-black/60 animate-overlay" onClick={closeModal} />
+          <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4 animate-sheet">
 
             {/* Motivo modal — perdida / ball_won */}
             {(modalFlow === "perdida" || modalFlow === "ball_won") && (
@@ -234,7 +234,7 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
                       key={m.value}
                       onClick={() => selectMotivo(m.value)}
                       disabled={loading}
-                      className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-4 text-sm transition-colors"
+                      className="pressable bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-4 text-sm transition-colors duration-150"
                     >
                       {m.label}
                     </button>
@@ -254,7 +254,7 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
                       key={r.value}
                       onClick={() => selectPenalReason(r.value)}
                       disabled={loading}
-                      className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-4 text-sm transition-colors"
+                      className="pressable bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-4 text-sm transition-colors duration-150"
                     >
                       {r.label}
                     </button>
@@ -272,14 +272,14 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
                   <button
                     onClick={() => selectConversion(true)}
                     disabled={loading}
-                    className="bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors"
+                    className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
                   >
                     ✓ Convertido
                   </button>
                   <button
                     onClick={() => selectConversion(false)}
                     disabled={loading}
-                    className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors"
+                    className="pressable bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
                   >
                     No
                   </button>
@@ -304,14 +304,14 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
                   <button
                     onClick={() => selectConversion(true)}
                     disabled={loading}
-                    className="bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors"
+                    className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
                   >
                     ✓ Convertido
                   </button>
                   <button
                     onClick={() => selectConversion(false)}
                     disabled={loading}
-                    className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors"
+                    className="pressable bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
                   >
                     No
                   </button>

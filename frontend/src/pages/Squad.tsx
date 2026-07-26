@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
-import { useSquadStore, Division, Player, ImportResult } from "../store/squadStore";
+import {
+  useSquadStore,
+  Division,
+  Player,
+  ImportResult,
+  AVAILABILITY_CLASS,
+  AVAILABILITY_LABEL,
+  clearanceState,
+} from "../store/squadStore";
 import { RUGBY_POSITIONS } from "../lib/rugby";
 import api from "../lib/axios";
 
@@ -86,8 +94,8 @@ function ImportModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 animate-overlay" onClick={onClose}>
+      <div className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-white">Importar jugadores</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white"><IconX /></button>
@@ -133,7 +141,7 @@ function ImportModal({
         <button
           onClick={submit}
           disabled={loading || !file || !divisionId}
-          className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+          className="pressable w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
         >
           {loading ? "Importando..." : "Importar jugadores"}
         </button>
@@ -152,8 +160,8 @@ function ImportResultModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal">
         <h3 className="font-semibold text-white text-center">Importación completada</h3>
 
         <div className="grid grid-cols-3 gap-3 text-center">
@@ -182,7 +190,7 @@ function ImportResultModal({
 
         <button
           onClick={onClose}
-          className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+          className="pressable w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
         >
           Cerrar
         </button>
@@ -232,8 +240,8 @@ function AddPlayerModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 animate-overlay" onClick={onClose}>
+      <div className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-white">Nuevo jugador</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white"><IconX /></button>
@@ -289,7 +297,7 @@ function AddPlayerModal({
           <button
             type="submit"
             disabled={saving || !name.trim() || !divisionId}
-            className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+            className="pressable w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
           >
             {saving ? "Guardando..." : "Crear jugador"}
           </button>
@@ -316,8 +324,8 @@ function MoveSheet({
 }) {
   const available = divisions.filter((d) => d.id !== currentDivisionId);
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center" onClick={onClose}>
-      <div className="bg-gray-800 rounded-t-2xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center animate-overlay" onClick={onClose}>
+      <div className="bg-gray-800 rounded-t-2xl w-full max-w-sm p-5 space-y-3 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
         <div className="w-10 h-1 bg-gray-600 rounded-full mx-auto" />
         <p className="text-sm text-gray-400 text-center">
           Mover <span className="text-white font-semibold">{count}</span> jugador{count !== 1 ? "es" : ""} a...
@@ -358,8 +366,8 @@ function ConfirmMove({
   onCancel: () => void;
 }) {
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-xs p-6 space-y-4">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-xs p-6 space-y-4 animate-sheet md:animate-modal">
         <p className="text-white text-center">
           ¿Mover <strong>{count}</strong> jugador{count !== 1 ? "es" : ""} a{" "}
           <strong>{divisionName}</strong>?
@@ -517,7 +525,7 @@ export default function Squad() {
             <button
               onClick={() => setShowMoveSheet(true)}
               disabled={selected.size === 0}
-              className="bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+              className="pressable bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors duration-150"
             >
               Mover a...
             </button>
@@ -529,14 +537,14 @@ export default function Squad() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowImportModal(true)}
-                  className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-xl p-2 transition-colors"
+                  className="pressable bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-xl p-2 transition-colors duration-150"
                   title="Importar desde Excel"
                 >
                   <IconUpload />
                 </button>
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="bg-green-600 hover:bg-green-500 text-white rounded-xl p-2 transition-colors"
+                  className="pressable bg-green-600 hover:bg-green-500 text-white rounded-xl p-2 transition-colors duration-150"
                 >
                   <IconPlus />
                 </button>
@@ -627,7 +635,7 @@ export default function Squad() {
               className={`flex items-center gap-3 px-4 py-3.5 rounded-xl cursor-pointer transition-colors ${
                 isSelected
                   ? "bg-green-900/50 border border-green-600/50"
-                  : "bg-gray-800 hover:bg-gray-750 active:bg-gray-700"
+                  : "bg-gray-800 hover:bg-gray-700/70 active:bg-gray-700"
               }`}
             >
               {/* Checkbox */}
@@ -668,6 +676,23 @@ export default function Squad() {
                   )}
                 </p>
               </div>
+
+              {/* Disponibilidad: sin esto, armar el equipo se hace de memoria. */}
+              {player.availability && player.availability !== "disponible" && (
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${AVAILABILITY_CLASS[player.availability]}`}
+                >
+                  {AVAILABILITY_LABEL[player.availability]}
+                </span>
+              )}
+              {clearanceState(player.medical_clearance_expires) === "expired" && (
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 bg-red-900/60 text-red-300"
+                  title="Apto médico vencido"
+                >
+                  sin apto
+                </span>
+              )}
 
               {/* Chevron */}
               {!multiMode && (

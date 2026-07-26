@@ -214,8 +214,8 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
   const fieldH = 540;
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-overlay">
+      <div className="bg-gray-900 rounded-2xl w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl animate-modal">
 
         {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-gray-700 flex items-center justify-between flex-shrink-0">

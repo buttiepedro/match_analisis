@@ -1018,7 +1018,7 @@ export default function Stats() {
                         {/* Bar */}
                         <div className="relative h-3 bg-gray-700 rounded-full overflow-visible">
                           <div
-                            className={`h-full rounded-full transition-all duration-500 ${isGood ? "bg-green-500" : "bg-red-500"}`}
+                            className={`h-full rounded-full transition-[width] duration-500 ${isGood ? "bg-green-500" : "bg-red-500"}`}
                             style={{ width: `${barWidth}%` }}
                           />
                           {/* Target marker */}

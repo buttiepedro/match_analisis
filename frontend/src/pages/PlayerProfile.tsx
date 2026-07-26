@@ -7,6 +7,17 @@ import {
   TEST_TYPE_META,
   formatTestValue,
 } from "../store/squadStore";
+import api from "../lib/axios";
+import { parseApiError } from "../lib/errors";
+import {
+  AttendanceStatus,
+  STATUS_CLASS,
+  STATUS_LABEL,
+  TRAINING_TYPE_LABEL,
+  TrainingType,
+  formatShortDate,
+  percentColor,
+} from "../lib/attendance";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -155,9 +166,9 @@ function MeasurementForm({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 animate-overlay" onClick={onClose}>
       <div
-        className="bg-gray-800 rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-6 space-y-4"
+        className="bg-gray-800 rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-6 space-y-4 animate-sheet md:animate-modal"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -205,7 +216,7 @@ function MeasurementForm({
           <button
             type="submit"
             disabled={saving}
-            className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+            className="pressable w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
           >
             {saving ? "Guardando..." : "Guardar medición"}
           </button>
@@ -262,9 +273,9 @@ function PhysicalTestForm({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 animate-overlay" onClick={onClose}>
       <div
-        className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4"
+        className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -330,7 +341,7 @@ function PhysicalTestForm({
           <button
             type="submit"
             disabled={saving}
-            className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+            className="pressable w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
           >
             {saving ? "Guardando..." : "Guardar test"}
           </button>
@@ -649,9 +660,380 @@ function TabHistorial({ playerId }: { playerId: string }) {
   );
 }
 
+// ─── Sub-tab: Temporada ───────────────────────────────────────────────────────
+
+interface AttendanceRecord {
+  training_id: string;
+  date: string;
+  type: string;
+  status: string;
+}
+
+interface AttendanceDetail {
+  percent_30: number;
+  percent_90: number;
+  percent_season: number;
+  current_absence_streak: number;
+  records: AttendanceRecord[];
+}
+
+interface SeasonMatchLine {
+  session_id: string;
+  label: string;
+  jersey_number: number;
+  minutes: number;
+  tries: number;
+  tackles: number;
+  yellow_cards: number;
+  red_cards: number;
+}
+
+interface SeasonStats {
+  matches: number;
+  minutes: number;
+  tries: number;
+  tackles: number;
+  yellow_cards: number;
+  red_cards: number;
+  matches_detail: SeasonMatchLine[];
+}
+
+function TabTemporada({ playerId }: { playerId: string }) {
+  const [attendance, setAttendance] = useState<AttendanceDetail | null>(null);
+  const [season, setSeason] = useState<SeasonStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      api.get<AttendanceDetail>(`/players/${playerId}/attendance`).catch(() => null),
+      api.get<SeasonStats>(`/players/${playerId}/season-stats`).catch(() => null),
+    ])
+      .then(([aRes, sRes]) => {
+        setAttendance(aRes?.data ?? null);
+        setSeason(sRes?.data ?? null);
+      })
+      .finally(() => setLoading(false));
+  }, [playerId]);
+
+  if (loading) {
+    return <p className="text-center text-gray-500 text-sm py-8">Cargando...</p>;
+  }
+
+  const noData = !attendance || attendance.records.length === 0;
+
+  return (
+    <div className="py-4 space-y-5">
+      {/* Partidos y minutos: el dato que ya estaba en la base y nadie podía ver. */}
+      <div>
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Partidos</p>
+        {!season || season.matches === 0 ? (
+          <p className="text-gray-500 text-sm bg-gray-800 rounded-xl px-4 py-3">
+            Todavía no jugó ningún partido.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { label: "Partidos", value: season.matches },
+                { label: "Minutos", value: season.minutes },
+                { label: "Tries", value: season.tries },
+                { label: "Tackles", value: season.tackles },
+              ].map((stat) => (
+                <div key={stat.label} className="bg-gray-800 rounded-xl px-2 py-3 text-center">
+                  <p className="text-xl font-bold text-white tabular-nums">{stat.value}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <ul className="bg-gray-800/50 rounded-xl divide-y divide-gray-700/50 mt-3 overflow-hidden">
+              {season.matches_detail
+                .filter((m) => m.minutes > 0)
+                .slice(0, 10)
+                .map((m) => (
+                  <li key={m.session_id} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-7 h-6 shrink-0 grid place-items-center rounded bg-gray-700 text-[11px] font-bold text-gray-300 tabular-nums">
+                      {m.jersey_number}
+                    </span>
+                    <span className="flex-1 text-sm text-gray-300 truncate">{m.label}</span>
+                    {m.tries > 0 && (
+                      <span className="text-[11px] text-green-400 shrink-0">{m.tries}T</span>
+                    )}
+                    {m.yellow_cards > 0 && (
+                      <span className="text-[11px] text-yellow-400 shrink-0">
+                        {m.yellow_cards}A
+                      </span>
+                    )}
+                    {m.red_cards > 0 && (
+                      <span className="text-[11px] text-red-400 shrink-0">{m.red_cards}R</span>
+                    )}
+                    <span className="text-xs text-gray-400 tabular-nums shrink-0">
+                      {m.minutes}′
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <div>
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Asistencia</p>
+        {noData ? (
+          <p className="text-gray-500 text-sm bg-gray-800 rounded-xl px-4 py-3">
+            Sin entrenamientos registrados todavía.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "30 días", value: attendance!.percent_30 },
+                { label: "90 días", value: attendance!.percent_90 },
+                { label: "Temporada", value: attendance!.percent_season },
+              ].map((stat) => (
+                <div key={stat.label} className="bg-gray-800 rounded-xl px-3 py-3 text-center">
+                  <p className={`text-xl font-bold tabular-nums ${percentColor(stat.value)}`}>
+                    {stat.value}%
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {attendance!.current_absence_streak >= 3 && (
+              <p className="text-xs text-red-300 bg-red-950/40 border border-red-900/60 rounded-lg px-3 py-2 mt-2">
+                {attendance!.current_absence_streak} ausencias seguidas — conviene hablar con el jugador.
+              </p>
+            )}
+
+            <ul className="bg-gray-800/50 rounded-xl divide-y divide-gray-700/50 mt-3 overflow-hidden">
+              {attendance!.records.slice(0, 15).map((r) => (
+                <li key={r.training_id} className="flex items-center gap-3 px-4 py-2.5">
+                  <span className="text-xs text-gray-400 tabular-nums w-11">
+                    {formatShortDate(r.date)}
+                  </span>
+                  <span className="flex-1 text-sm text-gray-300 capitalize truncate">
+                    {TRAINING_TYPE_LABEL[r.type as TrainingType] ?? r.type}
+                  </span>
+                  <span
+                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_CLASS[r.status as AttendanceStatus]}`}
+                  >
+                    {STATUS_LABEL[r.status as AttendanceStatus]}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Sub-tab: Lesiones ────────────────────────────────────────────────────────
+
+interface Injury {
+  id: string;
+  injury_date: string;
+  body_zone: string | null;
+  injury_type: string | null;
+  severity: string;
+  expected_return: string | null;
+  actual_return: string | null;
+  notes: string | null;
+}
+
+const SEVERITY_CLASS: Record<string, string> = {
+  leve: "bg-yellow-900/50 text-yellow-300",
+  moderada: "bg-orange-900/50 text-orange-300",
+  grave: "bg-red-900/50 text-red-300",
+};
+
+const EMPTY_INJURY = {
+  injury_date: "",
+  body_zone: "",
+  severity: "leve",
+  expected_return: "",
+};
+
+function TabLesiones({ playerId, canEdit }: { playerId: string; canEdit: boolean }) {
+  const [injuries, setInjuries] = useState<Injury[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState(EMPTY_INJURY);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = () => {
+    api
+      .get<Injury[]>(`/players/${playerId}/injuries`)
+      .then(({ data }) => setInjuries(data))
+      .catch(() => setInjuries([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [playerId]);
+
+  const submit = async () => {
+    if (!form.injury_date) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api.post(`/players/${playerId}/injuries`, {
+        injury_date: form.injury_date,
+        body_zone: form.body_zone || null,
+        severity: form.severity,
+        expected_return: form.expected_return || null,
+      });
+      setAdding(false);
+      setForm(EMPTY_INJURY);
+      load();
+    } catch (err) {
+      setError(parseApiError(err, "No se pudo guardar la lesión"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const close = async (injury: Injury) => {
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      await api.patch(`/injuries/${injury.id}`, { actual_return: today });
+      load();
+    } catch (err) {
+      setError(parseApiError(err, "No se pudo cerrar la lesión"));
+    }
+  };
+
+  if (loading) {
+    return <p className="text-center text-gray-500 text-sm py-8">Cargando...</p>;
+  }
+
+  return (
+    <div className="py-4 space-y-3">
+      {canEdit && (
+        adding ? (
+          <div className="bg-gray-800 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-white">Nueva lesión</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={form.injury_date}
+                  onChange={(e) => setForm((f) => ({ ...f, injury_date: e.target.value }))}
+                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Gravedad</label>
+                <select
+                  value={form.severity}
+                  onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value }))}
+                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                >
+                  <option value="leve">Leve</option>
+                  <option value="moderada">Moderada</option>
+                  <option value="grave">Grave</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Zona</label>
+                <input
+                  type="text"
+                  placeholder="rodilla, hombro..."
+                  value={form.body_zone}
+                  onChange={(e) => setForm((f) => ({ ...f, body_zone: e.target.value }))}
+                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-500 outline-none focus:ring-1 focus:ring-green-600"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Alta estimada</label>
+                <input
+                  type="date"
+                  value={form.expected_return}
+                  onChange={(e) => setForm((f) => ({ ...f, expected_return: e.target.value }))}
+                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                />
+              </div>
+            </div>
+            {error && <p className="text-red-400 text-xs">{error}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={submit}
+                disabled={saving || !form.injury_date}
+                className="pressable text-sm bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium"
+              >
+                {saving ? "Guardando..." : "Guardar"}
+              </button>
+              <button
+                onClick={() => { setAdding(false); setError(""); }}
+                className="pressable text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setAdding(true)}
+            className="pressable w-full bg-gray-800 hover:bg-gray-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors duration-150"
+          >
+            + Registrar lesión
+          </button>
+        )
+      )}
+
+      {injuries.length === 0 ? (
+        <p className="text-center text-gray-500 text-sm py-8">Sin lesiones registradas</p>
+      ) : (
+        injuries.map((injury) => {
+          const open = !injury.actual_return;
+          return (
+            <div key={injury.id} className="bg-gray-800 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm text-white font-medium capitalize truncate flex-1">
+                  {injury.body_zone || "Sin zona"}
+                </span>
+                <span
+                  className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${SEVERITY_CLASS[injury.severity] ?? ""}`}
+                >
+                  {injury.severity}
+                </span>
+                {open && (
+                  <span className="text-[11px] bg-red-900/50 text-red-300 px-2 py-0.5 rounded-full shrink-0">
+                    activa
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400">
+                Desde {injury.injury_date}
+                {injury.actual_return
+                  ? ` · alta ${injury.actual_return}`
+                  : injury.expected_return
+                    ? ` · alta estimada ${injury.expected_return}`
+                    : ""}
+              </p>
+              {open && canEdit && (
+                <button
+                  onClick={() => close(injury)}
+                  className="pressable mt-2 text-xs text-green-400 hover:text-green-300 bg-green-950/30 px-3 py-1.5 rounded-lg transition-colors duration-150"
+                >
+                  Dar de alta
+                </button>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-type Tab = "datos" | "fisico" | "tests" | "historial";
+type Tab = "datos" | "fisico" | "tests" | "temporada" | "lesiones" | "historial";
 
 export default function PlayerProfile() {
   const { id } = useParams<{ id: string }>();
@@ -677,6 +1059,8 @@ export default function PlayerProfile() {
     { key: "datos", label: "Datos" },
     { key: "fisico", label: "Físico" },
     { key: "tests", label: "Tests" },
+    { key: "temporada", label: "Temporada" },
+    { key: "lesiones", label: "Lesiones" },
     { key: "historial", label: "Historial" },
   ];
 
@@ -708,13 +1092,13 @@ export default function PlayerProfile() {
           )}
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-700">
+        {/* Tabs — scrollable: con 5 solapas no entran repartidas a 360px */}
+        <div className="flex border-b border-gray-700 overflow-x-auto no-scrollbar">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`flex-1 pb-2.5 text-sm font-medium transition-colors ${
+              className={`shrink-0 px-4 pb-2.5 text-sm font-medium transition-colors duration-150 ${
                 activeTab === t.key
                   ? "text-green-400 border-b-2 border-green-400"
                   : "text-gray-500 hover:text-gray-300"
@@ -734,6 +1118,12 @@ export default function PlayerProfile() {
         )}
         {activeTab === "tests" && id && (
           <TabTests playerId={id} canEdit={canEdit} />
+        )}
+        {activeTab === "temporada" && id && (
+          <TabTemporada playerId={id} />
+        )}
+        {activeTab === "lesiones" && id && (
+          <TabLesiones playerId={id} canEdit={canEdit} />
         )}
         {activeTab === "historial" && id && (
           <TabHistorial playerId={id} />

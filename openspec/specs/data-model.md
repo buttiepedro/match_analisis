@@ -2,13 +2,13 @@
 title: Modelo de Datos
 status: active
 created: 2026-05-29
-updated: 2026-07-25
+updated: 2026-07-26
 ---
 
 # Modelo de Datos
 
 > Este documento refleja el schema **realmente implementado** en
-> `backend/app/models/` y `backend/alembic/versions/` (migración `0009`).
+> `backend/app/models/` y `backend/alembic/versions/` (migración `0013`).
 
 ## Entidades Principales
 
@@ -142,6 +142,11 @@ players
   obra_social        VARCHAR(100)
   profile_photo_url  VARCHAR(300)             -- S3
   is_active          BOOLEAN DEFAULT TRUE     -- baja lógica
+  availability       ENUM('disponible', 'lesionado', 'suspendido', 'baja_temporal')
+                                              -- desnormalizado: lo escriben sólo
+                                              -- los endpoints de lesión
+  medical_clearance_date     DATE
+  medical_clearance_expires  DATE             -- apto médico; avisa a 30 días
   created_at         TIMESTAMP
 ```
 > El número de camiseta **no** vive en `players`: es por partido y está en `match_lineup`.
@@ -158,7 +163,78 @@ match_lineup
   status         ENUM('on_field', 'bench', 'substituted_out')
   created_at     TIMESTAMP
   updated_at     TIMESTAMP
+
+  UNIQUE (session_id, team, jersey_number)
 ```
+> El `UNIQUE` no es cosmético: los eventos se asocian al jugador por
+> `player_number`, así que dos camisetas iguales en un equipo atribuyen mal las
+> estadísticas sin avisar. El mismo número **sí** puede repetirse entre rivales.
+
+### MatchSquad (Convocatoria)
+```sql
+match_squad
+  id          UUID PK
+  session_id  UUID FK → sessions.id  ON DELETE CASCADE
+  player_id   UUID FK → players.id
+  status      ENUM('convocado', 'confirmado', 'baja')
+  created_at  TIMESTAMP
+
+  UNIQUE (session_id, player_id)
+```
+> Paso de la semana, previo al lineup: el entrenador convoca ~25 y el sábado salen
+> 23. Vive aparte de `match_lineup` porque ocurren en momentos distintos.
+
+### Training (Entrenamiento)
+```sql
+trainings
+  id           UUID PK
+  club_id      UUID FK → clubs.id
+  division_id  UUID FK → divisions.id
+  date         DATE NOT NULL
+  type         ENUM('entrenamiento', 'gimnasio', 'fisico', 'amistoso', 'otro')
+  notes        TEXT
+  created_by   UUID FK → users.id
+  created_at   TIMESTAMP
+
+  INDEX (division_id, date)
+```
+
+### Attendance (Asistencia)
+```sql
+attendance
+  id           UUID PK
+  training_id  UUID FK → trainings.id  ON DELETE CASCADE
+  player_id    UUID FK → players.id
+  status       ENUM('presente', 'ausente', 'justificado', 'lesionado', 'tarde')
+  notes        VARCHAR(200)
+  recorded_by  UUID FK → users.id
+  recorded_at  TIMESTAMP
+
+  UNIQUE (training_id, player_id)
+```
+> El `UNIQUE` habilita el upsert idempotente: la cola offline reenvía la planilla
+> sin coordinación y no debe duplicar nada. `presente` y `tarde` cuentan como
+> asistencia efectiva.
+
+### PlayerInjury (Lesión)
+```sql
+player_injuries
+  id               UUID PK
+  player_id        UUID FK → players.id
+  injury_date      DATE NOT NULL
+  body_zone        VARCHAR(50)
+  injury_type      VARCHAR(50)
+  severity         ENUM('leve', 'moderada', 'grave')
+  expected_return  DATE
+  actual_return    DATE          -- cargada = lesión cerrada
+  notes            TEXT
+  recorded_by      UUID FK → users.id
+  created_at       TIMESTAMP
+
+  INDEX (player_id)
+```
+> `actual_return NULL` es lo que define una lesión activa, y de eso se deriva
+> `players.availability`.
 
 ### PlayerDivisionHistory
 ```sql

@@ -684,7 +684,7 @@ export default function Configuracion() {
                             <button
                               onClick={() => triggerPhotoUpload(p)}
                               disabled={uploadingPlayerId === p.id}
-                              className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/50 flex items-center justify-center transition-all disabled:opacity-50"
+                              className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/50 flex items-center justify-center transition-colors duration-150 disabled:opacity-50"
                               title="Subir foto"
                             >
                               {uploadingPlayerId === p.id ? (
@@ -766,8 +766,8 @@ export default function Configuracion() {
           )}
 
           {showUserModal && (
-            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-              <div className="bg-gray-800 rounded-2xl w-full max-w-md p-6">
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
+              <div className="bg-gray-800 rounded-2xl w-full max-w-md p-6 animate-modal">
                 <h2 className="text-white font-bold text-lg mb-4">Nuevo usuario</h2>
                 <form onSubmit={handleCreateUser} className="space-y-3">
                   <input required placeholder="Nombre completo"
@@ -795,12 +795,12 @@ export default function Configuracion() {
                   {userError && <p className="text-red-400 text-xs">{userError}</p>}
                   <div className="flex gap-3 pt-2">
                     <button type="submit" disabled={userSubmitting}
-                      className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
+                      className="pressable flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150">
                       {userSubmitting ? "Guardando..." : "Crear usuario"}
                     </button>
                     <button type="button"
                       onClick={() => { setShowUserModal(false); setUserError(null); }}
-                      className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors">
+                      className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150">
                       Cancelar
                     </button>
                   </div>

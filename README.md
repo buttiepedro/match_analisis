@@ -99,7 +99,8 @@ match_analisis/
 ├── backend/
 │   ├── app/
 │   │   ├── api/v1/        # auth, clubs, divisions, tournaments, sessions,
-│   │   │                  # lineup, players, performance, import
+│   │   │                  # lineup, players, performance, import,
+│   │   │                  # trainings, injuries, season
 │   │   ├── core/          # config, DB, seguridad, dependencias, antropometría
 │   │   ├── models/        # SQLAlchemy ORM
 │   │   ├── schemas/       # Pydantic
@@ -110,9 +111,11 @@ match_analisis/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/    # Timer, EventLog, modales, tabs del tablero
-│   │   ├── pages/         # Login, Torneos, Sesión, Stats, Plantel, Perfil, Físico, Config
+│   │   ├── pages/         # Login, Torneos, Sesión, Lineup, Stats, Plantel, Perfil,
+│   │   │                  # Físico, Entrenamientos, Asistencia, Config
 │   │   ├── store/         # Zustand (auth, session, squad)
-│   │   └── lib/           # axios, tokens, WebSocket, cola offline, timer, stats
+│   │   └── lib/           # axios, tokens, WebSocket, cola offline, timer, stats,
+│   │                      # asistencia
 │   ├── nginx.conf         # Sirve el SPA estático
 │   └── Dockerfile
 ├── openspec/              # Specs y change proposals (SDD)
@@ -126,9 +129,9 @@ match_analisis/
 | Rol | Puede |
 |-----|-------|
 | `superadmin` | Crear clubes (definido en `.env`) |
-| `club_admin` | Crear usuarios, divisiones, torneos, sesiones y lineup |
-| `match_director` | Controlar el timer + registrar eventos |
-| `analyst` | Solo registrar eventos |
+| `club_admin` | Crear usuarios, divisiones, torneos, sesiones, lineup, lesiones y apto médico |
+| `match_director` | Controlar el timer, registrar eventos y crear entrenamientos |
+| `analyst` | Registrar eventos y tomar asistencia |
 
 ---
 
@@ -138,7 +141,7 @@ match_analisis/
 
 Lo que hace que la app sea usable en un club con mala señal:
 
-- **Cola offline de eventos.** Si el POST falla por red (o el navegador está offline), el evento se guarda en `localStorage` **junto con el minuto de partido en que ocurrió**. Al volver la conexión se reenvía solo, conservando el tiempo real del hecho en vez del de la reconexión. Los eventos pendientes se muestran con ⧗ y el header indica cuántos faltan enviar.
+- **Cola offline.** Si el POST falla por red (o el navegador está offline), el evento se guarda en `localStorage` **junto con el minuto de partido en que ocurrió**. Al volver la conexión se reenvía solo, conservando el tiempo real del hecho en vez del de la reconexión. Los eventos pendientes se muestran con ⧗ y el header indica cuántos faltan enviar. La misma cola transporta la **planilla de asistencia**, que también se carga en la cancha; sólo admite escrituras idempotentes, y por eso la asistencia va como `PUT` de la planilla completa.
 - **Reconexión automática del WebSocket** con backoff exponencial (1s → 30s, con jitter) y reintento inmediato al recuperar conectividad. Al reconectar se vacía la cola y se re-sincronizan los eventos que hayan entrado mientras tanto.
 - **Refresh token transparente.** Ante un 401 el cliente renueva el access token y reintenta la request, con un único refresh en vuelo aunque fallen diez requests a la vez. Sólo se cierra sesión si el refresh también falla — nadie queda afuera a mitad de partido.
 
@@ -173,16 +176,62 @@ Pantalla de análisis post-partido para `club_admin`, `match_director` y `analys
 - **Objetivos** configurables por métrica
 - Exportación a Excel y PDF
 
+## Entrenamientos y asistencia (`/trainings`)
+
+La capa que faltaba entre partido y partido.
+
+- **Toma de asistencia de un tap.** Todo el plantel arranca en *presente* — se marca
+  la excepción, no la regla. Cinco estados: presente, ausente, justificado,
+  lesionado y tarde.
+- **Funciona sin señal.** La planilla usa la misma cola offline que los eventos de
+  partido. El `PUT` es idempotente, así que reenviarlo no duplica nada, y una
+  planilla nueva reemplaza a la anterior en vez de acumular requests.
+- **Ranking de asistencia** por división, con ventana de 30 o 90 días.
+- **Alerta de deserción**: 3 ausencias seguidas o menos de 50% marca al jugador
+  *en riesgo*. Una falta justificada no corta la racha — no es deserción.
+
+## Armado de equipo (`/sessions/:id/lineup`)
+
+- **Grilla de 23 casilleros** con la numeración reglamentaria ya puesta. Tap en el
+  casillero → picker con los jugadores del puesto primero. Un solo guardado.
+- **Traer última fecha**: precarga los 23 del partido anterior de la división y
+  avisa quién quedó afuera por baja o cambio de división.
+- **Copiar convocatoria** al portapapeles, lista para pegar en el grupo.
+- El número de camiseta es **único por equipo y partido**: los eventos se asocian
+  por número, así que un duplicado ensuciaba las estadísticas en silencio.
+- Con el partido empezado la grilla se apaga: reemplazar el lineup entero borraría
+  quién entró y salió.
+
 ## Plantel (`/squad`)
 
 - Jugadores por división, con búsqueda y multi-selección
 - **Mover jugadores entre divisiones** en lote, con historial de movimientos
 - Alta manual, importación desde planilla xlsx/xls y unificación de duplicados
 - Foto de perfil con recorte, almacenada en S3
+- **Disponibilidad a la vista**: lesionado, suspendido, baja temporal y apto médico
+  vencido salen como chip en la lista
+
+## Disponibilidad y lesiones
+
+- **Estado del jugador**: disponible, lesionado, suspendido o baja temporal. Antes
+  sólo existía `is_active`, así que las tres primeras eran "activo".
+- **Ficha de lesión** con zona, gravedad, alta estimada y alta real. El estado del
+  jugador se deriva de las lesiones abiertas: cerrar una de dos no lo devuelve a la
+  cancha, y una suspensión no se levanta por un parte médico.
+- **Apto médico** con vencimiento y aviso a 30 días. Advierte, no bloquea: el
+  sistema informa y la responsabilidad reglamentaria sigue siendo del club.
 
 ## Perfil del jugador (`/squad/:id`)
 
-Cuatro solapas: **Datos**, **Físico**, **Tests** e **Historial** de divisiones.
+Seis solapas: **Datos**, **Físico**, **Tests**, **Temporada**, **Lesiones** e
+**Historial** de divisiones.
+
+**Temporada** cruza las dos mitades del año del jugador: partidos, minutos, tries y
+tackles por un lado; porcentaje de asistencia a 30, 90 días y temporada por el
+otro. Los minutos se calculan a partir del lineup, las sustituciones y el timer —
+no se guardan, para no tener una segunda fuente de verdad. Un suplente que nunca
+entró tiene 0 minutos, y cada amarilla descuenta 10, acotado a lo que quedaba por
+jugar.
 
 ## Físico (`/performance`)
 
@@ -219,8 +268,22 @@ Cuatro solapas: **Datos**, **Físico**, **Tests** e **Historial** de divisiones.
 | GET/POST | `/players/{id}/measurements` | Mediciones antropométricas | analyst+ |
 | GET/POST | `/players/{id}/tests` | Tests físicos | analyst+ |
 | GET | `/divisions/{id}/tests/ranking` | Ranking por test | analyst+ |
+| POST/GET | `/divisions/{id}/trainings` | Entrenamientos de la división | match_director+ |
+| PATCH/DELETE | `/trainings/{id}` | Editar / eliminar entrenamiento | match_director+ |
+| GET/PUT | `/trainings/{id}/attendance` | Planilla de asistencia (upsert bulk) | analyst+ |
+| GET | `/divisions/{id}/attendance/summary` | % de asistencia y ranking | analyst+ |
+| GET | `/players/{id}/attendance` | Histórico y racha del jugador | analyst+ |
+| GET/POST | `/players/{id}/injuries` | Lesiones | analyst+ / club_admin |
+| PATCH/DELETE | `/injuries/{id}` | Editar / cerrar lesión | club_admin |
+| PATCH | `/players/{id}/availability` | Estado y apto médico | club_admin |
+| GET | `/divisions/{id}/availability` | Disponibilidad del plantel | analyst+ |
+| GET | `/players/{id}/season-stats` | Acumulados de temporada | analyst+ |
+| GET | `/divisions/{id}/minutes` | Minutos jugados del plantel | analyst+ |
 | POST | `/tournaments/{id}/sessions` | Crear partido | club_admin |
-| POST | `/sessions/{id}/lineup` | Definir lineup | club_admin |
+| POST | `/sessions/{id}/lineup` | Agregar un jugador al lineup | club_admin |
+| PUT | `/sessions/{id}/lineup` | Reemplazar el lineup de un equipo | club_admin |
+| GET | `/sessions/{id}/lineup/suggested` | Lineup del partido anterior | club_admin |
+| GET/PUT | `/sessions/{id}/squad` | Convocatoria | club_admin |
 | PATCH | `/sessions/{id}/timer` | Controlar timer (REST) | match_director+ |
 | POST | `/sessions/{id}/events` | Registrar evento | analyst+ |
 | GET | `/health` | Healthcheck | Público |

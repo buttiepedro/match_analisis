@@ -1,6 +1,12 @@
 import { create } from "zustand";
 import api from "../lib/axios";
 
+export type PlayerAvailability =
+  | "disponible"
+  | "lesionado"
+  | "suspendido"
+  | "baja_temporal";
+
 export interface Player {
   id: string;
   division_id: string;
@@ -9,6 +15,34 @@ export interface Player {
   dni: string | null;
   profile_photo_url: string | null;
   is_active: boolean;
+  availability?: PlayerAvailability;
+  medical_clearance_expires?: string | null;
+}
+
+export const AVAILABILITY_LABEL: Record<PlayerAvailability, string> = {
+  disponible: "Disponible",
+  lesionado: "Lesionado",
+  suspendido: "Suspendido",
+  baja_temporal: "Baja temporal",
+};
+
+export const AVAILABILITY_CLASS: Record<PlayerAvailability, string> = {
+  disponible: "",
+  lesionado: "bg-orange-900/60 text-orange-300",
+  suspendido: "bg-red-900/60 text-red-300",
+  baja_temporal: "bg-gray-700 text-gray-300",
+};
+
+/** Vencido ya, o dentro de los 30 días de aviso. */
+export function clearanceState(
+  expires: string | null | undefined
+): "ok" | "expiring" | "expired" {
+  if (!expires) return "ok";
+  const today = new Date().toISOString().slice(0, 10);
+  if (expires < today) return "expired";
+  const limit = new Date();
+  limit.setDate(limit.getDate() + 30);
+  return expires <= limit.toISOString().slice(0, 10) ? "expiring" : "ok";
 }
 
 export interface Division {

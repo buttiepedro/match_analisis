@@ -306,8 +306,8 @@ export default function UarImportModal({
   const notFound = resolutions.filter((r) => r.dbPlayerId === null).length;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-modal">
         {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-gray-700 flex-shrink-0">
           <h2 className="text-white font-bold text-lg">Importar Ficha BD UAR</h2>
@@ -544,13 +544,13 @@ export default function UarImportModal({
             <div className="flex gap-3">
               <button
                 onClick={handleSelectPdf}
-                className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+                className="pressable flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Seleccionar PDF
               </button>
               <button
                 onClick={onClose}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors"
+                className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Cancelar
               </button>
@@ -561,13 +561,13 @@ export default function UarImportModal({
             <div className="flex gap-3">
               <button
                 onClick={handleConfirm}
-                className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+                className="pressable flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Confirmar e importar
               </button>
               <button
                 onClick={onClose}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors"
+                className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Cancelar
               </button>
@@ -579,14 +579,14 @@ export default function UarImportModal({
               <button
                 onClick={handleCreatePlayer}
                 disabled={creatingPlayer}
-                className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+                className="pressable flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 {creatingPlayer ? "Creando..." : "Crear jugador"}
               </button>
               <button
                 onClick={onClose}
                 disabled={creatingPlayer}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors"
+                className="pressable flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Cancelar importación
               </button>

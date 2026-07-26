@@ -3,11 +3,13 @@ import api from "./axios";
 import {
   clearSession,
   enqueue,
+  enqueueRequest,
   flush,
   isLocalId,
   pendingCount,
   pendingEvents,
   postEvent,
+  putQueued,
   removeQueued,
   subscribe,
 } from "./offlineQueue";
@@ -221,5 +223,96 @@ describe("administración de la cola", () => {
     unsubscribe();
     enqueue("s1", { event_type: "b", team: "user" });
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("cola genérica", () => {
+  it("putQueued manda directo cuando hay conexión", async () => {
+    const put = vi.spyOn(api, "put").mockResolvedValue({ data: {} } as never);
+
+    const result = await putQueued("t1", "/trainings/t1/attendance", { entries: [] });
+
+    expect(result.queued).toBe(false);
+    expect(put).toHaveBeenCalledWith("/trainings/t1/attendance", { entries: [] });
+    expect(pendingCount()).toBe(0);
+  });
+
+  it("putQueued encola cuando el navegador está offline", async () => {
+    setOnline(false);
+    const put = vi.spyOn(api, "put");
+
+    const result = await putQueued("t1", "/trainings/t1/attendance", { entries: [1] } as never);
+
+    expect(put).not.toHaveBeenCalled();
+    expect(result.queued).toBe(true);
+    expect(pendingCount("t1")).toBe(1);
+  });
+
+  it("una planilla nueva reemplaza a la anterior del mismo entrenamiento", async () => {
+    setOnline(false);
+    await putQueued("t1", "/trainings/t1/attendance", { entries: ["v1"] } as never);
+    await putQueued("t1", "/trainings/t1/attendance", { entries: ["v2"] } as never);
+
+    // Quince correcciones offline no deben ser quince requests al reconectar.
+    expect(pendingCount("t1")).toBe(1);
+    expect(pendingEvents("t1")[0].body).toEqual({ entries: ["v2"] });
+  });
+
+  it("planillas de entrenamientos distintos no se pisan", async () => {
+    setOnline(false);
+    await putQueued("t1", "/trainings/t1/attendance", { entries: [] });
+    await putQueued("t2", "/trainings/t2/attendance", { entries: [] });
+
+    expect(pendingCount()).toBe(2);
+  });
+
+  it("flush usa el método y la URL de cada ítem", async () => {
+    enqueue("s1", { event_type: "try", team: "user" });
+    enqueueRequest("t1", "put", "/trainings/t1/attendance", { entries: [] });
+    const post = vi.spyOn(api, "post").mockResolvedValue({ data: {} } as never);
+    const put = vi.spyOn(api, "put").mockResolvedValue({ data: {} } as never);
+
+    const result = await flush();
+
+    expect(result.sent).toBe(2);
+    expect(post).toHaveBeenCalledWith("/sessions/s1/events", {
+      event_type: "try",
+      team: "user",
+    });
+    expect(put).toHaveBeenCalledWith("/trainings/t1/attendance", { entries: [] });
+  });
+
+  it("un ítem encolado por la versión anterior se sigue enviando bien", async () => {
+    // Sin `scope`, `method` ni `url`: el formato viejo, que asumía POST a /events.
+    localStorage.setItem(
+      "match_analisis:event_queue:v1",
+      JSON.stringify([
+        {
+          id: "local:1:abc",
+          sessionId: "s9",
+          body: { event_type: "try", team: "user", timer_seconds: 900, half: 2 },
+          queuedAt: 1,
+        },
+      ])
+    );
+    const post = vi.spyOn(api, "post").mockResolvedValue({ data: {} } as never);
+
+    const result = await flush();
+
+    expect(result.sent).toBe(1);
+    expect(post).toHaveBeenCalledWith("/sessions/s9/events", {
+      event_type: "try",
+      team: "user",
+      timer_seconds: 900,
+      half: 2,
+    });
+  });
+
+  it("pendingEvents filtra ítems legacy por su sessionId", () => {
+    localStorage.setItem(
+      "match_analisis:event_queue:v1",
+      JSON.stringify([{ id: "local:1:a", sessionId: "s9", body: {}, queuedAt: 1 }])
+    );
+    expect(pendingCount("s9")).toBe(1);
   });
 });

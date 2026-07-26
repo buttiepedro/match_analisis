@@ -55,8 +55,8 @@ export default function CropModal({ imageSrc, onConfirm, onCancel }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-sm flex flex-col gap-4 p-6 shadow-2xl">
+    <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 animate-overlay">
+      <div className="bg-gray-900 rounded-2xl w-full max-w-sm flex flex-col gap-4 p-6 shadow-2xl animate-modal">
         <h2 className="text-white font-bold text-base">Recortar foto</h2>
 
         <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 300 }}>
@@ -88,14 +88,14 @@ export default function CropModal({ imageSrc, onConfirm, onCancel }: Props) {
           <button
             onClick={handleConfirm}
             disabled={processing}
-            className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+            className="pressable flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
           >
             {processing ? "Procesando..." : "Recortar y subir"}
           </button>
           <button
             onClick={onCancel}
             disabled={processing}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors"
+            className="pressable flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
           >
             Cancelar
           </button>

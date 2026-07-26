@@ -43,8 +43,8 @@ export default function SubstitutionModal({ sessionId, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4">
+      <div className="absolute inset-0 bg-black/60 animate-overlay" onClick={onClose} />
+      <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4 animate-sheet">
         <p className="text-white font-bold text-base">Registrar Cambio</p>
 
         <div>
@@ -88,14 +88,14 @@ export default function SubstitutionModal({ sessionId, onClose }: Props) {
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 bg-gray-700 text-gray-300 font-semibold rounded-xl py-3"
+            className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold rounded-xl py-3 transition-colors duration-150"
           >
             Cancelar
           </button>
           <button
             onClick={confirm}
             disabled={loading || !outId || !inId}
-            className="flex-1 bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-600 text-white font-semibold rounded-xl py-3 transition-colors"
+            className="pressable flex-1 bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-600 text-white font-semibold rounded-xl py-3 transition-colors duration-150"
           >
             {loading ? "..." : "Confirmar Cambio"}
           </button>

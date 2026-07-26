@@ -11,6 +11,8 @@ import Configuracion from "./pages/Configuracion";
 import Squad from "./pages/Squad";
 import PlayerProfile from "./pages/PlayerProfile";
 import Performance from "./pages/Performance";
+import Trainings from "./pages/Trainings";
+import TrainingAttendance from "./pages/TrainingAttendance";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -39,6 +41,8 @@ export default function App() {
         <Route path="/squad"        element={<LayoutRoute><Squad /></LayoutRoute>} />
         <Route path="/squad/:id"    element={<LayoutRoute><PlayerProfile /></LayoutRoute>} />
         <Route path="/performance"  element={<LayoutRoute><Performance /></LayoutRoute>} />
+        <Route path="/trainings"     element={<LayoutRoute><Trainings /></LayoutRoute>} />
+        <Route path="/trainings/:id" element={<LayoutRoute><TrainingAttendance /></LayoutRoute>} />
 
         {/* Session views — no sidebar */}
         <Route path="/sessions/:id"        element={<PrivateRoute><Session /></PrivateRoute>} />

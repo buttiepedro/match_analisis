@@ -7,9 +7,36 @@ const RETRY_INTERVAL_MS = 15000;
 export interface QueuedEvent {
   /** id local, prefijado `local:` para distinguirlo de los ids del servidor */
   id: string;
-  sessionId: string;
+  /**
+   * Agrupador para filtrar y limpiar: id de sesión para eventos de partido, id
+   * de entrenamiento para asistencia.
+   */
+  scope?: string;
+  /** Sólo lo traen los ítems encolados antes de generalizar la cola. */
+  sessionId?: string;
+  /** Ausente en ítems legacy, que siempre eran POST al endpoint de eventos. */
+  method?: "post" | "put";
+  url?: string;
   body: Record<string, unknown>;
   queuedAt: number;
+}
+
+/**
+ * Los tres resolvers de abajo existen para que un ítem encolado con la versión
+ * anterior — que sólo guardaba `sessionId` y asumía POST a `/events` — se siga
+ * enviando bien después de un deploy. Descartarlos sería perder los eventos de
+ * un partido que se jugó sin señal.
+ */
+function scopeOf(item: QueuedEvent): string {
+  return item.scope ?? item.sessionId ?? "";
+}
+
+function urlOf(item: QueuedEvent): string {
+  return item.url ?? `/sessions/${scopeOf(item)}/events`;
+}
+
+function methodOf(item: QueuedEvent): "post" | "put" {
+  return item.method ?? "post";
 }
 
 type Listener = () => void;
@@ -46,9 +73,9 @@ function localId(): string {
 
 // ── API pública ───────────────────────────────────────────────────────────────
 
-export function pendingEvents(sessionId?: string): QueuedEvent[] {
+export function pendingEvents(scope?: string): QueuedEvent[] {
   const all = read();
-  return sessionId ? all.filter((e) => e.sessionId === sessionId) : all;
+  return scope ? all.filter((e) => scopeOf(e) === scope) : all;
 }
 
 export function pendingCount(sessionId?: string): number {
@@ -72,8 +99,36 @@ export function usePendingCount(sessionId?: string): number {
 }
 
 export function enqueue(sessionId: string, body: Record<string, unknown>): QueuedEvent {
-  const item: QueuedEvent = { id: localId(), sessionId, body, queuedAt: Date.now() };
+  const item: QueuedEvent = {
+    id: localId(),
+    scope: sessionId,
+    sessionId,
+    body,
+    queuedAt: Date.now(),
+  };
   write([...read(), item]);
+  ensureRetryTimer();
+  return item;
+}
+
+/**
+ * Encola una request cualquiera. A diferencia de `enqueue`, que siempre apunta al
+ * endpoint de eventos, acá el llamador define método y URL.
+ *
+ * Para que reintentar sea seguro el endpoint destino tiene que ser idempotente:
+ * la asistencia usa `PUT` de la planilla completa justamente por eso.
+ */
+export function enqueueRequest(
+  scope: string,
+  method: "post" | "put",
+  url: string,
+  body: Record<string, unknown>
+): QueuedEvent {
+  const item: QueuedEvent = { id: localId(), scope, method, url, body, queuedAt: Date.now() };
+  // Una planilla más nueva reemplaza a la anterior del mismo entrenamiento: sin
+  // esto, quince correcciones offline serían quince requests al reconectar.
+  const rest = read().filter((e) => !(scopeOf(e) === scope && e.url === url));
+  write([...rest, item]);
   ensureRetryTimer();
   return item;
 }
@@ -146,12 +201,12 @@ export async function flush(): Promise<FlushResult> {
 
       const [head, ...rest] = queue;
       try {
-        await api.post(`/sessions/${head.sessionId}/events`, head.body);
+        await api[methodOf(head)](urlOf(head), head.body);
         sent += 1;
         write(rest);
       } catch (err) {
         if (isNetworkFailure(err)) break;
-        console.warn("[offlineQueue] evento descartado por rechazo del servidor", head, err);
+        console.warn("[offlineQueue] request descartada por rechazo del servidor", head, err);
         discarded += 1;
         write(rest);
       }
@@ -166,7 +221,38 @@ export async function flush(): Promise<FlushResult> {
 }
 
 export function clearSession(sessionId: string): void {
-  write(read().filter((e) => e.sessionId !== sessionId));
+  write(read().filter((e) => scopeOf(e) !== sessionId));
+}
+
+export interface PutResult {
+  queued: boolean;
+}
+
+/**
+ * `PUT` tolerante a cortes, para escrituras idempotentes como la planilla de
+ * asistencia. Mismo criterio que `postEvent`: falla de red va a la cola, rechazo
+ * del servidor se propaga.
+ */
+export async function putQueued(
+  scope: string,
+  url: string,
+  body: Record<string, unknown>
+): Promise<PutResult> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    enqueueRequest(scope, "put", url, body);
+    return { queued: true };
+  }
+
+  try {
+    await api.put(url, body);
+    return { queued: false };
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      enqueueRequest(scope, "put", url, body);
+      return { queued: true };
+    }
+    throw err;
+  }
 }
 
 /** Descarta un evento encolado que el usuario borró antes de que se enviara. */

@@ -74,8 +74,8 @@ export default function UnifyPlayersModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden animate-modal">
         {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-gray-700 flex-shrink-0">
           <h2 className="text-white font-bold text-lg">Unificar jugadores</h2>
@@ -161,7 +161,7 @@ export default function UnifyPlayersModal({
           {step === "select" && (
             <button
               onClick={onClose}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors"
+              className="pressable w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
             >
               Cancelar
             </button>
@@ -172,14 +172,14 @@ export default function UnifyPlayersModal({
               <button
                 onClick={handleConfirm}
                 disabled={loading}
-                className="flex-1 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+                className="pressable flex-1 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 {loading ? "Unificando..." : "Confirmar unificación"}
               </button>
               <button
                 onClick={handleBack}
                 disabled={loading}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors"
+                className="pressable flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Volver
               </button>

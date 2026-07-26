@@ -46,7 +46,7 @@ function BarRow({
         <p className="text-sm text-white font-medium truncate">{entry.player_name}</p>
         <div className="mt-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full ${barColor} transition-all duration-500`}
+            className={`h-full rounded-full ${barColor} transition-[width] duration-500`}
             style={{ width: `${clampedPct}%` }}
           />
         </div>

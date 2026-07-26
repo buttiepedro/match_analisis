@@ -71,7 +71,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-500 disabled:bg-green-800 text-white font-semibold rounded-xl py-3 text-base transition-colors"
+            className="pressable w-full bg-green-600 hover:bg-green-500 disabled:bg-green-800 text-white font-semibold rounded-xl py-3 text-base transition-colors duration-150"
           >
             {loading ? "Ingresando..." : "Ingresar"}
           </button>

@@ -152,7 +152,7 @@ export default function Clubs() {
             <div key={club.id} className="bg-gray-800 rounded-xl overflow-hidden">
               <button
                 onClick={() => toggleClub(club.id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-750 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-700/70 transition-colors duration-150"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-white font-medium">{club.name}</span>
@@ -269,8 +269,8 @@ export default function Clubs() {
 
       {/* Create club modal */}
       {showClubModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-2xl w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-md p-6 animate-modal">
             <h2 className="text-white font-bold text-lg mb-4">Nuevo club</h2>
             <form onSubmit={handleCreateClub} className="space-y-3">
               <input
@@ -309,14 +309,14 @@ export default function Clubs() {
                 <button
                   type="submit"
                   disabled={clubSubmitting}
-                  className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+                  className="pressable flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
                 >
                   {clubSubmitting ? "Creando..." : "Crear club"}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowClubModal(false); setClubError(null); setClubForm(EMPTY_CLUB_FORM); }}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors"
+                  className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
                 >
                   Cancelar
                 </button>
