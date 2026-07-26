@@ -146,14 +146,14 @@ export default function Trainings() {
   };
 
   if (loading) {
-    return <div className="p-6"><p className="text-gray-400 text-sm">Cargando...</p></div>;
+    return <div className="p-6"><p className="text-ink-muted text-sm">Cargando...</p></div>;
   }
 
   if (divisions.length === 0) {
     return (
       <div className="p-6">
-        <h1 className="text-lg font-bold text-white mb-2">Entrenamientos</h1>
-        <p className="text-gray-400 text-sm">
+        <h1 className="text-lg font-bold text-ink mb-2">Entrenamientos</h1>
+        <p className="text-ink-muted text-sm">
           No hay divisiones cargadas todavía. Creá una desde Config para empezar a tomar asistencia.
         </p>
       </div>
@@ -162,25 +162,25 @@ export default function Trainings() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-24">
-      <h1 className="text-lg font-bold text-white mb-4">Entrenamientos</h1>
+      <h1 className="text-lg font-bold text-ink mb-4">Entrenamientos</h1>
 
       <select
         value={divisionId}
         onChange={(e) => setDivisionId(e.target.value)}
-        className="w-full bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 mb-4 outline-none focus:ring-2 focus:ring-green-600"
+        className="w-full bg-surface text-ink text-sm rounded-xl px-3 py-2.5 mb-4 outline-none focus:ring-2 focus:ring-brand-ring"
       >
         {divisions.map((d) => (
           <option key={d.id} value={d.id}>{d.name}</option>
         ))}
       </select>
 
-      <div className="flex gap-1 bg-gray-800/60 p-1 rounded-xl mb-4">
+      <div className="flex gap-1 bg-surface/70 p-1 rounded-xl mb-4">
         {(["lista", "asistencia"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors duration-150 ${
-              tab === t ? "bg-green-700 text-white" : "text-gray-400 hover:text-white"
+              tab === t ? "bg-brand text-white" : "text-ink-muted hover:text-ink"
             }`}
           >
             {t === "lista" ? "Entrenamientos" : "Asistencia"}
@@ -189,7 +189,7 @@ export default function Trainings() {
       </div>
 
       {error && (
-        <p className="text-red-400 text-xs mb-3 bg-red-950/40 rounded-lg px-3 py-2">{error}</p>
+        <p className="text-red-600 text-xs mb-3 bg-red-50 rounded-lg px-3 py-2">{error}</p>
       )}
 
       {tab === "lista" ? (
@@ -197,21 +197,21 @@ export default function Trainings() {
           {canEdit && (
             <div className="mb-4">
               {creating ? (
-                <div className="bg-gray-800 rounded-xl p-4 space-y-3">
+                <div className="bg-surface rounded-xl p-4 space-y-3">
                   <p className="text-sm font-semibold text-white">Nuevo entrenamiento</p>
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       type="date"
                       value={form.date}
                       onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                      className="bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                      className="bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                     />
                     <select
                       value={form.type}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, type: e.target.value as TrainingType }))
                       }
-                      className="bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                      className="bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                     >
                       {TRAINING_TYPES.map((t) => (
                         <option key={t} value={t}>{TRAINING_TYPE_LABEL[t]}</option>
@@ -222,13 +222,13 @@ export default function Trainings() {
                     <button
                       onClick={createTraining}
                       disabled={submitting}
-                      className="pressable text-sm bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium"
+                      className="pressable text-sm bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium"
                     >
                       {submitting ? "Creando..." : "Crear y tomar asistencia"}
                     </button>
                     <button
                       onClick={() => setCreating(false)}
-                      className="pressable text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg"
+                      className="pressable text-sm text-ink-muted hover:text-ink px-4 py-2 rounded-lg"
                     >
                       Cancelar
                     </button>
@@ -237,7 +237,7 @@ export default function Trainings() {
               ) : (
                 <button
                   onClick={() => setCreating(true)}
-                  className="pressable w-full bg-green-700 hover:bg-green-600 text-white text-sm font-semibold py-3 rounded-xl"
+                  className="pressable w-full bg-brand hover:bg-brand-hover text-white text-sm font-semibold py-3 rounded-xl"
                 >
                   + Nuevo entrenamiento
                 </button>
@@ -246,7 +246,7 @@ export default function Trainings() {
           )}
 
           {trainings.length === 0 ? (
-            <p className="text-gray-500 text-sm py-8 text-center">
+            <p className="text-ink-muted text-sm py-8 text-center">
               Todavía no hay entrenamientos en esta división.
             </p>
           ) : (
@@ -259,18 +259,18 @@ export default function Trainings() {
                   <li key={t.id}>
                     <button
                       onClick={() => navigate(`/trainings/${t.id}`)}
-                      className="pressable w-full flex items-center gap-3 bg-gray-800 hover:bg-gray-700/70 rounded-xl px-4 py-3 text-left transition-colors duration-150"
+                      className="pressable w-full flex items-center gap-3 bg-surface hover:bg-surface-hover rounded-xl px-4 py-3 text-left transition-colors duration-150"
                     >
                       <div className="w-11 shrink-0">
-                        <p className="text-sm font-bold text-white tabular-nums">
+                        <p className="text-sm font-bold text-ink tabular-nums">
                           {formatShortDate(t.date)}
                         </p>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white truncate">
+                        <p className="text-sm text-ink truncate">
                           {TRAINING_TYPE_LABEL[t.type as TrainingType] ?? t.type}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-ink-muted">
                           {t.total_count === 0
                             ? "Sin asistencia cargada"
                             : `${t.present_count} de ${t.total_count} presentes`}
@@ -296,13 +296,13 @@ export default function Trainings() {
                 key={w}
                 onClick={() => setDays(w)}
                 className={`pressable px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-150 ${
-                  days === w ? "bg-gray-700 text-white" : "bg-gray-800 text-gray-400"
+                  days === w ? "bg-surface-strong text-ink" : "bg-surface text-ink-muted"
                 }`}
               >
                 {w} días
               </button>
             ))}
-            <span className="ml-auto self-center text-xs text-gray-500">
+            <span className="ml-auto self-center text-xs text-ink-muted">
               {summary?.trainings_count ?? 0} entrenamientos · promedio{" "}
               <span className={percentColor(summary?.average_percent ?? 0)}>
                 {summary?.average_percent ?? 0}%
@@ -311,47 +311,47 @@ export default function Trainings() {
           </div>
 
           {atRisk.length > 0 && (
-            <div className="bg-red-950/40 border border-red-900/60 rounded-xl px-4 py-3 mb-4">
-              <p className="text-xs font-bold text-red-300 uppercase tracking-wider mb-1">
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+              <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
                 En riesgo ({atRisk.length})
               </p>
-              <p className="text-xs text-red-200/80">
+              <p className="text-xs text-red-700/80">
                 {atRisk.map((p) => p.player_name).join(" · ")}
               </p>
-              <p className="text-[11px] text-red-200/50 mt-1">
+              <p className="text-[11px] text-red-600/70 mt-1">
                 3 ausencias seguidas o menos de 50% de asistencia.
               </p>
             </div>
           )}
 
           {suspensions.length > 0 && (
-            <div className="bg-amber-950/40 border border-amber-900/60 rounded-xl px-4 py-3 mb-4">
-              <p className="text-xs font-bold text-amber-300 uppercase tracking-wider mb-1">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">
                 Rojas sin suspensión cargada ({suspensions.length})
               </p>
               {suspensions.map((s) => (
-                <p key={s.player_id} className="text-xs text-amber-200/80">
+                <p key={s.player_id} className="text-xs text-amber-700/80">
                   {s.player_name} · {s.match_label}
                 </p>
               ))}
-              <p className="text-[11px] text-amber-200/50 mt-1">
+              <p className="text-[11px] text-amber-600/70 mt-1">
                 La sanción la define el tribunal; cargala en el perfil del jugador.
               </p>
             </div>
           )}
 
           {summary && summary.by_weekday.length > 1 && (
-            <div className="bg-gray-800/50 rounded-xl px-4 py-3 mb-4">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <div className="bg-surface/70 rounded-xl px-4 py-3 mb-4">
+              <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">
                 Por día de semana
               </p>
               <div className="space-y-1.5">
                 {summary.by_weekday.map((d) => (
                   <div key={d.weekday} className="flex items-center gap-3">
-                    <span className="w-16 text-xs text-gray-400 shrink-0">{d.label}</span>
-                    <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                    <span className="w-16 text-xs text-ink-muted shrink-0">{d.label}</span>
+                    <div className="flex-1 h-1.5 bg-surface-strong rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-green-600 rounded-full transition-[width] duration-500"
+                        className="h-full bg-brand rounded-full transition-[width] duration-500"
                         style={{ width: `${d.average_percent}%` }}
                       />
                     </div>
@@ -367,23 +367,23 @@ export default function Trainings() {
           )}
 
           {!summary || summary.players.length === 0 ? (
-            <p className="text-gray-500 text-sm py-8 text-center">
+            <p className="text-ink-muted text-sm py-8 text-center">
               Sin datos de asistencia en esta ventana.
             </p>
           ) : (
-            <ul className="bg-gray-800/50 rounded-xl divide-y divide-gray-700/50">
+            <ul className="bg-surface/70 rounded-xl divide-y divide-line">
               {summary.players.map((p, i) => (
                 <li key={p.player_id}>
                   <button
                     onClick={() => navigate(`/squad/${p.player_id}`)}
                     className="pressable w-full flex items-center gap-3 px-4 py-2.5 text-left"
                   >
-                    <span className="w-5 text-xs text-gray-600 tabular-nums">{i + 1}</span>
-                    <span className="flex-1 text-sm text-white truncate">
+                    <span className="w-5 text-xs text-ink-faint tabular-nums">{i + 1}</span>
+                    <span className="flex-1 text-sm text-ink truncate">
                       {p.player_name}
-                      {p.at_risk && <span className="ml-2 text-xs text-red-400">en riesgo</span>}
+                      {p.at_risk && <span className="ml-2 text-xs text-red-600">en riesgo</span>}
                     </span>
-                    <span className="text-xs text-gray-500 tabular-nums">
+                    <span className="text-xs text-ink-muted tabular-nums">
                       {p.attended}/{p.total}
                     </span>
                     <span

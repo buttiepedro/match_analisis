@@ -53,35 +53,35 @@ export default function Events({ sessionId, homeTeam, awayTeam }: Props) {
   return (
     <div className="p-4 space-y-3">
       {/* Score card */}
-      <div className="bg-gray-800 rounded-xl overflow-hidden">
-        <div className="grid grid-cols-2 divide-x divide-gray-700">
+      <div className="bg-surface rounded-xl overflow-hidden">
+        <div className="grid grid-cols-2 divide-x divide-line">
           <div className="px-4 py-3 text-center">
-            <p className="text-gray-400 text-xs truncate">{homeTeam}</p>
-            <p className="text-white text-2xl font-bold">{homePoints}</p>
-            <p className="text-gray-500 text-xs">pts</p>
+            <p className="text-ink-muted text-xs truncate">{homeTeam}</p>
+            <p className="text-ink text-2xl font-bold">{homePoints}</p>
+            <p className="text-ink-muted text-xs">pts</p>
           </div>
           <div className="px-4 py-3 text-center">
-            <p className="text-gray-400 text-xs truncate">{awayTeam}</p>
-            <p className="text-white text-2xl font-bold">{awayPoints}</p>
-            <p className="text-gray-500 text-xs">pts</p>
+            <p className="text-ink-muted text-xs truncate">{awayTeam}</p>
+            <p className="text-ink text-2xl font-bold">{awayPoints}</p>
+            <p className="text-ink-muted text-xs">pts</p>
           </div>
         </div>
-        <div className="border-t border-gray-700 px-4 py-2 space-y-1">
+        <div className="border-t border-line px-4 py-2 space-y-1">
           <div className="flex justify-between text-xs">
-            <span className="text-yellow-400 font-semibold">Amarillas</span>
-            <span className="text-gray-300">{homeTeam} <span className="text-white font-bold">{yellows.user}</span></span>
-            <span className="text-gray-300">{awayTeam} <span className="text-white font-bold">{yellows.rival}</span></span>
+            <span className="text-yellow-600 font-semibold">Amarillas</span>
+            <span className="text-ink-soft">{homeTeam} <span className="text-ink font-bold">{yellows.user}</span></span>
+            <span className="text-ink-soft">{awayTeam} <span className="text-ink font-bold">{yellows.rival}</span></span>
           </div>
           <div className="flex justify-between text-xs">
-            <span className="text-red-400 font-semibold">Rojas</span>
-            <span className="text-gray-300">{homeTeam} <span className="text-white font-bold">{reds.user}</span></span>
-            <span className="text-gray-300">{awayTeam} <span className="text-white font-bold">{reds.rival}</span></span>
+            <span className="text-red-600 font-semibold">Rojas</span>
+            <span className="text-ink-soft">{homeTeam} <span className="text-ink font-bold">{reds.user}</span></span>
+            <span className="text-ink-soft">{awayTeam} <span className="text-ink font-bold">{reds.rival}</span></span>
           </div>
         </div>
       </div>
 
       {/* Disciplina */}
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider pt-1">Disciplina</p>
+      <p className="text-xs font-bold text-ink-muted uppercase tracking-wider pt-1">Disciplina</p>
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => open("yellow_card")}
@@ -99,7 +99,7 @@ export default function Events({ sessionId, homeTeam, awayTeam }: Props) {
 
       <button
         onClick={() => setShowSub(true)}
-        className="pressable w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl py-3 text-sm transition-colors duration-150"
+        className="pressable w-full bg-surface-strong hover:bg-surface-hover text-ink font-semibold rounded-xl py-3 text-sm transition-colors duration-150"
       >
         Registrar Cambio
       </button>
@@ -117,11 +117,11 @@ export default function Events({ sessionId, homeTeam, awayTeam }: Props) {
       {isOpen && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/60 animate-overlay" onClick={close} />
-          <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4 animate-sheet">
-            <p className="text-white font-bold text-base">
+          <div className="relative bg-surface rounded-t-2xl p-5 space-y-4 animate-sheet">
+            <p className="text-ink font-bold text-base">
               {modal.flow === "yellow_card" ? "Tarjeta Amarilla" : "Tarjeta Roja"}
             </p>
-            {error && <p className="text-red-400 text-sm">{error}</p>}
+            {error && <p className="text-red-600 text-sm">{error}</p>}
             <div className="space-y-2">
               <button
                 onClick={() => selectTeam("user")}
@@ -141,7 +141,7 @@ export default function Events({ sessionId, homeTeam, awayTeam }: Props) {
             <button
               onClick={close}
               disabled={loading}
-              className="w-full bg-gray-700 text-gray-300 font-semibold rounded-xl py-3 disabled:opacity-50"
+              className="w-full bg-surface-strong text-ink-soft font-semibold rounded-xl py-3 disabled:opacity-50"
             >
               Cancelar
             </button>

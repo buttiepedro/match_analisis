@@ -87,7 +87,7 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
   };
 
   const scoringButtons = (
-    <div className="space-y-2 pt-2 border-t border-gray-700/50">
+    <div className="space-y-2 pt-2 border-t border-line">
       <div className="grid grid-cols-3 gap-2">
         <button
           onClick={() => setModalFlow("penal")}
@@ -99,7 +99,7 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
         <button
           onClick={() => setModalFlow("try")}
           disabled={loading}
-          className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors duration-150"
+          className="pressable bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-bold rounded-2xl py-6 text-sm transition-colors duration-150"
         >
           Try
         </button>
@@ -117,11 +117,11 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
   return (
     <div className="p-4 space-y-4">
       {/* Mode toggle */}
-      <div className="flex gap-1 bg-gray-800 rounded-xl p-1">
+      <div className="flex gap-1 bg-surface rounded-xl p-1">
         <button
           onClick={() => setMode("attack")}
           className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            mode === "attack" ? "bg-green-700 text-white" : "text-gray-400 hover:text-white"
+            mode === "attack" ? "bg-brand text-white" : "text-ink-muted hover:text-ink"
           }`}
         >
           Ataque
@@ -129,22 +129,22 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
         <button
           onClick={() => setMode("defense")}
           className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            mode === "defense" ? "bg-blue-700 text-white" : "text-gray-400 hover:text-white"
+            mode === "defense" ? "bg-blue-700 text-white" : "text-ink-muted hover:text-ink"
           }`}
         >
           Defensa
         </button>
       </div>
 
-      <p className="text-xs text-gray-500 text-center">
+      <p className="text-xs text-ink-muted text-center">
         {homeTeam}
         {mode === "attack"
-          ? <span className="text-green-400"> · Ataque — {attackCount} acciones</span>
-          : <span className="text-blue-400"> · Defensa — {defenseCount} tackles</span>
+          ? <span className="text-brand"> · Ataque — {attackCount} acciones</span>
+          : <span className="text-blue-600"> · Defensa — {defenseCount} tackles</span>
         }
       </p>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && <p className="text-red-600 text-sm">{error}</p>}
 
       {/* Attack view */}
       {mode === "attack" && (
@@ -153,7 +153,7 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
             <button
               onClick={() => registerEvent("line_break")}
               disabled={loading}
-              className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
+              className="pressable bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
             >
               Quiebre
             </button>
@@ -183,7 +183,7 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
             <button
               onClick={() => registerEvent("tackle_effective")}
               disabled={loading}
-              className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
+              className="pressable bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-bold rounded-2xl py-8 text-sm transition-colors duration-150"
             >
               Concretado
             </button>
@@ -219,67 +219,67 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
       {modalFlow !== null && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/60 animate-overlay" onClick={closeModal} />
-          <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4 animate-sheet">
+          <div className="relative bg-surface rounded-t-2xl p-5 space-y-4 animate-sheet">
 
             {/* Motivo modal — perdida / ball_won */}
             {(modalFlow === "perdida" || modalFlow === "ball_won") && (
               <>
-                <p className="text-white font-bold text-lg">
+                <p className="text-ink font-bold text-lg">
                   {modalFlow === "perdida" ? "Perdida" : "Pelota Ganada"} — Motivo
                 </p>
-                <p className="text-gray-400 text-sm">¿Cómo ocurrió?</p>
+                <p className="text-ink-muted text-sm">¿Cómo ocurrió?</p>
                 <div className="grid grid-cols-2 gap-3">
                   {MOTIVOS.map((m) => (
                     <button
                       key={m.value}
                       onClick={() => selectMotivo(m.value)}
                       disabled={loading}
-                      className="pressable bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-4 text-sm transition-colors duration-150"
+                      className="pressable bg-surface-strong hover:bg-surface-hover disabled:opacity-50 text-ink font-bold rounded-xl py-4 text-sm transition-colors duration-150"
                     >
                       {m.label}
                     </button>
                   ))}
                 </div>
-                <button onClick={closeModal} className="w-full text-gray-400 text-sm py-2">Cancelar</button>
+                <button onClick={closeModal} className="w-full text-ink-muted text-sm py-2">Cancelar</button>
               </>
             )}
 
             {/* Penal — reason step */}
             {modalFlow === "penal" && penalStep === "reason" && (
               <>
-                <p className="text-white font-bold text-lg">Penal — Motivo</p>
+                <p className="text-ink font-bold text-lg">Penal — Motivo</p>
                 <div className="grid grid-cols-2 gap-3">
                   {PENAL_REASONS.map((r) => (
                     <button
                       key={r.value}
                       onClick={() => selectPenalReason(r.value)}
                       disabled={loading}
-                      className="pressable bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-4 text-sm transition-colors duration-150"
+                      className="pressable bg-surface-strong hover:bg-surface-hover disabled:opacity-50 text-ink font-bold rounded-xl py-4 text-sm transition-colors duration-150"
                     >
                       {r.label}
                     </button>
                   ))}
                 </div>
-                <button onClick={closeModal} className="w-full text-gray-400 text-sm py-2">Cancelar</button>
+                <button onClick={closeModal} className="w-full text-ink-muted text-sm py-2">Cancelar</button>
               </>
             )}
 
             {/* Penal — a los palos conversion step */}
             {modalFlow === "penal" && penalStep === "conversion" && (
               <>
-                <p className="text-white font-bold text-lg">Penal — A los palos</p>
+                <p className="text-ink font-bold text-lg">Penal — A los palos</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => selectConversion(true)}
                     disabled={loading}
-                    className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
+                    className="pressable bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
                   >
                     ✓ Convertido
                   </button>
                   <button
                     onClick={() => selectConversion(false)}
                     disabled={loading}
-                    className="pressable bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
+                    className="pressable bg-surface-strong hover:bg-surface-hover disabled:opacity-50 text-ink font-bold rounded-xl py-5 text-base transition-colors duration-150"
                   >
                     No
                   </button>
@@ -287,11 +287,11 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
                 <div className="flex gap-3">
                   <button
                     onClick={() => { setPenalStep("reason"); setPenalReason(null); }}
-                    className="flex-1 bg-gray-700 text-gray-300 font-semibold rounded-xl py-3"
+                    className="flex-1 bg-surface-strong text-ink-soft font-semibold rounded-xl py-3"
                   >
                     ← Volver
                   </button>
-                  <button onClick={closeModal} className="flex-1 text-gray-400 text-sm py-2">Cancelar</button>
+                  <button onClick={closeModal} className="flex-1 text-ink-muted text-sm py-2">Cancelar</button>
                 </div>
               </>
             )}
@@ -299,24 +299,24 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
             {/* Try — conversion */}
             {modalFlow === "try" && (
               <>
-                <p className="text-white font-bold text-lg">Try — ¿Convertido?</p>
+                <p className="text-ink font-bold text-lg">Try — ¿Convertido?</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => selectConversion(true)}
                     disabled={loading}
-                    className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
+                    className="pressable bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
                   >
                     ✓ Convertido
                   </button>
                   <button
                     onClick={() => selectConversion(false)}
                     disabled={loading}
-                    className="pressable bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
+                    className="pressable bg-surface-strong hover:bg-surface-hover disabled:opacity-50 text-ink font-bold rounded-xl py-5 text-base transition-colors duration-150"
                   >
                     No
                   </button>
                 </div>
-                <button onClick={closeModal} className="w-full text-gray-400 text-sm py-2">Cancelar</button>
+                <button onClick={closeModal} className="w-full text-ink-muted text-sm py-2">Cancelar</button>
               </>
             )}
 

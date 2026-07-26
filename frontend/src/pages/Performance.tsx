@@ -35,23 +35,23 @@ function BarRow({
     2: "bg-gray-300",
     3: "bg-amber-600",
   };
-  const barColor = rankColors[entry.rank] ?? "bg-green-600";
+  const barColor = rankColors[entry.rank] ?? "bg-brand";
 
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-gray-700 last:border-0">
-      <span className="w-5 text-center text-xs font-bold text-gray-400 shrink-0">
+    <div className="flex items-center gap-3 py-2.5 border-b border-line last:border-0">
+      <span className="w-5 text-center text-xs font-bold text-ink-muted shrink-0">
         {entry.rank}
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-white font-medium truncate">{entry.player_name}</p>
-        <div className="mt-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+        <p className="text-sm text-ink font-medium truncate">{entry.player_name}</p>
+        <div className="mt-1 h-1.5 bg-surface-strong rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full ${barColor} transition-[width] duration-500`}
             style={{ width: `${clampedPct}%` }}
           />
         </div>
       </div>
-      <span className="text-sm font-semibold text-white shrink-0">
+      <span className="text-sm font-semibold text-ink shrink-0">
         {formatTestValue(entry.value, entry.unit)}
       </span>
     </div>
@@ -103,11 +103,11 @@ export default function Performance() {
       : null;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-white text-ink">
       {/* Header */}
       <div className="px-4 pt-4 pb-3">
         <h1 className="text-xl font-bold">Rendimiento</h1>
-        <p className="text-xs text-gray-400 mt-0.5">Ranking por división y test</p>
+        <p className="text-xs text-ink-muted mt-0.5">Ranking por división y test</p>
       </div>
 
       {/* Division pills */}
@@ -118,8 +118,8 @@ export default function Performance() {
             onClick={() => setActiveDivId(d.id)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
               activeDivId === d.id
-                ? "bg-green-600 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                ? "bg-brand text-white"
+                : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
             }`}
           >
             {d.name}
@@ -136,7 +136,7 @@ export default function Performance() {
             );
             return (
               <div key={cat}>
-                <p className="text-xs text-gray-500 mb-1.5 uppercase tracking-wider">{cat}</p>
+                <p className="text-xs text-ink-muted mb-1.5 uppercase tracking-wider">{cat}</p>
                 <div className="flex flex-wrap gap-2">
                   {types.map(([key, meta]) => (
                     <button
@@ -144,8 +144,8 @@ export default function Performance() {
                       onClick={() => setActiveTestType(key)}
                       className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                         activeTestType === key
-                          ? "bg-green-700 text-white"
-                          : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+                          ? "bg-brand text-white"
+                          : "bg-surface text-ink-muted hover:bg-surface-strong hover:text-ink"
                       }`}
                     >
                       {meta.label}
@@ -160,18 +160,18 @@ export default function Performance() {
 
       {/* Ranking card */}
       <div className="px-4 pb-6">
-        <div className="bg-gray-800 rounded-2xl p-4">
+        <div className="bg-surface rounded-2xl p-4">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="font-semibold text-white">
+              <h2 className="font-semibold text-ink">
                 {testMeta?.label ?? activeTestType}
               </h2>
-              <p className="text-xs text-gray-400">{divisionName}</p>
+              <p className="text-xs text-ink-muted">{divisionName}</p>
             </div>
             {avgValue != null && (
               <div className="text-right">
-                <p className="text-xs text-gray-400">Promedio</p>
-                <p className="text-sm font-semibold text-green-400">
+                <p className="text-xs text-ink-muted">Promedio</p>
+                <p className="text-sm font-semibold text-brand">
                   {formatTestValue(avgValue, testMeta?.unit ?? "")}
                 </p>
               </div>
@@ -179,15 +179,15 @@ export default function Performance() {
           </div>
 
           {loading && (
-            <div className="text-center py-8 text-gray-500 text-sm">Cargando ranking...</div>
+            <div className="text-center py-8 text-ink-muted text-sm">Cargando ranking...</div>
           )}
           {error && (
-            <div className="text-center py-8 text-red-400 text-sm">{error}</div>
+            <div className="text-center py-8 text-red-600 text-sm">{error}</div>
           )}
           {!loading && !error && ranking.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-500 text-sm">No hay resultados para este test en {divisionName}</p>
-              <p className="text-xs text-gray-600 mt-2">
+              <p className="text-ink-muted text-sm">No hay resultados para este test en {divisionName}</p>
+              <p className="text-xs text-ink-faint mt-2">
                 Registra tests desde el perfil de cada jugador en la sección Plantel
               </p>
             </div>
@@ -208,7 +208,7 @@ export default function Performance() {
 
         {/* Legend for time tests */}
         {isTime && ranking.length > 0 && (
-          <p className="text-xs text-gray-600 text-center mt-3">
+          <p className="text-xs text-ink-faint text-center mt-3">
             Menor tiempo = mejor resultado · Las barras se ajustan en consecuencia
           </p>
         )}

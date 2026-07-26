@@ -13,7 +13,7 @@ interface User {
   id: string;
   email: string;
   full_name: string;
-  role: "superadmin" | "club_admin" | "match_director" | "analyst";
+  role: "superadmin" | "club_admin" | "match_director" | "analyst" | "player";
   club_id: string | null;
 }
 

@@ -366,7 +366,7 @@ export default function SessionLineup() {
   };
 
   if (loading) {
-    return <div className="p-6"><p className="text-gray-400 text-sm">Cargando...</p></div>;
+    return <div className="p-6"><p className="text-ink-muted text-sm">Cargando...</p></div>;
   }
 
   const renderSlot = (jersey: number) => {
@@ -382,26 +382,26 @@ export default function SessionLineup() {
         disabled={!canEdit}
         className={`pressable-strong flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left w-full transition-colors duration-150 ${
           player
-            ? "bg-gray-800 hover:bg-gray-700/70"
-            : "bg-gray-800/40 border border-dashed border-gray-700 hover:border-gray-600"
+            ? "bg-surface hover:bg-surface-hover"
+            : "bg-surface/50 border border-dashed border-line hover:border-gray-600"
         } ${canEdit ? "" : "cursor-default"}`}
       >
         <span
           className={`w-7 h-7 shrink-0 rounded-lg grid place-items-center text-xs font-bold tabular-nums ${
-            player ? "bg-green-700 text-white" : "bg-gray-700 text-gray-500"
+            player ? "bg-brand text-white" : "bg-surface-strong text-ink-muted"
           }`}
         >
           {jersey}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm text-white truncate leading-tight">
-            {player?.name ?? <span className="text-gray-600">Vacío</span>}
+          <span className="block text-sm text-ink truncate leading-tight">
+            {player?.name ?? <span className="text-ink-faint">Vacío</span>}
           </span>
           <span className="block text-[11px] truncate leading-tight">
             {warning ? (
-              <span className="text-amber-400">{warning}</span>
+              <span className="text-amber-600">{warning}</span>
             ) : (
-              <span className="text-gray-500">
+              <span className="text-ink-muted">
                 {position || (jersey > 15 ? "Suplente" : "")}
               </span>
             )}
@@ -416,23 +416,23 @@ export default function SessionLineup() {
       <div className="flex items-center gap-3 mb-4">
         <button
           onClick={() => navigate(-1)}
-          className="pressable text-gray-400 hover:text-white text-sm transition-colors duration-150"
+          className="pressable text-ink-muted hover:text-ink text-sm transition-colors duration-150"
         >
           ← Volver
         </button>
-        <h1 className="text-base font-bold text-white truncate">
+        <h1 className="text-base font-bold text-ink truncate">
           {session?.home_team} vs {session?.away_team}
         </h1>
       </div>
 
       {canEdit && (
-        <div className="flex gap-1 bg-gray-800/60 p-1 rounded-xl mb-3">
+        <div className="flex gap-1 bg-surface/70 p-1 rounded-xl mb-3">
           {(["convocatoria", "equipo"] as const).map((v) => (
             <button
               key={v}
               onClick={() => { setView(v); setNotice(""); }}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold capitalize transition-colors duration-150 ${
-                view === v ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+                view === v ? "bg-surface-strong text-ink" : "text-ink-muted hover:text-ink"
               }`}
             >
               {v === "convocatoria" ? `Convocatoria (${squad.size})` : "Equipo"}
@@ -441,13 +441,13 @@ export default function SessionLineup() {
         </div>
       )}
 
-      <div className={`flex gap-1 bg-gray-800/60 p-1 rounded-xl mb-4 ${view === "convocatoria" ? "hidden" : ""}`}>
+      <div className={`flex gap-1 bg-surface/70 p-1 rounded-xl mb-4 ${view === "convocatoria" ? "hidden" : ""}`}>
         {(["user", "rival"] as const).map((t) => (
           <button
             key={t}
             onClick={() => switchTeam(t)}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold truncate px-2 transition-colors duration-150 ${
-              teamView === t ? "bg-green-700 text-white" : "text-gray-400 hover:text-white"
+              teamView === t ? "bg-brand text-white" : "text-ink-muted hover:text-ink"
             }`}
           >
             {t === "user" ? session?.home_team : session?.away_team}
@@ -459,14 +459,14 @@ export default function SessionLineup() {
         <div className="flex gap-2 mb-4">
           <button
             onClick={bringPrevious}
-            className="pressable flex-1 bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors duration-150"
+            className="pressable flex-1 bg-surface hover:bg-surface-strong text-ink text-xs font-semibold py-2.5 rounded-xl transition-colors duration-150"
           >
             Traer última fecha
           </button>
           <button
             onClick={copyToClipboard}
             disabled={filled === 0}
-            className="pressable flex-1 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors duration-150"
+            className="pressable flex-1 bg-surface hover:bg-surface-strong disabled:opacity-40 text-ink text-xs font-semibold py-2.5 rounded-xl transition-colors duration-150"
           >
             Copiar equipo
           </button>
@@ -474,17 +474,17 @@ export default function SessionLineup() {
       )}
 
       {started && isAdmin && (
-        <p className="text-xs text-amber-200 bg-amber-950/40 border border-amber-900/50 rounded-lg px-3 py-2 mb-3">
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
           El partido ya empezó. El lineup queda como está para no perder los cambios
           registrados; corregí desde el tablero si hace falta.
         </p>
       )}
 
       {notice && (
-        <p className="text-xs text-gray-300 bg-gray-800 rounded-lg px-3 py-2 mb-3">{notice}</p>
+        <p className="text-xs text-ink-soft bg-surface rounded-lg px-3 py-2 mb-3">{notice}</p>
       )}
       {error && (
-        <p className="text-xs text-red-400 bg-red-950/40 rounded-lg px-3 py-2 mb-3">{error}</p>
+        <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">{error}</p>
       )}
 
       {view === "convocatoria" ? (
@@ -496,18 +496,18 @@ export default function SessionLineup() {
               placeholder="Buscar jugador..."
               value={squadSearch}
               onChange={(e) => setSquadSearch(e.target.value)}
-              className="flex-1 bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 placeholder-gray-500 outline-none focus:ring-2 focus:ring-green-600"
+              className="flex-1 bg-surface text-ink text-sm rounded-xl px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-2 focus:ring-brand-ring"
             />
             <button
               onClick={copySquad}
               disabled={squad.size === 0}
-              className="pressable text-xs font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 px-3 rounded-xl transition-colors duration-150"
+              className="pressable text-xs font-semibold text-ink-soft bg-surface hover:bg-surface-strong disabled:opacity-40 px-3 rounded-xl transition-colors duration-150"
             >
               Copiar
             </button>
           </div>
 
-          <ul className="bg-gray-800/50 rounded-xl divide-y divide-gray-700/50 overflow-hidden">
+          <ul className="bg-surface/70 rounded-xl divide-y divide-line overflow-hidden">
             {squadList.map((p) => {
               const called = squad.has(p.id);
               const warning = warningFor(p);
@@ -515,11 +515,11 @@ export default function SessionLineup() {
                 <li key={p.id}>
                   <button
                     onClick={() => toggleCalled(p.id)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-gray-700/40 transition-colors duration-100"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-surface-hover transition-colors duration-100"
                   >
                     <span
                       className={`w-5 h-5 shrink-0 rounded-md border-2 grid place-items-center transition-colors duration-150 ${
-                        called ? "bg-green-600 border-green-600" : "border-gray-600"
+                        called ? "bg-brand border-green-600" : "border-gray-600"
                       }`}
                     >
                       {called && (
@@ -529,13 +529,13 @@ export default function SessionLineup() {
                       )}
                     </span>
                     <span className="flex-1 min-w-0">
-                      <span className="block text-sm text-white truncate">{p.name}</span>
-                      <span className="block text-[11px] text-gray-500 truncate">
+                      <span className="block text-sm text-ink truncate">{p.name}</span>
+                      <span className="block text-[11px] text-ink-muted truncate">
                         {p.position ?? "Sin posición"}
                       </span>
                     </span>
                     {warning && (
-                      <span className="text-[10px] font-semibold text-amber-400 shrink-0">
+                      <span className="text-[10px] font-semibold text-amber-600 shrink-0">
                         {warning}
                       </span>
                     )}
@@ -545,17 +545,17 @@ export default function SessionLineup() {
             })}
           </ul>
           {squadList.length === 0 && (
-            <p className="text-gray-500 text-sm py-6 text-center">Sin resultados.</p>
+            <p className="text-ink-muted text-sm py-6 text-center">Sin resultados.</p>
           )}
         </>
       ) : (
         <>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Titulares</p>
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Titulares</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-5">
             {STARTER_NUMBERS.map(renderSlot)}
           </div>
 
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Suplentes</p>
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Suplentes</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {BENCH_NUMBERS.map(renderSlot)}
           </div>
@@ -569,23 +569,23 @@ export default function SessionLineup() {
           onClick={() => { setPickingFor(null); setSearch(""); }}
         >
           <div
-            className="bg-gray-800 rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[75vh] flex flex-col animate-sheet md:animate-modal"
+            className="bg-surface rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[75vh] flex flex-col animate-sheet md:animate-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 pb-3 border-b border-gray-700">
+            <div className="p-4 pb-3 border-b border-line">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-sm font-semibold text-white">
+                  <p className="text-sm font-semibold text-ink">
                     Camiseta {pickingFor}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-ink-muted">
                     {positionByJersey(pickingFor) || "Suplente"}
                   </p>
                 </div>
                 {slots[pickingFor] && (
                   <button
                     onClick={() => clearSlot(pickingFor)}
-                    className="pressable text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg bg-red-950/30 transition-colors duration-150"
+                    className="pressable text-xs text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg bg-red-950/30 transition-colors duration-150"
                   >
                     Vaciar
                   </button>
@@ -597,39 +597,39 @@ export default function SessionLineup() {
                 placeholder="Buscar jugador..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-600"
+                className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-2 focus:ring-brand-ring"
               />
             </div>
 
             <ul className="overflow-y-auto p-2">
               {pickerPlayers.length === 0 ? (
-                <li className="text-gray-500 text-sm p-4 text-center">Sin resultados.</li>
+                <li className="text-ink-muted text-sm p-4 text-center">Sin resultados.</li>
               ) : (
                 pickerPlayers.map((p) => (
                   <li key={p.id}>
                     <button
                       onClick={() => assign(pickingFor, p.id)}
-                      className="pressable w-full flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-700 text-left transition-colors duration-150"
+                      className="pressable w-full flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-surface-strong text-left transition-colors duration-150"
                     >
-                      <span className="flex-1 text-sm text-white truncate">{p.name}</span>
+                      <span className="flex-1 text-sm text-ink truncate">{p.name}</span>
                       {warningFor(p) && (
                         <span
                           className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${
                             p.availability && p.availability !== "disponible"
                               ? AVAILABILITY_CLASS[p.availability]
-                              : "bg-red-900/60 text-red-300"
+                              : "bg-red-100 text-red-700"
                           }`}
                         >
                           {warningFor(p)}
                         </span>
                       )}
                       {p.matchesPosition && (
-                        <span className="text-[10px] font-semibold text-green-400 bg-green-950/50 px-1.5 py-0.5 rounded shrink-0">
+                        <span className="text-[10px] font-semibold text-brand bg-brand-soft px-1.5 py-0.5 rounded shrink-0">
                           puesto
                         </span>
                       )}
                       {p.assignedTo !== undefined && (
-                        <span className="text-[10px] text-amber-400 shrink-0 tabular-nums">
+                        <span className="text-[10px] text-amber-600 shrink-0 tabular-nums">
                           #{p.assignedTo}
                         </span>
                       )}
@@ -644,36 +644,36 @@ export default function SessionLineup() {
 
       {/* Guardar fijo: con 23 casilleros el botón al final queda lejísimos. */}
       {canEdit && (
-        <div className="fixed bottom-0 inset-x-0 md:left-56 bg-gray-900/95 backdrop-blur border-t border-gray-800 px-4 py-3">
+        <div className="fixed bottom-0 inset-x-0 md:left-56 bg-white/95 backdrop-blur border-t border-line px-4 py-3">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             {view === "convocatoria" ? (
               <>
-                <p className="text-xs text-gray-400 flex-1">
-                  <span className="tabular-nums text-white font-semibold">{squad.size}</span>{" "}
+                <p className="text-xs text-ink-muted flex-1">
+                  <span className="tabular-nums text-ink font-semibold">{squad.size}</span>{" "}
                   convocados
-                  {squadDirty && <span className="text-amber-400"> · sin guardar</span>}
+                  {squadDirty && <span className="text-amber-600"> · sin guardar</span>}
                 </p>
                 <button
                   onClick={saveSquad}
                   disabled={saving || !squadDirty}
-                  className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors duration-150"
+                  className="pressable bg-brand hover:bg-brand-hover disabled:opacity-40 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors duration-150"
                 >
                   {saving ? "Guardando..." : "Guardar"}
                 </button>
               </>
             ) : (
               <>
-                <p className="text-xs text-gray-400 flex-1">
-                  <span className="tabular-nums text-white font-semibold">{filled}</span> de 23
+                <p className="text-xs text-ink-muted flex-1">
+                  <span className="tabular-nums text-ink font-semibold">{filled}</span> de 23
                   {flagged.length > 0 && (
-                    <span className="text-amber-400"> · {flagged.length} con aviso</span>
+                    <span className="text-amber-600"> · {flagged.length} con aviso</span>
                   )}
-                  {dirty && <span className="text-amber-400"> · sin guardar</span>}
+                  {dirty && <span className="text-amber-600"> · sin guardar</span>}
                 </p>
                 <button
                   onClick={save}
                   disabled={saving || !dirty}
-                  className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors duration-150"
+                  className="pressable bg-brand hover:bg-brand-hover disabled:opacity-40 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors duration-150"
                 >
                   {saving ? "Guardando..." : "Guardar"}
                 </button>

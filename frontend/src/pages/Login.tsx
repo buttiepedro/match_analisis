@@ -25,33 +25,33 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-white text-center mb-1">
+        <h1 className="text-2xl font-bold text-ink text-center mb-1">
           Rugby Analisis
         </h1>
-        <p className="text-gray-400 text-center mb-8 text-sm">
+        <p className="text-ink-muted text-center mb-8 text-sm">
           Estadisticas de Rugby
         </p>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-gray-800 rounded-2xl p-6 space-y-4"
+          className="bg-surface rounded-2xl p-6 space-y-4"
         >
           <div>
-            <label className="block text-sm text-gray-300 mb-1">Email</label>
+            <label className="block text-sm text-ink-soft mb-1">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full bg-gray-700 text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full bg-surface-strong text-ink rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand-ring"
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-300 mb-1">
+            <label className="block text-sm text-ink-soft mb-1">
               Contrasena
             </label>
             <input
@@ -60,18 +60,18 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full bg-gray-700 text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full bg-surface-strong text-ink rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand-ring"
             />
           </div>
 
           {error && (
-            <p className="text-red-400 text-sm text-center">{error}</p>
+            <p className="text-red-600 text-sm text-center">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="pressable w-full bg-green-600 hover:bg-green-500 disabled:bg-green-800 text-white font-semibold rounded-xl py-3 text-base transition-colors duration-150"
+            className="pressable w-full bg-brand hover:bg-brand-hover disabled:bg-green-800 text-white font-semibold rounded-xl py-3 text-base transition-colors duration-150"
           >
             {loading ? "Ingresando..." : "Ingresar"}
           </button>

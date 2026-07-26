@@ -122,7 +122,7 @@ export default function TrainingAttendance() {
   };
 
   if (loading) {
-    return <div className="p-6"><p className="text-gray-400 text-sm">Cargando...</p></div>;
+    return <div className="p-6"><p className="text-ink-muted text-sm">Cargando...</p></div>;
   }
 
   return (
@@ -130,22 +130,22 @@ export default function TrainingAttendance() {
       <div className="flex items-center gap-3 mb-1">
         <button
           onClick={() => navigate("/trainings")}
-          className="pressable text-gray-400 hover:text-white text-sm transition-colors duration-150"
+          className="pressable text-ink-muted hover:text-ink text-sm transition-colors duration-150"
         >
           ← Volver
         </button>
       </div>
-      <h1 className="text-lg font-bold text-white capitalize">
+      <h1 className="text-lg font-bold text-ink capitalize">
         {training ? formatLongDate(training.date) : ""}
       </h1>
-      <p className="text-sm text-gray-400 mb-4">
+      <p className="text-sm text-ink-muted mb-4">
         {training ? TRAINING_TYPE_LABEL[training.type as TrainingType] ?? training.type : ""} ·{" "}
-        <span className="text-green-400 font-semibold tabular-nums">{presentCount}</span>
-        <span className="text-gray-500"> de {rows.length} presentes</span>
+        <span className="text-brand font-semibold tabular-nums">{presentCount}</span>
+        <span className="text-ink-muted"> de {rows.length} presentes</span>
       </p>
 
       {rows.length === 0 ? (
-        <p className="text-gray-500 text-sm py-8 text-center">
+        <p className="text-ink-muted text-sm py-8 text-center">
           La división no tiene jugadores activos.
         </p>
       ) : (
@@ -157,17 +157,17 @@ export default function TrainingAttendance() {
               placeholder="Buscar jugador..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 placeholder-gray-500 outline-none focus:ring-2 focus:ring-green-600"
+              className="flex-1 bg-surface text-ink text-sm rounded-xl px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-2 focus:ring-brand-ring"
             />
             <button
               onClick={() => markAll("presente")}
-              className="pressable text-xs font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 px-3 rounded-xl transition-colors duration-150"
+              className="pressable text-xs font-semibold text-ink-soft bg-surface hover:bg-surface-strong px-3 rounded-xl transition-colors duration-150"
             >
               Todos
             </button>
           </div>
 
-          <ul className="bg-gray-800/50 rounded-xl divide-y divide-gray-700/50 overflow-hidden">
+          <ul className="bg-surface/70 rounded-xl divide-y divide-line overflow-hidden">
             {filtered.map((row) => {
               const status = statuses[row.player_id] ?? DEFAULT_STATUS;
               const isOpen = pickerFor === row.player_id;
@@ -176,11 +176,11 @@ export default function TrainingAttendance() {
                   <div className="flex items-stretch">
                     <button
                       onClick={() => toggle(row.player_id)}
-                      className="flex-1 flex items-center gap-3 px-4 py-3 text-left min-w-0 active:bg-gray-700/40 transition-colors duration-100"
+                      className="flex-1 flex items-center gap-3 px-4 py-3 text-left min-w-0 active:bg-surface-hover transition-colors duration-100"
                     >
-                      <span className="flex-1 text-sm text-white truncate">{row.player_name}</span>
+                      <span className="flex-1 text-sm text-ink truncate">{row.player_name}</span>
                       {row.position && (
-                        <span className="text-[11px] text-gray-600 truncate hidden sm:block">
+                        <span className="text-[11px] text-ink-faint truncate hidden sm:block">
                           {row.position}
                         </span>
                       )}
@@ -195,13 +195,13 @@ export default function TrainingAttendance() {
                   </div>
 
                   {isOpen && (
-                    <div className="flex flex-wrap gap-1.5 px-4 py-2.5 bg-gray-900/60">
+                    <div className="flex flex-wrap gap-1.5 px-4 py-2.5 bg-surface/60">
                       {ATTENDANCE_STATUSES.map((s) => (
                         <button
                           key={s}
                           onClick={() => setStatus(row.player_id, s)}
                           className={`pressable px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-150 ${
-                            s === status ? STATUS_CLASS[s] : "bg-gray-700 text-gray-300"
+                            s === status ? STATUS_CLASS[s] : "bg-surface-strong text-ink-soft"
                           }`}
                         >
                           {STATUS_LABEL[s]}
@@ -215,20 +215,20 @@ export default function TrainingAttendance() {
           </ul>
 
           {filtered.length === 0 && (
-            <p className="text-gray-500 text-sm py-6 text-center">Sin resultados.</p>
+            <p className="text-ink-muted text-sm py-6 text-center">Sin resultados.</p>
           )}
         </>
       )}
 
       {error && (
-        <p className="text-red-400 text-xs mt-3 bg-red-950/40 rounded-lg px-3 py-2">{error}</p>
+        <p className="text-red-600 text-xs mt-3 bg-red-50 rounded-lg px-3 py-2">{error}</p>
       )}
 
       {/* Barra fija: guardar nunca queda fuera de alcance del pulgar. */}
       {rows.length > 0 && (
-        <div className="fixed bottom-0 inset-x-0 md:left-56 bg-gray-900/95 backdrop-blur border-t border-gray-800 px-4 py-3">
+        <div className="fixed bottom-0 inset-x-0 md:left-56 bg-white/95 backdrop-blur border-t border-line px-4 py-3">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
-            <p className="text-xs text-gray-400 flex-1">
+            <p className="text-xs text-ink-muted flex-1">
               {saveState === "queued"
                 ? "Sin conexión — se envía al recuperar señal ⧗"
                 : saveState === "saved"
@@ -238,7 +238,7 @@ export default function TrainingAttendance() {
             <button
               onClick={save}
               disabled={saveState === "saving"}
-              className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-60 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors duration-150"
+              className="pressable bg-brand hover:bg-brand-hover disabled:opacity-60 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors duration-150"
             >
               {saveState === "saving" ? "Guardando..." : "Guardar"}
             </button>

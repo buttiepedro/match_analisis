@@ -28,9 +28,9 @@ export const AVAILABILITY_LABEL: Record<PlayerAvailability, string> = {
 
 export const AVAILABILITY_CLASS: Record<PlayerAvailability, string> = {
   disponible: "",
-  lesionado: "bg-orange-900/60 text-orange-300",
-  suspendido: "bg-red-900/60 text-red-300",
-  baja_temporal: "bg-gray-700 text-gray-300",
+  lesionado: "bg-orange-100 text-orange-700",
+  suspendido: "bg-red-100 text-red-700",
+  baja_temporal: "bg-surface-strong text-ink-soft",
 };
 
 /** Vencido ya, o dentro de los 30 días de aviso. */

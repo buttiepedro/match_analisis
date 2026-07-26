@@ -26,11 +26,11 @@ function useDisplayElapsed(timer: TimerData | null): number {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  running: "text-green-400",
-  paused: "text-yellow-400",
-  halftime: "text-blue-400",
-  finished: "text-red-400",
-  stopped: "text-gray-400",
+  running: "text-brand",
+  paused: "text-yellow-600",
+  halftime: "text-blue-600",
+  finished: "text-red-600",
+  stopped: "text-ink-muted",
 };
 
 export default function Timer({
@@ -79,12 +79,12 @@ export default function Timer({
   };
 
   return (
-    <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
+    <div className="bg-surface px-4 py-3 border-b border-line">
       {/* Teams */}
-      <div className="flex justify-between text-xs text-gray-400 mb-1">
+      <div className="flex justify-between text-xs text-ink-muted mb-1">
         <span className="font-medium">{homeTeam}</span>
         {pastRegulation && (
-          <span className="font-bold text-amber-400 uppercase tracking-wide">
+          <span className="font-bold text-amber-600 uppercase tracking-wide">
             Tiempo cumplido ({halfDurationMinutes}′)
           </span>
         )}
@@ -94,24 +94,24 @@ export default function Timer({
       {/* Timer row */}
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-2">
-          <span className="text-xs font-bold text-gray-400 uppercase">
+          <span className="text-xs font-bold text-ink-muted uppercase">
             {half === 1 ? "1T" : "2T"}
           </span>
           <span
             className={`text-3xl font-mono font-bold tabular-nums ${
-              pastRegulation ? "text-amber-400" : STATUS_COLOR[status]
+              pastRegulation ? "text-amber-600" : STATUS_COLOR[status]
             }`}
           >
             {formatTime(elapsed)}
           </span>
           {pastRegulation && (
-            <span className="text-xs font-bold text-amber-400 tabular-nums animate-pulse">
+            <span className="text-xs font-bold text-amber-600 tabular-nums animate-pulse">
               +{formatTime(overtime)}
             </span>
           )}
         </div>
 
-        <span className="text-xs text-gray-500 capitalize">{status}</span>
+        <span className="text-xs text-ink-muted capitalize">{status}</span>
 
         {canControl && (
           <div className="flex gap-2 items-center">
@@ -154,34 +154,34 @@ export default function Timer({
 
       {/* Correction form — appears below when ⏱ is active */}
       {correcting && (
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700">
-          <span className="text-xs text-gray-400 shrink-0">Ir a:</span>
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-line">
+          <span className="text-xs text-ink-muted shrink-0">Ir a:</span>
           <input
             type="number"
             min="0"
             max="99"
             value={corrMm}
             onChange={(e) => setCorrMm(e.target.value.padStart(2, "0").slice(-2))}
-            className="w-12 bg-gray-700 text-white text-sm text-center rounded px-2 py-1 outline-none"
+            className="w-12 bg-surface-strong text-ink text-sm text-center rounded px-2 py-1 outline-none"
           />
-          <span className="text-gray-400 font-bold">:</span>
+          <span className="text-ink-muted font-bold">:</span>
           <input
             type="number"
             min="0"
             max="59"
             value={corrSs}
             onChange={(e) => setCorrSs(e.target.value.padStart(2, "0").slice(-2))}
-            className="w-12 bg-gray-700 text-white text-sm text-center rounded px-2 py-1 outline-none"
+            className="w-12 bg-surface-strong text-ink text-sm text-center rounded px-2 py-1 outline-none"
           />
           <button
             onClick={applyCorrection}
-            className="pressable text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors duration-150"
+            className="pressable text-xs bg-brand hover:bg-brand-hover text-white px-3 py-1 rounded transition-colors duration-150"
           >
             OK
           </button>
           <button
             onClick={() => setCorrecting(false)}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
+            className="text-xs text-ink-muted hover:text-ink transition-colors"
           >
             Cancelar
           </button>
@@ -193,16 +193,16 @@ export default function Timer({
 
 function CtrlBtn({ onClick, label, color }: { onClick: () => void; label: string; color: string }) {
   const colors: Record<string, string> = {
-    green: "bg-green-700 hover:bg-green-600",
+    green: "bg-brand hover:bg-brand-hover",
     yellow: "bg-yellow-700 hover:bg-yellow-600",
     blue: "bg-blue-700 hover:bg-blue-600",
     red: "bg-red-700 hover:bg-red-600",
-    gray: "bg-gray-600 hover:bg-gray-500",
+    gray: "bg-surface-hover hover:bg-gray-500",
   };
   return (
     <button
       onClick={onClick}
-      className={`pressable ${colors[color]} text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors duration-150`}
+      className={`pressable ${colors[color]} text-ink text-xs font-bold px-3 py-1.5 rounded-lg transition-colors duration-150`}
     >
       {label}
     </button>

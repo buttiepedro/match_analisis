@@ -544,15 +544,15 @@ function timelineOption(session: LoadedSession) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-gray-800 rounded-xl p-4 mb-4">
-      <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">{title}</p>
+    <div className="bg-surface rounded-xl p-4 mb-4">
+      <p className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-3">{title}</p>
       {children}
     </div>
   );
 }
 
 function Empty({ msg }: { msg: string }) {
-  return <p className="text-gray-600 text-sm py-4 text-center">{msg}</p>;
+  return <p className="text-ink-faint text-sm py-4 text-center">{msg}</p>;
 }
 
 function PillGroup<T extends string>({
@@ -572,8 +572,8 @@ function PillGroup<T extends string>({
           onClick={() => onChange(o.value)}
           className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
             value === o.value
-              ? "bg-green-600 text-white"
-              : "bg-gray-700 text-gray-400 active:text-white"
+              ? "bg-brand text-white"
+              : "bg-surface-strong text-ink-muted active:text-ink"
           }`}
         >
           {o.label}
@@ -605,30 +605,30 @@ function ScoreSummary({
   ];
 
   return (
-    <div className="bg-gray-800 rounded-xl overflow-hidden mb-4">
-      <div className="grid grid-cols-2 divide-x divide-gray-700">
+    <div className="bg-surface rounded-xl overflow-hidden mb-4">
+      <div className="grid grid-cols-2 divide-x divide-line">
         <div className="px-4 py-4 text-center">
-          <p className="text-blue-400 text-xs font-semibold truncate">{clubName}</p>
-          <p className="text-white text-5xl font-bold mt-1">{club.total}</p>
-          <p className="text-gray-500 text-xs mt-0.5">pts</p>
+          <p className="text-blue-600 text-xs font-semibold truncate">{clubName}</p>
+          <p className="text-ink text-5xl font-bold mt-1">{club.total}</p>
+          <p className="text-ink-muted text-xs mt-0.5">pts</p>
         </div>
         <div className="px-4 py-4 text-center">
           <p className="text-orange-400 text-xs font-semibold truncate">{rivalName}</p>
-          <p className="text-white text-5xl font-bold mt-1">{rival.total}</p>
-          <p className="text-gray-500 text-xs mt-0.5">pts</p>
+          <p className="text-ink text-5xl font-bold mt-1">{rival.total}</p>
+          <p className="text-ink-muted text-xs mt-0.5">pts</p>
         </div>
       </div>
-      <div className="border-t border-gray-700 px-4 pb-3 pt-2">
-        <div className="grid grid-cols-3 text-xs text-gray-500 pb-1 mb-1 border-b border-gray-700/50">
+      <div className="border-t border-line px-4 pb-3 pt-2">
+        <div className="grid grid-cols-3 text-xs text-ink-muted pb-1 mb-1 border-b border-line">
           <span />
-          <span className="text-center text-blue-400 font-semibold">{clubName}</span>
+          <span className="text-center text-blue-600 font-semibold">{clubName}</span>
           <span className="text-center text-orange-400 font-semibold">{rivalName}</span>
         </div>
         {rows.map((r) => (
           <div key={r.label} className="grid grid-cols-3 text-xs py-1">
-            <span className="text-gray-400">{r.label}</span>
-            <span className={`text-center font-semibold ${r.cVal > 0 ? "text-white" : "text-gray-600"}`}>{r.cVal}</span>
-            <span className={`text-center font-semibold ${r.rVal > 0 ? "text-white" : "text-gray-600"}`}>{r.rVal}</span>
+            <span className="text-ink-muted">{r.label}</span>
+            <span className={`text-center font-semibold ${r.cVal > 0 ? "text-ink" : "text-ink-faint"}`}>{r.cVal}</span>
+            <span className={`text-center font-semibold ${r.rVal > 0 ? "text-ink" : "text-ink-faint"}`}>{r.rVal}</span>
           </div>
         ))}
       </div>
@@ -830,11 +830,11 @@ export default function Stats() {
     <div className="p-4 max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h1 className="text-xl font-bold text-white">Estadísticas</h1>
+        <h1 className="text-xl font-bold text-ink">Estadísticas</h1>
         <select
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
-          className="bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+          className="bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
         >
           <option value="all">Todos los partidos</option>
           {sessionsInDivision.map((s) => (
@@ -855,8 +855,8 @@ export default function Stats() {
             onClick={() => handleDivisionChange("")}
             className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
               divisionFilter === ""
-                ? "bg-green-700 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                ? "bg-brand text-white"
+                : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
             }`}
           >
             Todas
@@ -867,8 +867,8 @@ export default function Stats() {
               onClick={() => handleDivisionChange(d.id)}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
                 divisionFilter === d.id
-                  ? "bg-green-700 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  ? "bg-brand text-white"
+                  : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
               }`}
             >
               {d.name}
@@ -883,11 +883,11 @@ export default function Stats() {
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Cargando estadísticas...</p>
+        <p className="text-ink-muted text-sm">Cargando estadísticas...</p>
       ) : loadError ? (
-        <p className="text-red-400 text-sm">{loadError}</p>
+        <p className="text-red-600 text-sm">{loadError}</p>
       ) : sessions.length === 0 ? (
-        <p className="text-gray-500 text-sm">No hay partidos con datos todavía.</p>
+        <p className="text-ink-muted text-sm">No hay partidos con datos todavía.</p>
       ) : (
         <>
           {/* ── Puntos ──────────────────────────────────────────────────── */}
@@ -988,37 +988,37 @@ export default function Stats() {
                 const barWidth = m.actual !== null ? Math.min(m.actual, 100) : 0;
 
                 return (
-                  <div key={m.key} className="bg-gray-800 rounded-xl p-4 space-y-3">
+                  <div key={m.key} className="bg-surface rounded-xl p-4 space-y-3">
                     {/* Header */}
                     <div className="flex items-center justify-between">
-                      <span className="text-white text-sm font-semibold">{m.label}</span>
+                      <span className="text-ink text-sm font-semibold">{m.label}</span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-gray-400 text-xs">Objetivo:</span>
+                        <span className="text-ink-muted text-xs">Objetivo:</span>
                         <input
                           type="number"
                           min="0"
                           max="100"
                           value={target}
                           onChange={(e) => updateObjective(m.key, Number(e.target.value))}
-                          className="w-12 bg-gray-700 text-white text-xs text-center rounded-lg px-1.5 py-1 outline-none focus:ring-1 focus:ring-green-600"
+                          className="w-12 bg-surface-strong text-ink text-xs text-center rounded-lg px-1.5 py-1 outline-none focus:ring-1 focus:ring-brand-ring"
                         />
-                        <span className="text-gray-400 text-xs">%</span>
+                        <span className="text-ink-muted text-xs">%</span>
                       </div>
                     </div>
 
                     {/* Actual value + bar */}
                     <div className="flex items-center gap-4">
                       <span className={`text-3xl font-bold w-16 shrink-0 ${
-                        m.actual === null ? "text-gray-600" : isGood ? "text-green-400" : "text-red-400"
+                        m.actual === null ? "text-ink-faint" : isGood ? "text-brand" : "text-red-600"
                       }`}>
                         {m.actual === null ? "—" : `${m.actual}%`}
                       </span>
 
                       <div className="flex-1 space-y-1">
                         {/* Bar */}
-                        <div className="relative h-3 bg-gray-700 rounded-full overflow-visible">
+                        <div className="relative h-3 bg-surface-strong rounded-full overflow-visible">
                           <div
-                            className={`h-full rounded-full transition-[width] duration-500 ${isGood ? "bg-green-500" : "bg-red-500"}`}
+                            className={`h-full rounded-full transition-[width] duration-500 ${isGood ? "bg-brand" : "bg-red-500"}`}
                             style={{ width: `${barWidth}%` }}
                           />
                           {/* Target marker */}
@@ -1027,9 +1027,9 @@ export default function Stats() {
                             style={{ left: `${target}%` }}
                           />
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-ink-muted">
                           {m.den === 0 ? "Sin datos" : `${m.num} de ${m.den}`}
-                          <span className="ml-2 text-gray-600">· objetivo {target}%</span>
+                          <span className="ml-2 text-ink-faint">· objetivo {target}%</span>
                         </div>
                       </div>
                     </div>
@@ -1048,7 +1048,7 @@ export default function Stats() {
             </Section>
           )}
           {catFilter === "all" && selectedId === "all" && (
-            <p className="text-gray-600 text-xs text-center mt-2">
+            <p className="text-ink-faint text-xs text-center mt-2">
               Seleccioná un partido para ver la línea de tiempo
             </p>
           )}

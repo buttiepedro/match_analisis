@@ -307,12 +307,12 @@ export default function UarImportModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-modal">
+      <div className="bg-surface rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-modal">
         {/* Header */}
-        <div className="px-6 pt-5 pb-4 border-b border-gray-700 flex-shrink-0">
-          <h2 className="text-white font-bold text-lg">Importar Ficha BD UAR</h2>
+        <div className="px-6 pt-5 pb-4 border-b border-line flex-shrink-0">
+          <h2 className="text-ink font-bold text-lg">Importar Ficha BD UAR</h2>
           {parsed?.match_number && (
-            <p className="text-xs text-gray-500 mt-0.5">Tarjeta N° {parsed.match_number}</p>
+            <p className="text-xs text-ink-muted mt-0.5">Tarjeta N° {parsed.match_number}</p>
           )}
         </div>
 
@@ -323,11 +323,11 @@ export default function UarImportModal({
             <>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-1">Torneo</label>
+                  <label className="text-xs text-ink-muted uppercase tracking-wide block mb-1">Torneo</label>
                   <select
                     value={tournamentId}
                     onChange={(e) => setTournamentId(e.target.value)}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-brand-ring"
                   >
                     <option value="">— Seleccionar —</option>
                     {tournaments.map((t) => (
@@ -336,11 +336,11 @@ export default function UarImportModal({
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-1">División de tus jugadores</label>
+                  <label className="text-xs text-ink-muted uppercase tracking-wide block mb-1">División de tus jugadores</label>
                   <select
                     value={divisionId}
                     onChange={(e) => setDivisionId(e.target.value)}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-brand-ring"
                   >
                     <option value="">— Seleccionar —</option>
                     {divisions.map((d) => (
@@ -349,7 +349,7 @@ export default function UarImportModal({
                   </select>
                 </div>
               </div>
-              {error && <p className="text-red-400 text-xs">{error}</p>}
+              {error && <p className="text-red-600 text-xs">{error}</p>}
             </>
           )}
 
@@ -357,7 +357,7 @@ export default function UarImportModal({
           {step === "uploading" && (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
               <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-gray-400 text-sm">Procesando PDF...</p>
+              <p className="text-ink-muted text-sm">Procesando PDF...</p>
             </div>
           )}
 
@@ -365,18 +365,18 @@ export default function UarImportModal({
           {step === "confirm" && parsed && (
             <>
               {/* Match header */}
-              <div className="bg-gray-700/50 rounded-xl p-4 space-y-3">
+              <div className="bg-surface-strong/50 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-center flex-1">
-                    <p className="text-xs text-gray-400 mb-0.5">{userSide === "local" ? "Tu equipo (LOCAL)" : "Rival (LOCAL)"}</p>
-                    <p className="text-white font-bold text-sm">{parsed.local_team}</p>
-                    <p className="text-2xl font-bold text-green-400">{parsed.local_score}</p>
+                    <p className="text-xs text-ink-muted mb-0.5">{userSide === "local" ? "Tu equipo (LOCAL)" : "Rival (LOCAL)"}</p>
+                    <p className="text-ink font-bold text-sm">{parsed.local_team}</p>
+                    <p className="text-2xl font-bold text-brand">{parsed.local_score}</p>
                   </div>
-                  <p className="text-gray-600 font-bold text-lg px-3">—</p>
+                  <p className="text-ink-faint font-bold text-lg px-3">—</p>
                   <div className="text-center flex-1">
-                    <p className="text-xs text-gray-400 mb-0.5">{userSide === "visitante" ? "Tu equipo (VISIT.)" : "Rival (VISIT.)"}</p>
-                    <p className="text-white font-bold text-sm">{parsed.visitante_team}</p>
-                    <p className="text-2xl font-bold text-red-400">{parsed.visitante_score}</p>
+                    <p className="text-xs text-ink-muted mb-0.5">{userSide === "visitante" ? "Tu equipo (VISIT.)" : "Rival (VISIT.)"}</p>
+                    <p className="text-ink font-bold text-sm">{parsed.visitante_team}</p>
+                    <p className="text-2xl font-bold text-red-600">{parsed.visitante_score}</p>
                   </div>
                 </div>
               </div>
@@ -384,48 +384,48 @@ export default function UarImportModal({
               {/* Editable rival + fecha */}
               <div className="space-y-2">
                 <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-1">Nombre del rival (editable)</label>
+                  <label className="text-xs text-ink-muted uppercase tracking-wide block mb-1">Nombre del rival (editable)</label>
                   <input
                     value={editRival}
                     onChange={(e) => setEditRival(e.target.value)}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-1">Fecha y hora</label>
+                  <label className="text-xs text-ink-muted uppercase tracking-wide block mb-1">Fecha y hora</label>
                   <input
                     type="datetime-local"
                     value={editFecha}
                     onChange={(e) => setEditFecha(e.target.value)}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                   />
                 </div>
               </div>
 
               {/* User lineup */}
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+                <p className="text-xs text-ink-muted uppercase tracking-wide mb-2">
                   Tu plantel — {userLineup.length} jugadores
                 </p>
                 <div className="space-y-1 max-h-52 overflow-y-auto">
                   {resolutions.map((r) => (
                     <div
                       key={r.pdfPlayer.pos}
-                      className="flex items-center justify-between bg-gray-700/40 rounded-lg px-3 py-1.5"
+                      className="flex items-center justify-between bg-surface-hover rounded-lg px-3 py-1.5"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 w-5 text-right">{r.pdfPlayer.dor}</span>
+                        <span className="text-xs text-ink-muted w-5 text-right">{r.pdfPlayer.dor}</span>
                         <div>
-                          <span className="text-sm text-white">{titleCase(r.pdfPlayer.nombre_norm)}</span>
+                          <span className="text-sm text-ink">{titleCase(r.pdfPlayer.nombre_norm)}</span>
                           {r.pdfPlayer.doc_num && (
-                            <span className="block text-xs text-gray-500">DNI {r.pdfPlayer.doc_num}</span>
+                            <span className="block text-xs text-ink-muted">DNI {r.pdfPlayer.doc_num}</span>
                           )}
                         </div>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-ink-muted">
                           {r.pdfPlayer.status === "on_field" ? "Titular" : "Suplente"}
                         </span>
                       </div>
-                      <span className={`text-xs font-medium ${r.dbPlayerId ? "text-green-400" : "text-yellow-400"}`}>
+                      <span className={`text-xs font-medium ${r.dbPlayerId ? "text-brand" : "text-yellow-600"}`}>
                         {r.dbPlayerId ? "✓ En BD" : "⚠ No hallado"}
                       </span>
                     </div>
@@ -434,7 +434,7 @@ export default function UarImportModal({
               </div>
 
               {/* Rival lineup count */}
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-ink-muted">
                 Plantel rival: {rivalLineup.length} jugadores (referencia, no se importa al lineup)
               </p>
 
@@ -442,30 +442,30 @@ export default function UarImportModal({
               <div>
                 <button
                   onClick={() => setShowEvents((v) => !v)}
-                  className="w-full flex items-center justify-between bg-gray-700/40 hover:bg-gray-700/60 rounded-lg px-4 py-2.5 transition-colors"
+                  className="w-full flex items-center justify-between bg-surface-hover hover:bg-surface-hover rounded-lg px-4 py-2.5 transition-colors"
                 >
-                  <span className="text-sm text-gray-300 font-medium">
+                  <span className="text-sm text-ink-soft font-medium">
                     Eventos a importar
-                    <span className="ml-2 text-xs text-gray-500">({totalEvents} en total)</span>
+                    <span className="ml-2 text-xs text-ink-muted">({totalEvents} en total)</span>
                   </span>
-                  <span className="text-gray-400 text-xs">{showEvents ? "▲" : "▼"}</span>
+                  <span className="text-ink-muted text-xs">{showEvents ? "▲" : "▼"}</span>
                 </button>
                 {showEvents && (
                   <div className="mt-1 max-h-52 overflow-y-auto space-y-0.5 rounded-lg">
                     {/* User events */}
                     {(userSide === "local" ? parsed.incidencias_local : parsed.incidencias_visitante).length > 0 && (
                       <>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide px-2 pt-2 pb-1">Tu equipo</p>
+                        <p className="text-xs text-ink-muted uppercase tracking-wide px-2 pt-2 pb-1">Tu equipo</p>
                         {(userSide === "local" ? parsed.incidencias_local : parsed.incidencias_visitante).map((e, i) => (
-                          <div key={i} className="flex items-center gap-2 px-3 py-1 bg-gray-700/30 rounded">
-                            <span className="text-xs text-gray-500 w-7">{e.tiempo}</span>
-                            <span className="text-xs text-gray-400 w-8">min.{e.minuto}</span>
+                          <div key={i} className="flex items-center gap-2 px-3 py-1 bg-surface-strong/30 rounded">
+                            <span className="text-xs text-ink-muted w-7">{e.tiempo}</span>
+                            <span className="text-xs text-ink-muted w-8">min.{e.minuto}</span>
                             <span className={`text-xs font-medium ${
-                              e.tipo === "try" ? "text-green-400" :
-                              e.tipo === "penalty" ? "text-blue-400" :
-                              e.tipo === "yellow_card" ? "text-yellow-400" :
-                              e.tipo === "red_card" ? "text-red-400" :
-                              "text-gray-300"
+                              e.tipo === "try" ? "text-brand" :
+                              e.tipo === "penalty" ? "text-blue-600" :
+                              e.tipo === "yellow_card" ? "text-yellow-600" :
+                              e.tipo === "red_card" ? "text-red-600" :
+                              "text-ink-soft"
                             }`}>
                               {eventDesc(e)}
                             </span>
@@ -476,17 +476,17 @@ export default function UarImportModal({
                     {/* Rival events */}
                     {(userSide === "local" ? parsed.incidencias_visitante : parsed.incidencias_local).length > 0 && (
                       <>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide px-2 pt-2 pb-1">Rival</p>
+                        <p className="text-xs text-ink-muted uppercase tracking-wide px-2 pt-2 pb-1">Rival</p>
                         {(userSide === "local" ? parsed.incidencias_visitante : parsed.incidencias_local).map((e, i) => (
-                          <div key={i} className="flex items-center gap-2 px-3 py-1 bg-gray-700/20 rounded">
-                            <span className="text-xs text-gray-500 w-7">{e.tiempo}</span>
-                            <span className="text-xs text-gray-400 w-8">min.{e.minuto}</span>
+                          <div key={i} className="flex items-center gap-2 px-3 py-1 bg-surface-strong/20 rounded">
+                            <span className="text-xs text-ink-muted w-7">{e.tiempo}</span>
+                            <span className="text-xs text-ink-muted w-8">min.{e.minuto}</span>
                             <span className={`text-xs font-medium ${
-                              e.tipo === "try" ? "text-green-400" :
-                              e.tipo === "penalty" ? "text-blue-400" :
-                              e.tipo === "yellow_card" ? "text-yellow-400" :
-                              e.tipo === "red_card" ? "text-red-400" :
-                              "text-gray-300"
+                              e.tipo === "try" ? "text-brand" :
+                              e.tipo === "penalty" ? "text-blue-600" :
+                              e.tipo === "yellow_card" ? "text-yellow-600" :
+                              e.tipo === "red_card" ? "text-red-600" :
+                              "text-ink-soft"
                             }`}>
                               {eventDesc(e)}
                             </span>
@@ -500,12 +500,12 @@ export default function UarImportModal({
 
               {/* Bottom summary */}
               {notFound > 0 && (
-                <p className="text-yellow-400 text-xs">
+                <p className="text-yellow-600 text-xs">
                   ⚠ {notFound} jugador{notFound > 1 ? "es" : ""} no encontrado{notFound > 1 ? "s" : ""} — se crearán en la división seleccionada
                 </p>
               )}
 
-              {error && <p className="text-red-400 text-xs">{error}</p>}
+              {error && <p className="text-red-600 text-xs">{error}</p>}
             </>
           )}
 
@@ -514,18 +514,18 @@ export default function UarImportModal({
             <div className="py-4 space-y-5">
               <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-xl p-4">
                 <p className="text-yellow-300 font-semibold text-sm mb-1">Jugador no encontrado</p>
-                <p className="text-white text-base font-bold">
+                <p className="text-ink text-base font-bold">
                   {titleCase(currentRes.pdfPlayer.nombre_norm)}
                 </p>
-                <p className="text-gray-400 text-xs mt-0.5">N° {currentRes.pdfPlayer.dor} · {currentRes.pdfPlayer.status === "on_field" ? "Titular" : "Suplente"}</p>
+                <p className="text-ink-muted text-xs mt-0.5">N° {currentRes.pdfPlayer.dor} · {currentRes.pdfPlayer.status === "on_field" ? "Titular" : "Suplente"}</p>
               </div>
-              <p className="text-gray-300 text-sm">
+              <p className="text-ink-soft text-sm">
                 Este jugador no está en la división seleccionada. ¿Qué querés hacer?
               </p>
               {pendingQueue.length > 1 && (
-                <p className="text-xs text-gray-500">{pendingQueue.length - 1} jugador{pendingQueue.length > 2 ? "es" : ""} más por resolver</p>
+                <p className="text-xs text-ink-muted">{pendingQueue.length - 1} jugador{pendingQueue.length > 2 ? "es" : ""} más por resolver</p>
               )}
-              {error && <p className="text-red-400 text-xs">{error}</p>}
+              {error && <p className="text-red-600 text-xs">{error}</p>}
             </div>
           )}
 
@@ -533,24 +533,24 @@ export default function UarImportModal({
           {step === "creating" && (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
               <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-gray-400 text-sm">Importando partido...</p>
+              <p className="text-ink-muted text-sm">Importando partido...</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 pb-5 pt-3 border-t border-gray-700 flex-shrink-0">
+        <div className="px-6 pb-5 pt-3 border-t border-line flex-shrink-0">
           {step === "select" && (
             <div className="flex gap-3">
               <button
                 onClick={handleSelectPdf}
-                className="pressable flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+                className="pressable flex-1 bg-brand hover:bg-brand-hover text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Seleccionar PDF
               </button>
               <button
                 onClick={onClose}
-                className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+                className="pressable flex-1 bg-surface-strong hover:bg-surface-hover text-ink-soft text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Cancelar
               </button>
@@ -561,13 +561,13 @@ export default function UarImportModal({
             <div className="flex gap-3">
               <button
                 onClick={handleConfirm}
-                className="pressable flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+                className="pressable flex-1 bg-brand hover:bg-brand-hover text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Confirmar e importar
               </button>
               <button
                 onClick={onClose}
-                className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+                className="pressable flex-1 bg-surface-strong hover:bg-surface-hover text-ink-soft text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Cancelar
               </button>
@@ -579,14 +579,14 @@ export default function UarImportModal({
               <button
                 onClick={handleCreatePlayer}
                 disabled={creatingPlayer}
-                className="pressable flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+                className="pressable flex-1 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 {creatingPlayer ? "Creando..." : "Crear jugador"}
               </button>
               <button
                 onClick={onClose}
                 disabled={creatingPlayer}
-                className="pressable flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+                className="pressable flex-1 bg-surface-strong hover:bg-surface-hover disabled:opacity-50 text-ink-soft text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
               >
                 Cancelar importación
               </button>

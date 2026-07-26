@@ -95,24 +95,24 @@ function ImportModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 animate-overlay" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-white">Importar jugadores</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white"><IconX /></button>
+          <h3 className="font-semibold text-ink">Importar jugadores</h3>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink"><IconX /></button>
         </div>
 
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-ink-muted">
           Acepta archivos <strong>.xlsx</strong> o <strong>.xls</strong>. Columnas reconocidas:
           Documento, Apellido, Nombre, Fecha Nac., Sexo, Puesto, Peso, Estatura, O.Social, Email, Celular, Tel.Emergencia.
           Si el jugador ya existe por DNI, se actualiza; si no, se crea.
         </p>
 
         <div>
-          <label className="text-xs text-gray-400 block mb-1">División destino</label>
+          <label className="text-xs text-ink-muted block mb-1">División destino</label>
           <select
             value={divisionId}
             onChange={(e) => setDivisionId(e.target.value)}
-            className="w-full bg-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-green-500"
+            className="w-full bg-surface-strong rounded-lg px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-ring"
           >
             {divisions.map((d) => (
               <option key={d.id} value={d.id}>{d.name}</option>
@@ -121,10 +121,10 @@ function ImportModal({
         </div>
 
         <div>
-          <label className="text-xs text-gray-400 block mb-1">Archivo Excel</label>
-          <label className="flex items-center gap-3 bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-3 cursor-pointer transition-colors">
+          <label className="text-xs text-ink-muted block mb-1">Archivo Excel</label>
+          <label className="flex items-center gap-3 bg-surface-strong hover:bg-surface-hover rounded-xl px-4 py-3 cursor-pointer transition-colors">
             <IconUpload />
-            <span className="text-sm text-white truncate">
+            <span className="text-sm text-ink truncate">
               {file ? file.name : "Seleccionar archivo..."}
             </span>
             <input
@@ -136,12 +136,12 @@ function ImportModal({
           </label>
         </div>
 
-        {error && <p className="text-red-400 text-xs">{error}</p>}
+        {error && <p className="text-red-600 text-xs">{error}</p>}
 
         <button
           onClick={submit}
           disabled={loading || !file || !divisionId}
-          className="pressable w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
+          className="pressable w-full bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
         >
           {loading ? "Importando..." : "Importar jugadores"}
         </button>
@@ -161,36 +161,36 @@ function ImportResultModal({
 }) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal">
-        <h3 className="font-semibold text-white text-center">Importación completada</h3>
+      <div className="bg-surface rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal">
+        <h3 className="font-semibold text-ink text-center">Importación completada</h3>
 
         <div className="grid grid-cols-3 gap-3 text-center">
-          <div className="bg-green-900/40 rounded-xl p-3">
-            <p className="text-2xl font-bold text-green-400">{result.created}</p>
-            <p className="text-xs text-gray-400 mt-1">Creados</p>
+          <div className="bg-brand-soft rounded-xl p-3">
+            <p className="text-2xl font-bold text-brand">{result.created}</p>
+            <p className="text-xs text-ink-muted mt-1">Creados</p>
           </div>
-          <div className="bg-blue-900/40 rounded-xl p-3">
-            <p className="text-2xl font-bold text-blue-400">{result.updated}</p>
-            <p className="text-xs text-gray-400 mt-1">Actualizados</p>
+          <div className="bg-blue-50 rounded-xl p-3">
+            <p className="text-2xl font-bold text-blue-600">{result.updated}</p>
+            <p className="text-xs text-ink-muted mt-1">Actualizados</p>
           </div>
-          <div className="bg-gray-700 rounded-xl p-3">
-            <p className="text-2xl font-bold text-gray-300">{result.skipped}</p>
-            <p className="text-xs text-gray-400 mt-1">Omitidos</p>
+          <div className="bg-surface-strong rounded-xl p-3">
+            <p className="text-2xl font-bold text-ink-soft">{result.skipped}</p>
+            <p className="text-xs text-ink-muted mt-1">Omitidos</p>
           </div>
         </div>
 
         {result.errors.length > 0 && (
-          <div className="bg-red-900/30 rounded-xl p-3 space-y-1 max-h-40 overflow-y-auto">
-            <p className="text-xs font-semibold text-red-400 mb-2">Errores ({result.errors.length})</p>
+          <div className="bg-red-50 rounded-xl p-3 space-y-1 max-h-40 overflow-y-auto">
+            <p className="text-xs font-semibold text-red-600 mb-2">Errores ({result.errors.length})</p>
             {result.errors.map((e, i) => (
-              <p key={i} className="text-xs text-red-300">Fila {e.row}: {e.reason}</p>
+              <p key={i} className="text-xs text-red-700">Fila {e.row}: {e.reason}</p>
             ))}
           </div>
         )}
 
         <button
           onClick={onClose}
-          className="pressable w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
+          className="pressable w-full bg-surface-strong hover:bg-surface-hover text-ink font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
         >
           Cerrar
         </button>
@@ -241,29 +241,29 @@ function AddPlayerModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 animate-overlay" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-white">Nuevo jugador</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white"><IconX /></button>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink"><IconX /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Nombre *</label>
+            <label className="text-xs text-ink-muted block mb-1">Nombre *</label>
             <input
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full bg-surface-strong rounded-lg px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-ring"
               placeholder="Nombre completo"
             />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">División *</label>
+            <label className="text-xs text-ink-muted block mb-1">División *</label>
             <select
               required
               value={divisionId}
               onChange={(e) => setDivisionId(e.target.value)}
-              className="w-full bg-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full bg-surface-strong rounded-lg px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-ring"
             >
               <option value="">— Seleccionar división —</option>
               {divisions.map((d) => (
@@ -272,11 +272,11 @@ function AddPlayerModal({
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Posición</label>
+            <label className="text-xs text-ink-muted block mb-1">Posición</label>
             <select
               value={position}
               onChange={(e) => setPosition(e.target.value)}
-              className="w-full bg-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full bg-surface-strong rounded-lg px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-ring"
             >
               <option value="">— Posición (opcional) —</option>
               {RUGBY_POSITIONS.map((pos) => (
@@ -285,19 +285,19 @@ function AddPlayerModal({
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">DNI</label>
+            <label className="text-xs text-ink-muted block mb-1">DNI</label>
             <input
               value={dni}
               onChange={(e) => setDni(e.target.value)}
-              className="w-full bg-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full bg-surface-strong rounded-lg px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-ring"
               placeholder="Opcional"
             />
           </div>
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-red-600 text-xs">{error}</p>}
           <button
             type="submit"
             disabled={saving || !name.trim() || !divisionId}
-            className="pressable w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
+            className="pressable w-full bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors duration-150"
           >
             {saving ? "Guardando..." : "Crear jugador"}
           </button>
@@ -325,26 +325,26 @@ function MoveSheet({
   const available = divisions.filter((d) => d.id !== currentDivisionId);
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center animate-overlay" onClick={onClose}>
-      <div className="bg-gray-800 rounded-t-2xl w-full max-w-sm p-5 space-y-3 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="w-10 h-1 bg-gray-600 rounded-full mx-auto" />
-        <p className="text-sm text-gray-400 text-center">
+      <div className="bg-surface rounded-t-2xl w-full max-w-sm p-5 space-y-3 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="w-10 h-1 bg-surface-hover rounded-full mx-auto" />
+        <p className="text-sm text-ink-muted text-center">
           Mover <span className="text-white font-semibold">{count}</span> jugador{count !== 1 ? "es" : ""} a...
         </p>
         <div className="space-y-2">
           {available.length === 0 && (
-            <p className="text-gray-500 text-sm text-center py-4">No hay otras divisiones disponibles</p>
+            <p className="text-ink-muted text-sm text-center py-4">No hay otras divisiones disponibles</p>
           )}
           {available.map((d) => (
             <button
               key={d.id}
               onClick={() => onMove(d.id)}
-              className="w-full text-left bg-gray-700 hover:bg-gray-600 text-white rounded-xl px-4 py-3 text-sm font-medium transition-colors"
+              className="w-full text-left bg-surface-strong hover:bg-surface-hover text-ink rounded-xl px-4 py-3 text-sm font-medium transition-colors"
             >
               {d.name}
             </button>
           ))}
         </div>
-        <button onClick={onClose} className="w-full text-gray-400 text-sm py-2">
+        <button onClick={onClose} className="w-full text-ink-muted text-sm py-2">
           Cancelar
         </button>
       </div>
@@ -367,7 +367,7 @@ function ConfirmMove({
 }) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-xs p-6 space-y-4 animate-sheet md:animate-modal">
+      <div className="bg-surface rounded-2xl w-full max-w-xs p-6 space-y-4 animate-sheet md:animate-modal">
         <p className="text-white text-center">
           ¿Mover <strong>{count}</strong> jugador{count !== 1 ? "es" : ""} a{" "}
           <strong>{divisionName}</strong>?
@@ -375,13 +375,13 @@ function ConfirmMove({
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white rounded-xl py-2.5 text-sm font-medium"
+            className="flex-1 bg-surface-strong hover:bg-surface-hover text-ink rounded-xl py-2.5 text-sm font-medium"
           >
             Cancelar
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 bg-green-600 hover:bg-green-500 text-white rounded-xl py-2.5 text-sm font-medium"
+            className="flex-1 bg-brand hover:bg-brand-hover text-white rounded-xl py-2.5 text-sm font-medium"
           >
             Confirmar
           </button>
@@ -425,30 +425,21 @@ export default function Squad() {
   }, [user?.club_id]);
 
   useEffect(() => {
-    if (divisions.length === 0) return;
-    const targets =
-      activeDivId === "all" ? divisions.map((d) => d.id) : [activeDivId];
-
+    if (!user?.club_id) return;
     let cancelled = false;
-    Promise.all(
-      targets.map((id) =>
-        api
-          .get<{ players: { player_id: string; at_risk: boolean }[] }>(
-            `/divisions/${id}/attendance/summary`,
-            { params: { days: 30 } }
-          )
-          .then(({ data }) => data.players.filter((p) => p.at_risk).map((p) => p.player_id))
-          // Sin asistencia cargada no hay riesgo que reportar: no es un error.
-          .catch(() => [] as string[])
-      )
-    ).then((lists) => {
-      if (!cancelled) setAtRisk(new Set(lists.flat()));
-    });
+
+    api
+      .get<string[]>(`/clubs/${user.club_id}/at-risk`, { params: { days: 30 } })
+      // Sin asistencia cargada no hay riesgo que reportar: no es un error.
+      .catch(() => ({ data: [] as string[] }))
+      .then(({ data }) => {
+        if (!cancelled) setAtRisk(new Set(data));
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [divisions, activeDivId]);
+  }, [user?.club_id]);
 
   const visiblePlayers = players.filter((p) => {
     const matchDiv = activeDivId === "all" || p.division_id === activeDivId;
@@ -535,17 +526,17 @@ export default function Squad() {
     : divisions.find((d) => d.id === activeDivId)?.name ?? "";
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-white text-ink">
       {/* Header */}
       <div
         className={`px-4 pt-4 pb-3 transition-colors ${
-          multiMode ? "bg-green-900/40" : "bg-gray-900"
+          multiMode ? "bg-brand-soft" : "bg-white"
         }`}
       >
         {multiMode ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button onClick={exitMultiMode} className="text-gray-400 hover:text-white">
+              <button onClick={exitMultiMode} className="text-ink-muted hover:text-ink">
                 <IconX />
               </button>
               <span className="font-semibold">{selected.size} seleccionado{selected.size !== 1 ? "s" : ""}</span>
@@ -553,7 +544,7 @@ export default function Squad() {
             <button
               onClick={() => setShowMoveSheet(true)}
               disabled={selected.size === 0}
-              className="pressable bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors duration-150"
+              className="pressable bg-brand hover:bg-brand-hover disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors duration-150"
             >
               Mover a...
             </button>
@@ -565,14 +556,14 @@ export default function Squad() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowImportModal(true)}
-                  className="pressable bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-xl p-2 transition-colors duration-150"
+                  className="pressable bg-surface-strong hover:bg-surface-hover text-ink-soft hover:text-ink rounded-xl p-2 transition-colors duration-150"
                   title="Importar desde Excel"
                 >
                   <IconUpload />
                 </button>
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="pressable bg-green-600 hover:bg-green-500 text-white rounded-xl p-2 transition-colors duration-150"
+                  className="pressable bg-brand hover:bg-brand-hover text-white rounded-xl p-2 transition-colors duration-150"
                 >
                   <IconPlus />
                 </button>
@@ -588,8 +579,8 @@ export default function Squad() {
           onClick={() => setActiveDivId("all")}
           className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
             activeDivId === "all"
-              ? "bg-green-600 text-white"
-              : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              ? "bg-brand text-white"
+              : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
           }`}
         >
           Todos
@@ -600,8 +591,8 @@ export default function Squad() {
             onClick={() => setActiveDivId(d.id)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
               activeDivId === d.id
-                ? "bg-green-600 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                ? "bg-brand text-white"
+                : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
             }`}
           >
             {d.name}
@@ -611,19 +602,19 @@ export default function Squad() {
 
       {/* Search + select all */}
       <div className="px-4 pb-3 space-y-2">
-        <div className="flex items-center gap-2 bg-gray-800 rounded-xl px-3 py-2">
-          <span className="text-gray-500"><IconSearch /></span>
+        <div className="flex items-center gap-2 bg-surface rounded-xl px-3 py-2">
+          <span className="text-ink-muted"><IconSearch /></span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar jugador..."
-            className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none"
+            className="flex-1 bg-transparent text-sm text-ink placeholder-ink-faint outline-none"
           />
         </div>
         {multiMode && (
           <button
             onClick={toggleAll}
-            className="text-sm text-green-400 hover:text-green-300 transition-colors"
+            className="text-sm text-brand hover:text-brand transition-colors"
           >
             {selected.size === visiblePlayers.length ? "Deseleccionar todos" : "Seleccionar todos"}
           </button>
@@ -633,15 +624,15 @@ export default function Squad() {
       {/* Player list */}
       <div className="px-4 space-y-1.5">
         {loading && (
-          <div className="text-center py-12 text-gray-500">Cargando jugadores...</div>
+          <div className="text-center py-12 text-ink-muted">Cargando jugadores...</div>
         )}
         {!loading && visiblePlayers.length === 0 && (
           <div className="text-center py-12 space-y-3">
-            <p className="text-gray-500">No hay jugadores{search ? ` que coincidan con "${search}"` : " en esta división"}</p>
+            <p className="text-ink-muted">No hay jugadores{search ? ` que coincidan con "${search}"` : " en esta división"}</p>
             {canEdit && !search && (
               <button
                 onClick={() => setShowAddModal(true)}
-                className="text-green-400 hover:text-green-300 text-sm font-medium"
+                className="text-brand hover:text-brand text-sm font-medium"
               >
                 + Agregar primer jugador
               </button>
@@ -662,15 +653,15 @@ export default function Squad() {
               onTouchEnd={handleLongPressEnd}
               className={`flex items-center gap-3 px-4 py-3.5 rounded-xl cursor-pointer transition-colors ${
                 isSelected
-                  ? "bg-green-900/50 border border-green-600/50"
-                  : "bg-gray-800 hover:bg-gray-700/70 active:bg-gray-700"
+                  ? "bg-brand-soft border border-brand-ring"
+                  : "bg-surface hover:bg-surface-hover active:bg-surface-strong"
               }`}
             >
               {/* Checkbox */}
               {multiMode && (
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                    isSelected ? "bg-green-500 border-green-500" : "border-gray-500"
+                    isSelected ? "bg-brand border-green-500" : "border-gray-500"
                   }`}
                 >
                   {isSelected && (
@@ -689,25 +680,25 @@ export default function Squad() {
                   className="w-10 h-10 rounded-full object-cover shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-sm font-bold shrink-0">
+                <div className="w-10 h-10 rounded-full bg-surface-strong flex items-center justify-center text-ink-muted text-sm font-bold shrink-0">
                   {player.name.charAt(0).toUpperCase()}
                 </div>
               )}
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="text-white font-medium text-sm truncate">{player.name}</p>
-                <p className="text-gray-400 text-xs truncate">
+                <p className="text-ink font-medium text-sm truncate">{player.name}</p>
+                <p className="text-ink-muted text-xs truncate">
                   {player.position ?? "Sin posición"}
                   {activeDivId === "all" && divName && (
-                    <span className="ml-2 text-gray-500">· {divName}</span>
+                    <span className="ml-2 text-ink-muted">· {divName}</span>
                   )}
                 </p>
               </div>
 
               {atRisk.has(player.id) && (
                 <span
-                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 bg-red-900/60 text-red-300"
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 bg-red-100 text-red-700"
                   title="3 ausencias seguidas o menos de 50% de asistencia"
                 >
                   en riesgo
@@ -724,7 +715,7 @@ export default function Squad() {
               )}
               {clearanceState(player.medical_clearance_expires) === "expired" && (
                 <span
-                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 bg-red-900/60 text-red-300"
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 bg-red-100 text-red-700"
                   title="Apto médico vencido"
                 >
                   sin apto
@@ -733,7 +724,7 @@ export default function Squad() {
 
               {/* Chevron */}
               {!multiMode && (
-                <span className="text-gray-600 shrink-0"><IconChevron /></span>
+                <span className="text-ink-faint shrink-0"><IconChevron /></span>
               )}
             </div>
           );
@@ -742,7 +733,7 @@ export default function Squad() {
 
       {/* Count footer */}
       {visiblePlayers.length > 0 && (
-        <p className="text-center text-xs text-gray-600 py-4">
+        <p className="text-center text-xs text-ink-faint py-4">
           {visiblePlayers.length} jugador{visiblePlayers.length !== 1 ? "es" : ""}
           {activeDivId !== "all" && ` en ${activeDivName}`}
         </p>
@@ -798,7 +789,7 @@ export default function Squad() {
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-24 inset-x-0 flex justify-center z-50 pointer-events-none">
-          <div className="bg-gray-700 text-white text-sm px-5 py-2.5 rounded-full shadow-lg">
+          <div className="bg-surface-strong text-ink text-sm px-5 py-2.5 rounded-full shadow-lg">
             {toast}
           </div>
         </div>

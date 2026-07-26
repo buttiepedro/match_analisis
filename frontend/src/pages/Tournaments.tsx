@@ -528,7 +528,7 @@ export default function Tournaments() {
   return (
     <div className="p-6 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-white">Torneos</h1>
+        <h1 className="text-xl font-bold text-ink">Torneos</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setUarImportOpen(true)}
@@ -542,7 +542,7 @@ export default function Tournaments() {
               setTError(null);
               setTForm((f) => ({ ...f, division_id: divisions[0]?.id ?? "" }));
             }}
-            className="text-sm bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+            className="text-sm bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-lg transition-colors"
           >
             + Nuevo torneo
           </button>
@@ -555,7 +555,7 @@ export default function Tournaments() {
           <button
             onClick={() => setDivisionFilter("")}
             className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-              divisionFilter === "" ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              divisionFilter === "" ? "bg-brand text-white" : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
             }`}
           >
             Todas
@@ -565,7 +565,7 @@ export default function Tournaments() {
               key={d.id}
               onClick={() => setDivisionFilter(d.id)}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                divisionFilter === d.id ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                divisionFilter === d.id ? "bg-brand text-white" : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
               }`}
             >
               {d.name}
@@ -575,46 +575,46 @@ export default function Tournaments() {
       )}
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Cargando...</p>
+        <p className="text-ink-muted text-sm">Cargando...</p>
       ) : visibleTournaments.length === 0 ? (
-        <p className="text-gray-500 text-sm">
+        <p className="text-ink-muted text-sm">
           {divisionFilter ? "No hay torneos en esta división." : "No hay torneos todavía."}
         </p>
       ) : (
         <div className="space-y-3">
           {visibleTournaments.map((t) => (
-            <div key={t.id} className="bg-gray-800 rounded-xl overflow-hidden">
+            <div key={t.id} className="bg-surface rounded-xl overflow-hidden">
               <button
                 onClick={() => toggleTournament(t.id)}
                 className="w-full flex items-center justify-between px-4 py-3 text-left"
               >
                 <div>
-                  <span className="text-white font-medium">{t.name}</span>
-                  <span className="text-xs text-gray-400 ml-2">{t.division.name}</span>
-                  {t.season && <span className="text-xs text-gray-500 ml-2">{t.season}</span>}
+                  <span className="text-ink font-medium">{t.name}</span>
+                  <span className="text-xs text-ink-muted ml-2">{t.division.name}</span>
+                  {t.season && <span className="text-xs text-ink-muted ml-2">{t.season}</span>}
                 </div>
-                <span className="text-gray-400 text-sm">{expandedId === t.id ? "▲" : "▼"}</span>
+                <span className="text-ink-muted text-sm">{expandedId === t.id ? "▲" : "▼"}</span>
               </button>
 
               {expandedId === t.id && (
-                <div className="border-t border-gray-700 px-4 py-3">
+                <div className="border-t border-line px-4 py-3">
                   {/* Editar / eliminar torneo */}
                   {editingTournamentId === t.id ? (
                     <form
                       onSubmit={(e) => handleUpdateTournament(e, t.id)}
-                      className="bg-gray-700/50 rounded-lg p-3 mb-4 space-y-2"
+                      className="bg-surface-strong/50 rounded-lg p-3 mb-4 space-y-2"
                     >
                       <input
                         required
                         value={editTForm.name}
                         onChange={(e) => setEditTForm((f) => ({ ...f, name: e.target.value }))}
                         placeholder="Nombre del torneo"
-                        className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                        className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                       />
                       <select
                         value={editTForm.division_id}
                         onChange={(e) => setEditTForm((f) => ({ ...f, division_id: e.target.value }))}
-                        className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                        className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                       >
                         {divisions.map((d) => (
                           <option key={d.id} value={d.id}>{d.name}</option>
@@ -624,21 +624,21 @@ export default function Tournaments() {
                         value={editTForm.season}
                         onChange={(e) => setEditTForm((f) => ({ ...f, season: e.target.value }))}
                         placeholder="Temporada (opcional)"
-                        className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                        className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                       />
-                      {tError && <p className="text-red-400 text-xs">{tError}</p>}
+                      {tError && <p className="text-red-600 text-xs">{tError}</p>}
                       <div className="flex gap-2">
                         <button
                           type="submit"
                           disabled={tSubmitting}
-                          className="text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
+                          className="text-xs bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
                         >
                           {tSubmitting ? "Guardando..." : "Guardar"}
                         </button>
                         <button
                           type="button"
                           onClick={() => { setEditingTournamentId(null); setTError(null); }}
-                          className="text-xs text-gray-400 hover:text-white px-3 py-1.5 transition-colors"
+                          className="text-xs text-ink-muted hover:text-ink px-3 py-1.5 transition-colors"
                         >
                           Cancelar
                         </button>
@@ -656,34 +656,34 @@ export default function Tournaments() {
                           });
                           setTError(null);
                         }}
-                        className="text-xs text-gray-400 hover:text-white transition-colors"
+                        className="text-xs text-ink-muted hover:text-ink transition-colors"
                       >
                         Editar torneo
                       </button>
                       <button
                         onClick={() => handleDeleteTournament(t)}
-                        className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                        className="text-xs text-ink-muted hover:text-red-600 transition-colors"
                       >
                         Eliminar torneo
                       </button>
-                      {tError && <span className="text-red-400 text-xs">{tError}</span>}
+                      {tError && <span className="text-red-600 text-xs">{tError}</span>}
                     </div>
                   )}
 
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Partidos</p>
+                  <p className="text-xs text-ink-muted uppercase tracking-wide mb-3">Partidos</p>
 
                   {sessionsLoading === t.id ? (
-                    <p className="text-gray-500 text-sm mb-3">Cargando...</p>
+                    <p className="text-ink-muted text-sm mb-3">Cargando...</p>
                   ) : (sessionsMap[t.id] ?? []).length === 0 ? (
-                    <p className="text-gray-500 text-sm mb-3">Sin partidos.</p>
+                    <p className="text-ink-muted text-sm mb-3">Sin partidos.</p>
                   ) : (
                     <ul className="space-y-2 mb-3">
                       {(sessionsMap[t.id] ?? []).map((s) => {
                         const statusColors: Record<string, string> = {
-                          active:    "bg-green-900/60 text-green-300",
+                          active:    "bg-green-900/60 text-brand",
                           halftime:  "bg-yellow-900/60 text-yellow-300",
-                          finished:  "bg-gray-700 text-gray-400",
-                          scheduled: "bg-blue-900/40 text-blue-300",
+                          finished:  "bg-surface-strong text-ink-muted",
+                          scheduled: "bg-blue-50 text-blue-300",
                         };
                         const dateStr = s.scheduled_at
                           ? new Date(s.scheduled_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })
@@ -693,24 +693,24 @@ export default function Tournaments() {
                           : null;
 
                         return (
-                        <li key={s.id} className="bg-gray-700 rounded-xl overflow-visible">
+                        <li key={s.id} className="bg-surface-strong rounded-xl overflow-visible">
 
                           {/* Info row */}
                           <button
                             onClick={() => navigate(`/sessions/${s.id}`)}
-                            className="w-full px-4 pt-3 pb-2 text-left hover:bg-gray-600/40 transition-colors rounded-t-xl"
+                            className="w-full px-4 pt-3 pb-2 text-left hover:bg-surface-hover/40 transition-colors rounded-t-xl"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <span className="text-white font-semibold text-sm">{s.home_team}</span>
-                                <span className="text-gray-400 text-sm mx-1.5">vs</span>
-                                <span className="text-white font-semibold text-sm">{s.away_team}</span>
+                                <span className="text-ink font-semibold text-sm">{s.home_team}</span>
+                                <span className="text-ink-muted text-sm mx-1.5">vs</span>
+                                <span className="text-ink font-semibold text-sm">{s.away_team}</span>
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 {dateStr && (
-                                  <span className="text-xs text-gray-400">{dateStr}{timeStr ? ` · ${timeStr}` : ""}</span>
+                                  <span className="text-xs text-ink-muted">{dateStr}{timeStr ? ` · ${timeStr}` : ""}</span>
                                 )}
-                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[s.status] ?? "bg-gray-600 text-gray-300"}`}>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[s.status] ?? "bg-surface-hover text-ink-soft"}`}>
                                   {STATUS_LABEL[s.status] ?? s.status}
                                 </span>
                               </div>
@@ -721,20 +721,20 @@ export default function Tournaments() {
                           <div className="border-t border-gray-600/50 px-3 py-2 flex items-center gap-1.5">
                             <button
                               onClick={() => { setFieldViewSessionId(s.id); setOpenMenuSession(null); }}
-                              className="text-xs bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
+                              className="text-xs bg-surface-hover hover:bg-gray-500 text-ink px-3 py-1.5 rounded-lg transition-colors font-medium"
                             >
                               Cancha
                             </button>
                             <button
                               onClick={() => navigate(`/sessions/${s.id}/lineup`)}
-                              className="text-xs bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded-lg transition-colors"
+                              className="text-xs bg-surface-hover hover:bg-gray-500 text-ink px-3 py-1.5 rounded-lg transition-colors"
                             >
                               Alineación
                             </button>
                             <button
                               onClick={() => exportPlanilla(s.id)}
                               disabled={exportingSession === s.id}
-                              className="text-xs bg-gray-600 hover:bg-gray-500 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg transition-colors"
+                              className="text-xs bg-surface-hover hover:bg-gray-500 disabled:opacity-40 text-ink px-3 py-1.5 rounded-lg transition-colors"
                             >
                               {exportingSession === s.id ? "..." : "Planilla ↓"}
                             </button>
@@ -743,12 +743,12 @@ export default function Tournaments() {
                             <div className="ml-auto relative">
                               <button
                                 onClick={() => setOpenMenuSession(openMenuSession === s.id ? null : s.id)}
-                                className="text-xs text-gray-400 hover:text-white px-2 py-1.5 rounded-lg transition-colors"
+                                className="text-xs text-ink-muted hover:text-ink px-2 py-1.5 rounded-lg transition-colors"
                               >
                                 ···
                               </button>
                               {openMenuSession === s.id && (
-                                <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-600 rounded-xl shadow-xl z-20 py-1 min-w-[120px]">
+                                <div className="absolute right-0 top-full mt-1 bg-surface border border-gray-600 rounded-xl shadow-xl z-20 py-1 min-w-[120px]">
                                   <button
                                     onClick={() => {
                                       setEditingSessionId(s.id);
@@ -760,13 +760,13 @@ export default function Tournaments() {
                                       });
                                       setOpenMenuSession(null);
                                     }}
-                                    className="w-full text-left text-xs text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 transition-colors"
+                                    className="w-full text-left text-xs text-ink-soft hover:text-ink hover:bg-surface-strong px-4 py-2 transition-colors"
                                   >
                                     Editar
                                   </button>
                                   {confirmDeleteSession === s.id ? (
-                                    <div className="px-3 py-2 border-t border-gray-700">
-                                      <p className="text-xs text-gray-400 mb-2">¿Confirmar?</p>
+                                    <div className="px-3 py-2 border-t border-line">
+                                      <p className="text-xs text-ink-muted mb-2">¿Confirmar?</p>
                                       <div className="flex gap-2">
                                         <button
                                           onClick={() => handleDeleteSession(s.id, t.id)}
@@ -777,7 +777,7 @@ export default function Tournaments() {
                                         </button>
                                         <button
                                           onClick={() => { setConfirmDeleteSession(null); setOpenMenuSession(null); }}
-                                          className="text-xs text-gray-400 hover:text-white transition-colors"
+                                          className="text-xs text-ink-muted hover:text-ink transition-colors"
                                         >
                                           No
                                         </button>
@@ -786,7 +786,7 @@ export default function Tournaments() {
                                   ) : (
                                     <button
                                       onClick={() => setConfirmDeleteSession(s.id)}
-                                      className="w-full text-left text-xs text-red-400 hover:text-red-300 hover:bg-gray-700 px-4 py-2 transition-colors border-t border-gray-700"
+                                      className="w-full text-left text-xs text-red-600 hover:text-red-700 hover:bg-surface-strong px-4 py-2 transition-colors border-t border-line"
                                     >
                                       Eliminar
                                     </button>
@@ -802,35 +802,35 @@ export default function Tournaments() {
                                 placeholder="Rival"
                                 value={editSessionForm.away_team}
                                 onChange={(e) => setEditSessionForm((f) => ({ ...f, away_team: e.target.value }))}
-                                className="w-full bg-gray-600 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                                className="w-full bg-surface-hover text-ink text-sm rounded-lg px-3 py-2 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
                               />
                               <input
                                 type="datetime-local"
                                 value={editSessionForm.scheduled_at}
                                 onChange={(e) => setEditSessionForm((f) => ({ ...f, scheduled_at: e.target.value }))}
-                                className="w-full bg-gray-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                                className="w-full bg-surface-hover text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                               />
                               <select
                                 value={editSessionForm.tournament_id}
                                 onChange={(e) => setEditSessionForm((f) => ({ ...f, tournament_id: e.target.value }))}
-                                className="w-full bg-gray-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                                className="w-full bg-surface-hover text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                               >
                                 {tournaments.map((tor) => (
                                   <option key={tor.id} value={tor.id}>{tor.name}</option>
                                 ))}
                               </select>
-                              {editSessionError && <p className="text-red-400 text-xs">{editSessionError}</p>}
+                              {editSessionError && <p className="text-red-600 text-xs">{editSessionError}</p>}
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleEditSession(s.id, t.id)}
                                   disabled={editSessionSubmitting}
-                                  className="text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
+                                  className="text-xs bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
                                 >
                                   {editSessionSubmitting ? "..." : "Guardar"}
                                 </button>
                                 <button
                                   onClick={() => { setEditingSessionId(null); setEditSessionError(null); }}
-                                  className="text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+                                  className="text-xs text-ink-muted hover:text-ink px-3 py-1.5 rounded-lg transition-colors"
                                 >
                                   Cancelar
                                 </button>
@@ -845,23 +845,23 @@ export default function Tournaments() {
 
                   {addingSessionFor === t.id ? (
                     <form onSubmit={(e) => handleCreateSession(e, t.id)} className="space-y-2 mt-2">
-                      <div className="flex items-center gap-2 bg-gray-600/50 rounded-lg px-3 py-2">
-                        <span className="text-xs text-gray-400">Tu equipo:</span>
-                        <span className="text-white text-sm font-medium">{clubName}</span>
+                      <div className="flex items-center gap-2 bg-surface-hover/50 rounded-lg px-3 py-2">
+                        <span className="text-xs text-ink-muted">Tu equipo:</span>
+                        <span className="text-ink text-sm font-medium">{clubName}</span>
                       </div>
                       <input
                         required
                         placeholder="Rival"
                         value={sForm.away_team}
                         onChange={(e) => setSForm((f) => ({ ...f, away_team: e.target.value }))}
-                        className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                        className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
                       />
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="datetime-local"
                           value={sForm.scheduled_at}
                           onChange={(e) => setSForm((f) => ({ ...f, scheduled_at: e.target.value }))}
-                          className="bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                          className="bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                         />
                         <div className="flex items-center gap-2">
                           <input
@@ -869,24 +869,24 @@ export default function Tournaments() {
                             min="1"
                             value={sForm.half_duration_minutes}
                             onChange={(e) => setSForm((f) => ({ ...f, half_duration_minutes: e.target.value }))}
-                            className="w-20 bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                            className="w-20 bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                           />
-                          <span className="text-xs text-gray-400">min por tiempo</span>
+                          <span className="text-xs text-ink-muted">min por tiempo</span>
                         </div>
                       </div>
-                      {sError && <p className="text-red-400 text-xs">{sError}</p>}
+                      {sError && <p className="text-red-600 text-xs">{sError}</p>}
                       <div className="flex gap-2">
                         <button
                           type="submit"
                           disabled={sSubmitting}
-                          className="text-sm bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg transition-colors"
+                          className="text-sm bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-4 py-1.5 rounded-lg transition-colors"
                         >
                           {sSubmitting ? "Guardando..." : "Crear partido"}
                         </button>
                         <button
                           type="button"
                           onClick={() => { setAddingSessionFor(null); setSError(null); setSForm(EMPTY_SESSION_FORM); }}
-                          className="text-sm text-gray-400 hover:text-white px-4 py-1.5 rounded-lg transition-colors"
+                          className="text-sm text-ink-muted hover:text-ink px-4 py-1.5 rounded-lg transition-colors"
                         >
                           Cancelar
                         </button>
@@ -895,7 +895,7 @@ export default function Tournaments() {
                   ) : (
                     <button
                       onClick={() => { setAddingSessionFor(t.id); setSError(null); setSForm(EMPTY_SESSION_FORM); }}
-                      className="text-sm text-green-400 hover:text-green-300 transition-colors"
+                      className="text-sm text-brand hover:text-brand transition-colors"
                     >
                       + Nuevo partido
                     </button>
@@ -947,10 +947,10 @@ export default function Tournaments() {
       {/* Create tournament modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
-          <div className="bg-gray-800 rounded-2xl w-full max-w-md p-6 animate-modal">
-            <h2 className="text-white font-bold text-lg mb-4">Nuevo torneo</h2>
+          <div className="bg-surface rounded-2xl w-full max-w-md p-6 animate-modal">
+            <h2 className="text-ink font-bold text-lg mb-4">Nuevo torneo</h2>
             {divisions.length === 0 ? (
-              <p className="text-yellow-400 text-sm mb-4">
+              <p className="text-yellow-600 text-sm mb-4">
                 Necesitás crear al menos una división antes de crear un torneo.
               </p>
             ) : (
@@ -960,13 +960,13 @@ export default function Tournaments() {
                   placeholder="Nombre del torneo"
                   value={tForm.name}
                   onChange={(e) => setTForm((f) => ({ ...f, name: e.target.value }))}
-                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                  className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
                 />
                 <select
                   required
                   value={tForm.division_id}
                   onChange={(e) => setTForm((f) => ({ ...f, division_id: e.target.value }))}
-                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                  className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-brand-ring"
                 >
                   <option value="">— Seleccionar división —</option>
                   {divisions.map((d) => (
@@ -977,21 +977,21 @@ export default function Tournaments() {
                   placeholder="Temporada (opcional, ej: 2025)"
                   value={tForm.season}
                   onChange={(e) => setTForm((f) => ({ ...f, season: e.target.value }))}
-                  className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                  className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
                 />
-                {tError && <p className="text-red-400 text-xs">{tError}</p>}
+                {tError && <p className="text-red-600 text-xs">{tError}</p>}
                 <div className="flex gap-3 pt-2">
                   <button
                     type="submit"
                     disabled={tSubmitting}
-                    className="pressable flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+                    className="pressable flex-1 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
                   >
                     {tSubmitting ? "Creando..." : "Crear torneo"}
                   </button>
                   <button
                     type="button"
                     onClick={() => { setShowModal(false); setTError(null); }}
-                    className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+                    className="pressable flex-1 bg-surface-strong hover:bg-surface-hover text-ink-soft text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
                   >
                     Cancelar
                   </button>
@@ -1001,7 +1001,7 @@ export default function Tournaments() {
             {divisions.length === 0 && (
               <button
                 onClick={() => setShowModal(false)}
-                className="w-full mt-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors"
+                className="w-full mt-2 bg-surface-strong hover:bg-surface-hover text-ink-soft text-sm font-medium py-2.5 rounded-lg transition-colors"
               >
                 Cerrar
               </button>

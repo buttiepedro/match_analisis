@@ -3,16 +3,16 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin, require_superadmin
 from app.core.security import get_password_hash
-from app.models import Club, Division, Player, User, UserRole
+from app.models import Club, Division, Player, User, UserRole, user_divisions
 from app.schemas.club import ClubCreate, ClubResponse
 from app.schemas.player import PlayerWithDivisionResponse
-from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.schemas.user import UserCreate, UserDivisionsUpdate, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/clubs")
 
@@ -105,6 +105,76 @@ async def create_user(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def _get_club_user_or_404(
+    club_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession, current_user: User
+) -> User:
+    club = await get_club_or_404(club_id, db)
+    assert_club_access(club, current_user)
+    user = await db.scalar(select(User).where(User.id == user_id, User.club_id == club.id))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return user
+
+
+@router.get("/{club_id}/users/{user_id}/divisions", response_model=list[uuid.UUID])
+async def get_user_divisions(
+    club_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_club_admin)],
+):
+    """Lista vacía = sin restricción, o sea acceso a todas las divisiones del club."""
+    user = await _get_club_user_or_404(club_id, user_id, db, current_user)
+    return [d.id for d in user.divisions]
+
+
+@router.put("/{club_id}/users/{user_id}/divisions", response_model=list[uuid.UUID])
+async def set_user_divisions(
+    club_id: uuid.UUID,
+    user_id: uuid.UUID,
+    body: UserDivisionsUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_club_admin)],
+):
+    """
+    Reemplaza el alcance del usuario.
+
+    Mandar la lista vacía **quita** la restricción y devuelve al usuario el acceso a
+    todo el club — no lo deja sin nada. Es la lectura que hace `scoped_division_ids`
+    y conviene que la API se comporte igual.
+    """
+    club = await get_club_or_404(club_id, db)
+    assert_club_access(club, current_user)
+    user = await _get_club_user_or_404(club_id, user_id, db, current_user)
+
+    if body.division_ids:
+        valid = set(
+            (
+                await db.execute(
+                    select(Division.id).where(
+                        Division.id.in_(body.division_ids), Division.club_id == club.id
+                    )
+                )
+            ).scalars().all()
+        )
+        unknown = set(body.division_ids) - valid
+        if unknown:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Hay divisiones que no pertenecen a este club",
+            )
+
+    await db.execute(delete(user_divisions).where(user_divisions.c.user_id == user.id))
+    for division_id in set(body.division_ids):
+        await db.execute(
+            user_divisions.insert().values(user_id=user.id, division_id=division_id)
+        )
+    await db.commit()
+
+    refreshed = await _get_club_user_or_404(club_id, user_id, db, current_user)
+    return [d.id for d in refreshed.divisions]
 
 
 @router.get("/{club_id}/users", response_model=list[UserResponse])

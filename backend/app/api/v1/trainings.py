@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_timer_control
+from app.core.deps import get_current_user, get_division_or_404, require_timer_control
 from app.models import (
     Attendance,
     AttendanceStatus,
@@ -55,24 +55,24 @@ WEEKDAY_LABELS = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado
 async def _get_division_or_404(
     division_id: uuid.UUID, db: AsyncSession, current_user: User
 ) -> Division:
-    division = await db.scalar(select(Division).where(Division.id == division_id))
-    if not division:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="División no encontrada")
-    if current_user.role != UserRole.superadmin and current_user.club_id != division.club_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-    return division
+    return await get_division_or_404(division_id, db, current_user)
 
 
 async def _get_training_or_404(
     training_id: uuid.UUID, db: AsyncSession, current_user: User
 ) -> Training:
+    """
+    El entrenamiento se valida por su **división**, no por su club.
+
+    Validar sólo el club dejaba que el entrenador de M17 borrara los entrenamientos
+    de Primera y pisara su asistencia.
+    """
     training = await db.scalar(select(Training).where(Training.id == training_id))
     if not training:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Entrenamiento no encontrado"
         )
-    if current_user.role != UserRole.superadmin and current_user.club_id != training.club_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    await get_division_or_404(training.division_id, db, current_user)
     return training
 
 

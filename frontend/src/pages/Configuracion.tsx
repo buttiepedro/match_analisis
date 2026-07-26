@@ -25,13 +25,13 @@ function PlayerAvatar({ player, size = 38 }: { player: PlayerWithDivision; size?
   const src = player.profile_photo_url ?? null;
   return (
     <div
-      className="rounded-full overflow-hidden bg-gray-700 flex items-center justify-center flex-shrink-0"
+      className="rounded-full overflow-hidden bg-surface-strong flex items-center justify-center flex-shrink-0"
       style={{ width: size, height: size }}
     >
       {src ? (
         <img src={src} alt={player.name} className="w-full h-full object-cover" />
       ) : (
-        <span className="text-gray-300 font-bold" style={{ fontSize: size * 0.4 }}>
+        <span className="text-ink-soft font-bold" style={{ fontSize: size * 0.4 }}>
           {player.name.trim()[0]?.toUpperCase() ?? "?"}
         </span>
       )}
@@ -337,6 +337,9 @@ export default function Configuracion() {
 
   // ── Users ──────────────────────────────────────────────────────────────────
   const [users,          setUsers]          = useState<ClubUser[]>([]);
+  /** Alcance por usuario. **Vacío = todas las divisiones**, no "ninguna". */
+  const [userScopes,     setUserScopes]     = useState<Record<string, string[]>>({});
+  const [editingScopeFor, setEditingScopeFor] = useState<string | null>(null);
   const [loadingUsers,   setLoadingUsers]   = useState(false);
   const [usersLoaded,    setUsersLoaded]    = useState(false);
   const [showUserModal,  setShowUserModal]  = useState(false);
@@ -351,9 +354,41 @@ export default function Configuracion() {
     if (activeTab !== "users" || usersLoaded || !clubId) return;
     setLoadingUsers(true);
     api.get<ClubUser[]>(`/clubs/${clubId}/users`)
-      .then(({ data }) => { setUsers(data); setUsersLoaded(true); })
+      .then(async ({ data }) => {
+        setUsers(data);
+        setUsersLoaded(true);
+        const scopes = await Promise.all(
+          data.map((u) =>
+            api
+              .get<string[]>(`/clubs/${clubId}/users/${u.id}/divisions`)
+              .then(({ data: ids }) => [u.id, ids] as const)
+              .catch(() => [u.id, [] as string[]] as const)
+          )
+        );
+        setUserScopes(Object.fromEntries(scopes));
+      })
       .finally(() => setLoadingUsers(false));
   }, [activeTab, clubId, usersLoaded]);
+
+  const toggleUserDivision = async (userId: string, divisionId: string) => {
+    if (!clubId) return;
+    const current = userScopes[userId] ?? [];
+    const next = current.includes(divisionId)
+      ? current.filter((id) => id !== divisionId)
+      : [...current, divisionId];
+
+    // Optimista: el toggle tiene que sentirse instantáneo; si falla se revierte.
+    setUserScopes((prev) => ({ ...prev, [userId]: next }));
+    try {
+      const { data } = await api.put<string[]>(
+        `/clubs/${clubId}/users/${userId}/divisions`,
+        { division_ids: next }
+      );
+      setUserScopes((prev) => ({ ...prev, [userId]: data }));
+    } catch {
+      setUserScopes((prev) => ({ ...prev, [userId]: current }));
+    }
+  };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -375,16 +410,16 @@ export default function Configuracion() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="p-6 max-w-lg">
-      <h1 className="text-xl font-bold text-white mb-5">Configuración</h1>
+      <h1 className="text-xl font-bold text-ink mb-5">Configuración</h1>
 
       {/* Tab selector */}
-      <div className="flex gap-1 bg-gray-800 rounded-xl p-1 mb-6">
+      <div className="flex gap-1 bg-surface rounded-xl p-1 mb-6">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              activeTab === t.id ? "bg-green-700 text-white" : "text-gray-400 hover:text-white"
+              activeTab === t.id ? "bg-brand text-white" : "text-ink-muted hover:text-ink"
             }`}
           >
             {t.label}
@@ -396,11 +431,11 @@ export default function Configuracion() {
       {activeTab === "divisions" && (
         <>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-400">{divisions.length} división{divisions.length !== 1 ? "es" : ""}</p>
+            <p className="text-sm text-ink-muted">{divisions.length} división{divisions.length !== 1 ? "es" : ""}</p>
             {!addingDiv && (
               <button
                 onClick={() => { setAddingDiv(true); setDivError(null); }}
-                className="text-sm bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+                className="text-sm bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-lg transition-colors"
               >
                 + Nueva división
               </button>
@@ -408,23 +443,23 @@ export default function Configuracion() {
           </div>
 
           {addingDiv && (
-            <form onSubmit={handleCreateDivision} className="bg-gray-800 rounded-xl p-4 mb-4 space-y-3">
+            <form onSubmit={handleCreateDivision} className="bg-surface rounded-xl p-4 mb-4 space-y-3">
               <input
                 required autoFocus
                 placeholder="Nombre de la división"
                 value={divName}
                 onChange={(e) => setDivName(e.target.value)}
-                className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
               />
-              {divError && <p className="text-red-400 text-xs">{divError}</p>}
+              {divError && <p className="text-red-600 text-xs">{divError}</p>}
               <div className="flex gap-2">
                 <button type="submit" disabled={divSubmitting}
-                  className="text-sm bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors">
+                  className="text-sm bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors">
                   {divSubmitting ? "Guardando..." : "Guardar"}
                 </button>
                 <button type="button"
                   onClick={() => { setAddingDiv(false); setDivError(null); setDivName(""); }}
-                  className="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg transition-colors">
+                  className="text-sm text-ink-muted hover:text-ink px-4 py-2 rounded-lg transition-colors">
                   Cancelar
                 </button>
               </div>
@@ -432,17 +467,17 @@ export default function Configuracion() {
           )}
 
           {divLoadError ? (
-            <p className="text-red-400 text-sm">{divLoadError}</p>
+            <p className="text-red-600 text-sm">{divLoadError}</p>
           ) : loadingDivs ? (
-            <p className="text-gray-400 text-sm">Cargando...</p>
+            <p className="text-ink-muted text-sm">Cargando...</p>
           ) : divisions.length === 0 ? (
-            <p className="text-gray-500 text-sm">No hay divisiones todavía.</p>
+            <p className="text-ink-muted text-sm">No hay divisiones todavía.</p>
           ) : (
             <>
-              {divError && !addingDiv && <p className="text-red-400 text-xs mb-2">{divError}</p>}
+              {divError && !addingDiv && <p className="text-red-600 text-xs mb-2">{divError}</p>}
               <ul className="space-y-2">
                 {divisions.map((d) => (
-                  <li key={d.id} className="bg-gray-800 rounded-xl px-4 py-3 flex items-center gap-2">
+                  <li key={d.id} className="bg-surface rounded-xl px-4 py-3 flex items-center gap-2">
                     {editingDivId === d.id ? (
                       <>
                         <input
@@ -453,38 +488,38 @@ export default function Configuracion() {
                             if (e.key === "Enter") handleRenameDivision(d.id);
                             if (e.key === "Escape") setEditingDivId(null);
                           }}
-                          className="flex-1 bg-gray-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-green-600"
+                          className="flex-1 bg-surface-strong text-ink text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-brand-ring"
                         />
                         <button
                           onClick={() => handleRenameDivision(d.id)}
                           disabled={divSubmitting}
-                          className="text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
+                          className="text-xs bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
                         >
                           Guardar
                         </button>
                         <button
                           onClick={() => setEditingDivId(null)}
-                          className="text-xs text-gray-400 hover:text-white px-2 py-1.5 transition-colors"
+                          className="text-xs text-ink-muted hover:text-ink px-2 py-1.5 transition-colors"
                         >
                           Cancelar
                         </button>
                       </>
                     ) : (
                       <>
-                        <span className="text-white text-sm font-medium flex-1">{d.name}</span>
+                        <span className="text-ink text-sm font-medium flex-1">{d.name}</span>
                         <button
                           onClick={() => {
                             setEditingDivId(d.id);
                             setEditDivName(d.name);
                             setDivError(null);
                           }}
-                          className="text-xs text-gray-400 hover:text-white px-2 py-1 transition-colors"
+                          className="text-xs text-ink-muted hover:text-ink px-2 py-1 transition-colors"
                         >
                           Renombrar
                         </button>
                         <button
                           onClick={() => handleDeleteDivision(d)}
-                          className="text-xs text-gray-500 hover:text-red-400 px-2 py-1 transition-colors"
+                          className="text-xs text-ink-muted hover:text-red-600 px-2 py-1 transition-colors"
                         >
                           Eliminar
                         </button>
@@ -502,9 +537,9 @@ export default function Configuracion() {
       {activeTab === "players" && (
         <>
           {loadingDivs && !playersLoaded ? (
-            <p className="text-gray-400 text-sm">Cargando...</p>
+            <p className="text-ink-muted text-sm">Cargando...</p>
           ) : divisions.length === 0 ? (
-            <p className="text-gray-500 text-sm">Primero creá una división en la pestaña Divisiones.</p>
+            <p className="text-ink-muted text-sm">Primero creá una división en la pestaña Divisiones.</p>
           ) : (
             <>
               {/* Division filter pills */}
@@ -513,7 +548,7 @@ export default function Configuracion() {
                   <button
                     onClick={() => setPlayerDivFilter("")}
                     className={`text-sm px-4 py-1.5 rounded-full transition-colors ${
-                      playerDivFilter === "" ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      playerDivFilter === "" ? "bg-brand text-white" : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
                     }`}
                   >
                     Todas
@@ -523,7 +558,7 @@ export default function Configuracion() {
                       key={d.id}
                       onClick={() => setPlayerDivFilter(d.id)}
                       className={`text-sm px-4 py-1.5 rounded-full transition-colors ${
-                        playerDivFilter === d.id ? "bg-green-700 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        playerDivFilter === d.id ? "bg-brand text-white" : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
                       }`}
                     >
                       {d.name}
@@ -534,14 +569,14 @@ export default function Configuracion() {
 
               {/* Header row */}
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-ink-muted">
                   {filteredPlayers.length} jugador{filteredPlayers.length !== 1 ? "es" : ""}
                 </p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={exportPlayersExcel}
                     disabled={allPlayers.length === 0}
-                    className="text-xs text-gray-400 hover:text-white px-2 py-1.5 rounded transition-colors disabled:opacity-40"
+                    className="text-xs text-ink-muted hover:text-ink px-2 py-1.5 rounded transition-colors disabled:opacity-40"
                     title="Exportar a Excel"
                   >
                     ↓ Exportar
@@ -549,7 +584,7 @@ export default function Configuracion() {
                   <button
                     onClick={() => importRef.current?.click()}
                     disabled={importing}
-                    className="text-xs text-gray-400 hover:text-white px-2 py-1.5 rounded transition-colors disabled:opacity-40"
+                    className="text-xs text-ink-muted hover:text-ink px-2 py-1.5 rounded transition-colors disabled:opacity-40"
                     title="Importar desde Excel"
                   >
                     {importing ? "Importando..." : "↑ Importar"}
@@ -564,7 +599,7 @@ export default function Configuracion() {
                   {!addingPlayer && (
                     <button
                       onClick={openAddPlayer}
-                      className="text-sm bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg transition-colors ml-1"
+                      className="text-sm bg-brand hover:bg-brand-hover text-white px-3 py-1.5 rounded-lg transition-colors ml-1"
                     >
                       + Agregar
                     </button>
@@ -573,24 +608,24 @@ export default function Configuracion() {
               </div>
 
               {importResult && (
-                <p className={`text-xs mb-3 ${importResult.startsWith("✓") ? "text-green-400" : "text-red-400"}`}>
+                <p className={`text-xs mb-3 ${importResult.startsWith("✓") ? "text-brand" : "text-red-600"}`}>
                   {importResult}
                 </p>
               )}
 
               {addingPlayer && (
-                <form onSubmit={handleCreatePlayer} className="bg-gray-800 rounded-xl p-4 mb-4 space-y-3">
+                <form onSubmit={handleCreatePlayer} className="bg-surface rounded-xl p-4 mb-4 space-y-3">
                   <input
                     required autoFocus
                     placeholder="Nombre del jugador"
                     value={playerForm.name}
                     onChange={(e) => setPlayerForm((f) => ({ ...f, name: e.target.value }))}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
                   />
                   <select
                     value={playerForm.position}
                     onChange={(e) => setPlayerForm((f) => ({ ...f, position: e.target.value }))}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-brand-ring"
                   >
                     <option value="">— Posición (opcional) —</option>
                     {RUGBY_POSITIONS.map((pos) => (
@@ -601,22 +636,22 @@ export default function Configuracion() {
                     required
                     value={playerForm.divisionId}
                     onChange={(e) => setPlayerForm((f) => ({ ...f, divisionId: e.target.value }))}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-brand-ring"
                   >
                     <option value="">— División —</option>
                     {divisions.map((d) => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
                   </select>
-                  {playerError && <p className="text-red-400 text-xs">{playerError}</p>}
+                  {playerError && <p className="text-red-600 text-xs">{playerError}</p>}
                   <div className="flex gap-2">
                     <button type="submit" disabled={playerSubmitting}
-                      className="text-sm bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors">
+                      className="text-sm bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors">
                       {playerSubmitting ? "Guardando..." : "Guardar"}
                     </button>
                     <button type="button"
                       onClick={() => { setAddingPlayer(false); setPlayerError(null); }}
-                      className="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg transition-colors">
+                      className="text-sm text-ink-muted hover:text-ink px-4 py-2 rounded-lg transition-colors">
                       Cancelar
                     </button>
                   </div>
@@ -624,29 +659,29 @@ export default function Configuracion() {
               )}
 
               {loadingPlayers ? (
-                <p className="text-gray-400 text-sm">Cargando jugadores...</p>
+                <p className="text-ink-muted text-sm">Cargando jugadores...</p>
               ) : filteredPlayers.length === 0 ? (
-                <p className="text-gray-500 text-sm">
+                <p className="text-ink-muted text-sm">
                   {playerDivFilter ? "No hay jugadores en esta división." : "No hay jugadores todavía."}
                 </p>
               ) : (
                 <ul className="space-y-2">
                   {filteredPlayers.map((p) => (
-                    <li key={p.id} className="bg-gray-800 rounded-xl overflow-hidden">
+                    <li key={p.id} className="bg-surface rounded-xl overflow-hidden">
                       {editingPlayerId === p.id ? (
                         <form onSubmit={handleEditPlayer} className="p-4 space-y-3">
-                          <p className="text-xs text-gray-400 uppercase tracking-wide">Editar jugador</p>
+                          <p className="text-xs text-ink-muted uppercase tracking-wide">Editar jugador</p>
                           <input
                             required
                             value={editForm.name}
                             onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                             placeholder="Nombre"
-                            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                            className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
                           />
                           <select
                             value={editForm.position}
                             onChange={(e) => setEditForm((f) => ({ ...f, position: e.target.value }))}
-                            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                            className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                           >
                             <option value="">— Posición —</option>
                             {RUGBY_POSITIONS.map((pos) => (
@@ -657,21 +692,21 @@ export default function Configuracion() {
                             required
                             value={editForm.divisionId}
                             onChange={(e) => setEditForm((f) => ({ ...f, divisionId: e.target.value }))}
-                            className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                            className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
                           >
                             {divisions.map((d) => (
                               <option key={d.id} value={d.id}>{d.name}</option>
                             ))}
                           </select>
-                          {editError && <p className="text-red-400 text-xs">{editError}</p>}
+                          {editError && <p className="text-red-600 text-xs">{editError}</p>}
                           <div className="flex gap-2">
                             <button type="submit" disabled={editSubmitting}
-                              className="text-sm bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg transition-colors">
+                              className="text-sm bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-4 py-1.5 rounded-lg transition-colors">
                               {editSubmitting ? "Guardando..." : "Guardar"}
                             </button>
                             <button type="button"
                               onClick={() => { setEditingPlayerId(null); setEditError(null); }}
-                              className="text-sm text-gray-400 hover:text-white px-4 py-1.5 rounded-lg transition-colors">
+                              className="text-sm text-ink-muted hover:text-ink px-4 py-1.5 rounded-lg transition-colors">
                               Cancelar
                             </button>
                           </div>
@@ -696,13 +731,13 @@ export default function Configuracion() {
                           </div>
                           {/* Info */}
                           <div className="flex-1 min-w-0">
-                            <span className="text-white text-sm font-medium block truncate">{p.name}</span>
-                            {p.position && <span className="text-gray-400 text-xs">{p.position}</span>}
-                            {p.dni && <span className="text-gray-500 text-xs block">DNI {p.dni}</span>}
+                            <span className="text-ink text-sm font-medium block truncate">{p.name}</span>
+                            {p.position && <span className="text-ink-muted text-xs">{p.position}</span>}
+                            {p.dni && <span className="text-ink-muted text-xs block">DNI {p.dni}</span>}
                           </div>
                           {/* Division pill */}
                           {divisions.length > 1 && (
-                            <span className="text-xs text-gray-500 bg-gray-700 px-2 py-0.5 rounded-full shrink-0">
+                            <span className="text-xs text-ink-muted bg-surface-strong px-2 py-0.5 rounded-full shrink-0">
                               {p.division_name}
                             </span>
                           )}
@@ -710,7 +745,7 @@ export default function Configuracion() {
                           {filteredPlayers.length >= 2 && (
                             <button
                               onClick={() => setUnifyKeepPlayer(p)}
-                              className="text-xs text-gray-500 hover:text-yellow-400 transition-colors shrink-0"
+                              className="text-xs text-ink-muted hover:text-yellow-600 transition-colors shrink-0"
                               title="Unificar con otro jugador"
                             >
                               Unificar →
@@ -718,7 +753,7 @@ export default function Configuracion() {
                           )}
                           <button
                             onClick={() => openEditPlayer(p)}
-                            className="text-gray-500 hover:text-white text-sm px-1.5 py-0.5 rounded transition-colors"
+                            className="text-ink-muted hover:text-ink text-sm px-1.5 py-0.5 rounded transition-colors"
                             title="Editar"
                           >
                             ✎
@@ -738,69 +773,117 @@ export default function Configuracion() {
       {activeTab === "users" && (
         <>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-400">{users.length} usuario{users.length !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-ink-muted">{users.length} usuario{users.length !== 1 ? "s" : ""}</p>
             <button
               onClick={() => { setShowUserModal(true); setUserError(null); }}
-              className="text-sm bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+              className="text-sm bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-lg transition-colors"
             >
               + Nuevo usuario
             </button>
           </div>
 
           {loadingUsers ? (
-            <p className="text-gray-400 text-sm">Cargando...</p>
+            <p className="text-ink-muted text-sm">Cargando...</p>
           ) : users.length === 0 ? (
-            <p className="text-gray-500 text-sm">No hay usuarios todavía.</p>
+            <p className="text-ink-muted text-sm">No hay usuarios todavía.</p>
           ) : (
             <ul className="space-y-2">
-              {users.map((u) => (
-                <li key={u.id} className="bg-gray-800 rounded-xl px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-white text-sm font-medium">{u.full_name}</p>
-                    <p className="text-gray-400 text-xs">{u.email}</p>
-                  </div>
-                  <span className="text-xs text-gray-400">{ROLE_LABEL[u.role] ?? u.role}</span>
-                </li>
-              ))}
+              {users.map((u) => {
+                const scope = userScopes[u.id] ?? [];
+                const editing = editingScopeFor === u.id;
+                return (
+                  <li key={u.id} className="bg-surface rounded-xl px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-ink text-sm font-medium truncate">{u.full_name}</p>
+                        <p className="text-ink-muted text-xs truncate">{u.email}</p>
+                      </div>
+                      <span className="text-xs text-ink-muted shrink-0">
+                        {ROLE_LABEL[u.role] ?? u.role}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className="text-[11px] text-ink-muted">
+                        {scope.length === 0
+                          ? "Todas las divisiones"
+                          : scope
+                              .map((id) => divisions.find((d) => d.id === id)?.name ?? "?")
+                              .join(" · ")}
+                      </span>
+                      <button
+                        onClick={() => setEditingScopeFor(editing ? null : u.id)}
+                        className="pressable text-[11px] text-brand hover:text-brand transition-colors duration-150"
+                      >
+                        {editing ? "Cerrar" : "Cambiar"}
+                      </button>
+                    </div>
+
+                    {editing && (
+                      <div className="mt-2 pt-2 border-t border-line">
+                        <p className="text-[11px] text-ink-muted mb-2">
+                          Sin ninguna marcada, el usuario ve todas las divisiones.
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {divisions.filter((d) => d.is_active).map((d) => {
+                            const on = scope.includes(d.id);
+                            return (
+                              <button
+                                key={d.id}
+                                onClick={() => toggleUserDivision(u.id, d.id)}
+                                className={`pressable px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-150 ${
+                                  on ? "bg-brand text-white" : "bg-surface-strong text-ink-soft"
+                                }`}
+                              >
+                                {d.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
 
           {showUserModal && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
-              <div className="bg-gray-800 rounded-2xl w-full max-w-md p-6 animate-modal">
-                <h2 className="text-white font-bold text-lg mb-4">Nuevo usuario</h2>
+              <div className="bg-surface rounded-2xl w-full max-w-md p-6 animate-modal">
+                <h2 className="text-ink font-bold text-lg mb-4">Nuevo usuario</h2>
                 <form onSubmit={handleCreateUser} className="space-y-3">
                   <input required placeholder="Nombre completo"
                     value={userForm.full_name}
                     onChange={(e) => setUserForm((f) => ({ ...f, full_name: e.target.value }))}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
                   />
                   <input required type="email" placeholder="Email"
                     value={userForm.email}
                     onChange={(e) => setUserForm((f) => ({ ...f, email: e.target.value }))}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
                   />
                   <input required type="password" placeholder="Contraseña"
                     value={userForm.password}
                     onChange={(e) => setUserForm((f) => ({ ...f, password: e.target.value }))}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 placeholder-gray-400 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
                   />
                   <select value={userForm.role}
                     onChange={(e) => setUserForm((f) => ({ ...f, role: e.target.value as typeof userForm.role }))}
-                    className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-green-600"
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-1 focus:ring-brand-ring"
                   >
                     <option value="match_director">Director de partido</option>
                     <option value="analyst">Analista</option>
                   </select>
-                  {userError && <p className="text-red-400 text-xs">{userError}</p>}
+                  {userError && <p className="text-red-600 text-xs">{userError}</p>}
                   <div className="flex gap-3 pt-2">
                     <button type="submit" disabled={userSubmitting}
-                      className="pressable flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150">
+                      className="pressable flex-1 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150">
                       {userSubmitting ? "Guardando..." : "Crear usuario"}
                     </button>
                     <button type="button"
                       onClick={() => { setShowUserModal(false); setUserError(null); }}
-                      className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150">
+                      className="pressable flex-1 bg-surface-strong hover:bg-surface-hover text-ink-soft text-sm font-medium py-2.5 rounded-lg transition-colors duration-150">
                       Cancelar
                     </button>
                   </div>

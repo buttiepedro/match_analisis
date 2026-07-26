@@ -76,14 +76,14 @@ function EventDescription({ e, lineup }: { e: EventData; lineup: LineupPlayer[] 
     if (outName && inName) {
       return (
         <>
-          <span className="text-white">Cambio</span>
-          <span className="text-gray-400"> #{outN} {outName}</span>
-          <span className="text-gray-500"> → </span>
-          <span className="text-gray-400">#{inN} {inName}</span>
+          <span className="text-ink">Cambio</span>
+          <span className="text-ink-muted"> #{outN} {outName}</span>
+          <span className="text-ink-muted"> → </span>
+          <span className="text-ink-muted">#{inN} {inName}</span>
         </>
       );
     }
-    return <span className="text-white">Cambio</span>;
+    return <span className="text-ink">Cambio</span>;
   }
 
   const base = EVENT_LABELS[e.event_type] ?? e.event_type;
@@ -96,16 +96,16 @@ function EventDescription({ e, lineup }: { e: EventData; lineup: LineupPlayer[] 
 
   return (
     <>
-      <span className="text-white">{base}</span>
-      {name && <span className="text-gray-400"> · {name}</span>}
+      <span className="text-ink">{base}</span>
+      {name && <span className="text-ink-muted"> · {name}</span>}
       {isSetpiece && obtained !== undefined && (
-        <span className={obtained ? "text-green-400" : "text-red-400"}>
+        <span className={obtained ? "text-brand" : "text-red-600"}>
           {" · "}{obtained ? "Con obtención" : "Sin obtención"}
         </span>
       )}
-      {reason && <span className="text-gray-500"> · {reason}</span>}
+      {reason && <span className="text-ink-muted"> · {reason}</span>}
       {showConversion && (
-        <span className={converted ? "text-green-400" : "text-red-400"}>
+        <span className={converted ? "text-brand" : "text-red-600"}>
           {" · "}{converted ? "Convertido" : "No convertido"}
         </span>
       )}
@@ -155,30 +155,30 @@ export default function EventLog({ sessionId, types }: Props) {
 
   return (
     <div className="mt-4 px-4 pb-4">
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+      <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">
         Registro de eventos
       </p>
-      {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
+      {error && <p className="text-red-600 text-xs mb-2">{error}</p>}
       <ul className="space-y-1">
         {filtered.map((e) => (
           <li
             key={e.id}
-            className="flex items-center justify-between bg-gray-800/60 rounded-lg px-3 py-2 gap-2"
+            className="flex items-center justify-between bg-surface/70 rounded-lg px-3 py-2 gap-2"
           >
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs text-gray-500 shrink-0 font-mono">
+              <span className="text-xs text-ink-muted shrink-0 font-mono">
                 {fmt(e.half, e.timer_seconds)}
               </span>
               {e.pending && (
                 <span
-                  className="text-xs shrink-0 text-amber-400"
+                  className="text-xs shrink-0 text-amber-600"
                   title="Pendiente de envío — se sincroniza al recuperar conexión"
                 >
                   ⧗
                 </span>
               )}
               <span className={`text-xs shrink-0 font-semibold px-1.5 py-0.5 rounded ${
-                e.team === "user" ? "bg-blue-900/60 text-blue-300" : "bg-orange-900/60 text-orange-300"
+                e.team === "user" ? "bg-blue-900/60 text-blue-300" : "bg-orange-100 text-orange-700"
               }`}>
                 {e.team === "user" ? "L" : "V"}
               </span>
@@ -189,7 +189,7 @@ export default function EventLog({ sessionId, types }: Props) {
             <button
               onClick={() => handleDelete(e.id)}
               disabled={deletingId === e.id}
-              className="text-gray-600 hover:text-red-400 disabled:opacity-50 transition-colors shrink-0 text-base leading-none"
+              className="text-ink-faint hover:text-red-600 disabled:opacity-50 transition-colors shrink-0 text-base leading-none"
               aria-label="Eliminar evento"
             >
               ×

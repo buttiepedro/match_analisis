@@ -66,6 +66,11 @@ class Player(Base):
     )
     medical_clearance_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     medical_clearance_expires: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    #: Usuario del portal, si el jugador fue invitado. Nullable: la enorme mayoría
+    #: del plantel nunca va a tener acceso, y eso está bien.
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id"), nullable=True, unique=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     division: Mapped["Division"] = relationship(back_populates="players")

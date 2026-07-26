@@ -129,8 +129,8 @@ export default function Session() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <p className="text-gray-400">Cargando...</p>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-ink-muted">Cargando...</p>
       </div>
     );
   }
@@ -138,12 +138,12 @@ export default function Session() {
   if (!session) return null;
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <button
           onClick={() => navigate("/tournaments")}
-          className="text-gray-400 text-sm hover:text-white"
+          className="text-ink-muted text-sm hover:text-ink"
         >
           ← Volver
         </button>
@@ -151,13 +151,13 @@ export default function Session() {
           {pending > 0 && (
             <button
               onClick={() => void flush().then(() => refreshEvents().catch(() => {}))}
-              className="text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
+              className="text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
               title="Eventos registrados sin conexión. Se envían solos al recuperarla — tocá para reintentar ahora."
             >
               ⧗ {pending} sin enviar
             </button>
           )}
-          <span className={`text-xs font-medium ${wsConnected ? "text-green-400" : "text-red-400"}`}>
+          <span className={`text-xs font-medium ${wsConnected ? "text-brand" : "text-red-600"}`}>
             {wsConnected ? "● En vivo" : "○ Reconectando..."}
           </span>
         </div>
@@ -175,15 +175,15 @@ export default function Session() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-700 bg-gray-900">
+      <div className="flex border-b border-line bg-white">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
             className={`flex-1 py-3 text-xs font-semibold transition-colors ${
               activeTab === t.id
-                ? "text-green-400 border-b-2 border-green-400"
-                : "text-gray-400"
+                ? "text-brand border-b-2 border-green-400"
+                : "text-ink-muted"
             }`}
           >
             {t.label}

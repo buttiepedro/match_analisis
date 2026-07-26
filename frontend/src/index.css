@@ -19,8 +19,17 @@
 }
 
 body {
-  @apply bg-gray-900 text-white;
+  @apply bg-white text-ink;
   overscroll-behavior: none;
+}
+
+/*
+  Los inputs `date` y los selects nativos heredan el esquema del sistema. Sin
+  esto, en un dispositivo en modo oscuro aparecen negros dentro de una interfaz
+  blanca.
+*/
+:root {
+  color-scheme: light;
 }
 
 @layer components {

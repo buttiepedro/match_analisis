@@ -44,15 +44,15 @@ export default function SubstitutionModal({ sessionId, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60 animate-overlay" onClick={onClose} />
-      <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4 animate-sheet">
-        <p className="text-white font-bold text-base">Registrar Cambio</p>
+      <div className="relative bg-surface rounded-t-2xl p-5 space-y-4 animate-sheet">
+        <p className="text-ink font-bold text-base">Registrar Cambio</p>
 
         <div>
-          <label className="block text-sm text-gray-300 mb-1">Sale del campo</label>
+          <label className="block text-sm text-ink-soft mb-1">Sale del campo</label>
           <select
             value={outId}
             onChange={(e) => setOutId(e.target.value)}
-            className="w-full bg-gray-700 text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-yellow-500"
+            className="w-full bg-surface-strong text-ink rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-yellow-500"
           >
             <option value="">— Seleccionar —</option>
             {onField.map((p) => (
@@ -64,11 +64,11 @@ export default function SubstitutionModal({ sessionId, onClose }: Props) {
         </div>
 
         <div>
-          <label className="block text-sm text-gray-300 mb-1">Entra al campo</label>
+          <label className="block text-sm text-ink-soft mb-1">Entra al campo</label>
           <select
             value={inId}
             onChange={(e) => setInId(e.target.value)}
-            className="w-full bg-gray-700 text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="w-full bg-surface-strong text-ink rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand-ring"
           >
             <option value="">— Seleccionar —</option>
             {bench.map((p) => (
@@ -79,23 +79,23 @@ export default function SubstitutionModal({ sessionId, onClose }: Props) {
           </select>
         </div>
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
         {bench.length === 0 && (
-          <p className="text-yellow-400 text-sm">No hay suplentes disponibles</p>
+          <p className="text-yellow-600 text-sm">No hay suplentes disponibles</p>
         )}
 
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="pressable flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold rounded-xl py-3 transition-colors duration-150"
+            className="pressable flex-1 bg-surface-strong hover:bg-surface-hover text-ink-soft font-semibold rounded-xl py-3 transition-colors duration-150"
           >
             Cancelar
           </button>
           <button
             onClick={confirm}
             disabled={loading || !outId || !inId}
-            className="pressable flex-1 bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-600 text-white font-semibold rounded-xl py-3 transition-colors duration-150"
+            className="pressable flex-1 bg-yellow-600 hover:bg-yellow-500 disabled:bg-surface-strong text-white font-semibold rounded-xl py-3 transition-colors duration-150"
           >
             {loading ? "..." : "Confirmar Cambio"}
           </button>

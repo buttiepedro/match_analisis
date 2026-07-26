@@ -25,3 +25,9 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     role: Optional[Literal["match_director", "analyst"]] = None
     is_active: Optional[bool] = None
+
+
+class UserDivisionsUpdate(BaseModel):
+    """Alcance del usuario. **Lista vacía = sin restricción**, no "sin acceso"."""
+
+    division_ids: list[uuid.UUID] = []

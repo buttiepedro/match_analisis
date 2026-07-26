@@ -56,8 +56,8 @@ export default function CropModal({ imageSrc, onConfirm, onCancel }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 animate-overlay">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-sm flex flex-col gap-4 p-6 shadow-2xl animate-modal">
-        <h2 className="text-white font-bold text-base">Recortar foto</h2>
+      <div className="bg-white rounded-2xl w-full max-w-sm flex flex-col gap-4 p-6 shadow-2xl animate-modal">
+        <h2 className="text-ink font-bold text-base">Recortar foto</h2>
 
         <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 300 }}>
           <Cropper
@@ -72,7 +72,7 @@ export default function CropModal({ imageSrc, onConfirm, onCancel }: Props) {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-gray-500 text-xs shrink-0">Zoom</span>
+          <span className="text-ink-muted text-xs shrink-0">Zoom</span>
           <input
             type="range"
             min={1}
@@ -88,14 +88,14 @@ export default function CropModal({ imageSrc, onConfirm, onCancel }: Props) {
           <button
             onClick={handleConfirm}
             disabled={processing}
-            className="pressable flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+            className="pressable flex-1 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
           >
             {processing ? "Procesando..." : "Recortar y subir"}
           </button>
           <button
             onClick={onCancel}
             disabled={processing}
-            className="pressable flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-gray-300 text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
+            className="pressable flex-1 bg-surface-strong hover:bg-surface-hover disabled:opacity-40 text-ink-soft text-sm font-medium py-2.5 rounded-lg transition-colors duration-150"
           >
             Cancelar
           </button>

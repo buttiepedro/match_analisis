@@ -39,9 +39,9 @@ function countObtained(events: EventData[], type: string) {
 function SetpieceCounter({ label, won, lost }: { label: string; won: number; lost: number }) {
   return (
     <div className="flex items-center justify-between px-3 py-1.5">
-      <span className="text-gray-400 text-xs w-20 shrink-0">{label}</span>
-      <span className="text-xs text-green-400 font-semibold">Ganados: <span className="text-white">{won}</span></span>
-      <span className="text-xs text-red-400 font-semibold ml-4">Perdidos: <span className="text-white">{lost}</span></span>
+      <span className="text-ink-muted text-xs w-20 shrink-0">{label}</span>
+      <span className="text-xs text-brand font-semibold">Ganados: <span className="text-ink">{won}</span></span>
+      <span className="text-xs text-red-600 font-semibold ml-4">Perdidos: <span className="text-ink">{lost}</span></span>
     </div>
   );
 }
@@ -68,17 +68,17 @@ function ObtentionModal({
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60 animate-overlay" onClick={onClose} />
-      <div className="relative bg-gray-800 rounded-t-2xl p-5 space-y-4 animate-sheet">
-        <p className="text-white font-bold text-lg">{action.label}</p>
-        <p className="text-gray-400 text-sm">¿Con obtención del balón?</p>
+      <div className="relative bg-surface rounded-t-2xl p-5 space-y-4 animate-sheet">
+        <p className="text-ink font-bold text-lg">{action.label}</p>
+        <p className="text-ink-muted text-sm">¿Con obtención del balón?</p>
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => register(true)}
             disabled={loading}
-            className="pressable bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
+            className="pressable bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-bold rounded-xl py-5 text-base transition-colors duration-150"
           >
             ✓ Con obtención
           </button>
@@ -91,7 +91,7 @@ function ObtentionModal({
           </button>
         </div>
 
-        <button onClick={onClose} className="w-full text-gray-400 text-sm py-2">
+        <button onClick={onClose} className="w-full text-ink-muted text-sm py-2">
           Cancelar
         </button>
       </div>
@@ -113,42 +113,42 @@ export default function LinesScrum({ sessionId }: Props) {
   return (
     <div className="p-4 space-y-3">
       {/* Line-outs */}
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Line-outs</p>
-      <div className="bg-gray-800 rounded-xl mb-2 py-1">
+      <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-1">Line-outs</p>
+      <div className="bg-surface rounded-xl mb-2 py-1">
         <SetpieceCounter label="A favor"   won={lineFavor.won}   lost={lineFavor.lost} />
         <SetpieceCounter label="En contra" won={lineAgainst.won} lost={lineAgainst.lost} />
       </div>
       {ACTIONS.slice(0, 2).map((a) => (
         <button key={a.eventType} onClick={() => setActive(a)}
-          className={`${a.color} w-full text-white font-bold rounded-2xl py-6 text-base transition-colors`}
+          className={`${a.color} w-full text-ink font-bold rounded-2xl py-6 text-base transition-colors`}
         >
           {a.label}
         </button>
       ))}
 
       {/* Scrums */}
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider pt-4">Scrums</p>
-      <div className="bg-gray-800 rounded-xl mb-2 py-1">
+      <p className="text-xs font-bold text-ink-muted uppercase tracking-wider pt-4">Scrums</p>
+      <div className="bg-surface rounded-xl mb-2 py-1">
         <SetpieceCounter label="A favor"   won={scrumFavor.won}   lost={scrumFavor.lost} />
         <SetpieceCounter label="En contra" won={scrumAgainst.won} lost={scrumAgainst.lost} />
       </div>
       {ACTIONS.slice(2, 4).map((a) => (
         <button key={a.eventType} onClick={() => setActive(a)}
-          className={`${a.color} w-full text-white font-bold rounded-2xl py-6 text-base transition-colors`}
+          className={`${a.color} w-full text-ink font-bold rounded-2xl py-6 text-base transition-colors`}
         >
           {a.label}
         </button>
       ))}
 
       {/* Salidas */}
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider pt-4">Salidas</p>
-      <div className="bg-gray-800 rounded-xl mb-2 py-1">
+      <p className="text-xs font-bold text-ink-muted uppercase tracking-wider pt-4">Salidas</p>
+      <div className="bg-surface rounded-xl mb-2 py-1">
         <SetpieceCounter label="A favor"   won={exitFavor.won}   lost={exitFavor.lost} />
         <SetpieceCounter label="En contra" won={exitAgainst.won} lost={exitAgainst.lost} />
       </div>
       {ACTIONS.slice(4).map((a) => (
         <button key={a.eventType} onClick={() => setActive(a)}
-          className={`${a.color} w-full text-white font-bold rounded-2xl py-6 text-base transition-colors`}
+          className={`${a.color} w-full text-ink font-bold rounded-2xl py-6 text-base transition-colors`}
         >
           {a.label}
         </button>

@@ -82,9 +82,9 @@ export function formatLongDate(iso: string): string {
   });
 }
 
-/** Verde arriba de 75, ámbar entre 50 y 75, rojo abajo. */
+/** Verde arriba de 75, ámbar entre 50 y 75, rojo abajo. Tonos legibles sobre blanco. */
 export function percentColor(percent: number): string {
-  if (percent >= 75) return "text-green-400";
-  if (percent >= 50) return "text-amber-400";
-  return "text-red-400";
+  if (percent >= 75) return "text-green-700";
+  if (percent >= 50) return "text-amber-600";
+  return "text-red-600";
 }

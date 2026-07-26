@@ -41,6 +41,15 @@ function IconSettings() {
   );
 }
 
+function IconHome() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+}
+
 function IconClipboard() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -65,24 +74,32 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   superadmin: [
     { label: "Clubes", path: "/clubs", icon: <IconBuilding /> },
   ],
+  // Cinco es el techo del bottom nav a 360px. "Hoy" entra sacando "Físico", que
+  // se llega desde el perfil del jugador; el calendario, desde Hoy.
   club_admin: [
+    { label: "Hoy",        path: "/hoy",         icon: <IconHome /> },
     { label: "Partidos",   path: "/tournaments", icon: <IconBall /> },
     { label: "Asistencia", path: "/trainings",   icon: <IconClipboard /> },
     { label: "Plantel",    path: "/squad",       icon: <IconUsers /> },
-    { label: "Físico",     path: "/performance", icon: <IconActivity /> },
     { label: "Config",     path: "/config",      icon: <IconSettings /> },
   ],
   match_director: [
+    { label: "Hoy",        path: "/hoy",         icon: <IconHome /> },
     { label: "Partidos",   path: "/tournaments", icon: <IconBall /> },
     { label: "Asistencia", path: "/trainings",   icon: <IconClipboard /> },
     { label: "Plantel",    path: "/squad",       icon: <IconUsers /> },
     { label: "Físico",     path: "/performance", icon: <IconActivity /> },
   ],
   analyst: [
+    { label: "Hoy",        path: "/hoy",         icon: <IconHome /> },
     { label: "Partidos",   path: "/tournaments", icon: <IconBall /> },
     { label: "Asistencia", path: "/trainings",   icon: <IconClipboard /> },
     { label: "Plantel",    path: "/squad",       icon: <IconUsers /> },
     { label: "Físico",     path: "/performance", icon: <IconActivity /> },
+  ],
+  // El jugador no tiene nada que hacer en las pantallas de club.
+  player: [
+    { label: "Mi ficha", path: "/mi-ficha", icon: <IconUsers /> },
   ],
 };
 
@@ -105,13 +122,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div className="min-h-screen bg-white text-ink flex flex-col">
       {/* Top header — mobile only, shows title + logout */}
-      <header className="flex items-center justify-between px-4 py-3 bg-gray-800 border-b border-gray-700 md:hidden">
-        <span className="font-bold text-white text-sm">Rugby Analisis</span>
+      <header className="flex items-center justify-between px-4 py-3 bg-surface border-b border-line md:hidden">
+        <span className="font-bold text-ink text-sm">Rugby Analisis</span>
         <button
           onClick={handleLogout}
-          className="text-xs text-gray-400 hover:text-white transition-colors"
+          className="text-xs text-ink-muted hover:text-ink transition-colors"
         >
           Salir
         </button>
@@ -119,9 +136,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Desktop sidebar — only for superadmin or on wide screens */}
       {user?.role === "superadmin" && (
-        <aside className="hidden md:flex md:w-56 bg-gray-800 flex-col border-r border-gray-700 fixed inset-y-0 left-0">
-          <div className="px-4 py-5 border-b border-gray-700">
-            <span className="font-bold text-white">Rugby Analisis</span>
+        <aside className="hidden md:flex md:w-56 bg-surface flex-col border-r border-line fixed inset-y-0 left-0">
+          <div className="px-4 py-5 border-b border-line">
+            <span className="font-bold text-ink">Rugby Analisis</span>
           </div>
           <nav className="flex-1 px-3 py-4 space-y-1">
             {items.map((item) => (
@@ -130,8 +147,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to={item.path}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive(item.path)
-                    ? "bg-green-700 text-white"
-                    : "text-gray-400 hover:bg-gray-700 hover:text-white"
+                    ? "bg-brand text-white"
+                    : "text-ink-muted hover:bg-surface-strong hover:text-ink"
                 }`}
               >
                 {item.icon}
@@ -139,10 +156,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
           </nav>
-          <div className="px-4 py-4 border-t border-gray-700">
-            <p className="text-sm font-semibold text-white truncate">{user?.full_name}</p>
-            <p className="text-xs text-gray-400 mb-3">{user?.role}</p>
-            <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-white">
+          <div className="px-4 py-4 border-t border-line">
+            <p className="text-sm font-semibold text-ink truncate">{user?.full_name}</p>
+            <p className="text-xs text-ink-muted mb-3">{user?.role}</p>
+            <button onClick={handleLogout} className="text-xs text-ink-muted hover:text-ink">
               Cerrar sesión
             </button>
           </div>
@@ -156,7 +173,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Bottom nav — all roles except superadmin, mobile + tablet */}
       {user?.role !== "superadmin" && items.length > 0 && (
-        <nav className="fixed bottom-0 inset-x-0 bg-gray-800 border-t border-gray-700 z-10 md:hidden">
+        <nav className="fixed bottom-0 inset-x-0 bg-surface border-t border-line z-10 md:hidden">
           <div className="flex">
             {items.map((item) => {
               const active = isActive(item.path);
@@ -165,10 +182,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   key={item.path}
                   to={item.path}
                   className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors ${
-                    active ? "text-green-400" : "text-gray-400 hover:text-white"
+                    active ? "text-brand" : "text-ink-muted hover:text-ink"
                   }`}
                 >
-                  <span className={active ? "text-green-400" : "text-gray-500"}>
+                  <span className={active ? "text-brand" : "text-ink-muted"}>
                     {item.icon}
                   </span>
                   {item.label}
@@ -181,8 +198,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Desktop top nav bar for non-superadmin */}
       {user?.role !== "superadmin" && items.length > 0 && (
-        <nav className="hidden md:flex fixed top-0 inset-x-0 bg-gray-800 border-b border-gray-700 z-10 items-center px-6 h-14">
-          <span className="font-bold text-white text-sm mr-8">Rugby Analisis</span>
+        <nav className="hidden md:flex fixed top-0 inset-x-0 bg-surface border-b border-line z-10 items-center px-6 h-14">
+          <span className="font-bold text-ink text-sm mr-8">Rugby Analisis</span>
           <div className="flex gap-1 flex-1">
             {items.map((item) => {
               const active = isActive(item.path);
@@ -191,7 +208,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   key={item.path}
                   to={item.path}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    active ? "bg-green-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+                    active ? "bg-brand text-white" : "text-ink-muted hover:bg-surface-strong hover:text-ink"
                   }`}
                 >
                   {item.icon}
@@ -201,8 +218,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             })}
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400">{user?.full_name}</span>
-            <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-white transition-colors">
+            <span className="text-sm text-ink-muted">{user?.full_name}</span>
+            <button onClick={handleLogout} className="text-xs text-ink-muted hover:text-ink transition-colors">
               Salir
             </button>
           </div>

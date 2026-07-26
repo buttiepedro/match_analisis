@@ -4,14 +4,15 @@ from typing import Annotated
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin
-from app.models import Division, Event, MatchLineup, Player, User
+from app.core.security import get_password_hash
+from app.core.deps import get_current_user, get_division_or_404, require_club_admin
+from app.models import Division, Event, MatchLineup, Player, User, UserRole
 from app.schemas.player import PlayerCreate, PlayerResponse, PlayerUpdate
 
 
@@ -35,13 +36,6 @@ def _s3_public_url(key: str) -> str:
 router = APIRouter(prefix="/divisions")
 
 
-async def _get_division_or_404(division_id: uuid.UUID, db: AsyncSession) -> Division:
-    d = await db.scalar(select(Division).where(Division.id == division_id))
-    if not d:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Division not found")
-    return d
-
-
 @router.post("/{division_id}/players", response_model=PlayerResponse, status_code=status.HTTP_201_CREATED)
 async def create_player(
     division_id: uuid.UUID,
@@ -49,9 +43,7 @@ async def create_player(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_club_admin)],
 ):
-    division = await _get_division_or_404(division_id, db)
-    club = await get_club_or_404(division.club_id, db)
-    assert_club_access(club, current_user)
+    division = await get_division_or_404(division_id, db, current_user)
 
     player = Player(
         id=uuid.uuid4(),
@@ -72,9 +64,7 @@ async def list_players(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    division = await _get_division_or_404(division_id, db)
-    club = await get_club_or_404(division.club_id, db)
-    assert_club_access(club, current_user)
+    division = await get_division_or_404(division_id, db, current_user)
 
     result = await db.execute(
         select(Player)
@@ -92,9 +82,7 @@ async def update_player(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_club_admin)],
 ):
-    division = await _get_division_or_404(division_id, db)
-    club = await get_club_or_404(division.club_id, db)
-    assert_club_access(club, current_user)
+    division = await get_division_or_404(division_id, db, current_user)
 
     player = await db.scalar(
         select(Player).where(Player.id == player_id, Player.division_id == division.id)
@@ -140,9 +128,7 @@ async def delete_player(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_club_admin)],
 ):
-    division = await _get_division_or_404(division_id, db)
-    club = await get_club_or_404(division.club_id, db)
-    assert_club_access(club, current_user)
+    division = await get_division_or_404(division_id, db, current_user)
 
     player = await db.scalar(
         select(Player).where(Player.id == player_id, Player.division_id == division.id)
@@ -152,6 +138,68 @@ async def delete_player(
 
     player.is_active = False
     await db.commit()
+
+
+class PlayerInvite(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class PlayerInviteResponse(BaseModel):
+    player_id: uuid.UUID
+    user_id: uuid.UUID
+    email: str
+
+
+@router.post("/{division_id}/players/{player_id}/invite", response_model=PlayerInviteResponse)
+async def invite_player(
+    division_id: uuid.UUID,
+    player_id: uuid.UUID,
+    body: PlayerInvite,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_club_admin)],
+):
+    """
+    Crea el acceso al portal para un jugador.
+
+    El usuario queda con rol `player`: no es un usuario de club con menos permisos,
+    es otro sujeto. Sólo llega a su propia ficha.
+    """
+    division = await get_division_or_404(division_id, db, current_user)
+
+    player = await db.scalar(
+        select(Player).where(
+            Player.id == player_id,
+            Player.division_id == division.id,
+            Player.is_active.is_(True),
+        )
+    )
+    if not player:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+    if player.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El jugador ya tiene acceso al portal",
+        )
+
+    email_taken = await db.scalar(select(User).where(User.email == body.email))
+    if email_taken:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
+
+    account = User(
+        id=uuid.uuid4(),
+        club_id=division.club_id,
+        email=body.email,
+        password_hash=get_password_hash(body.password),
+        full_name=player.name,
+        role=UserRole.player,
+    )
+    db.add(account)
+    await db.flush()
+    player.user_id = account.id
+    await db.commit()
+
+    return PlayerInviteResponse(player_id=player.id, user_id=account.id, email=account.email)
 
 
 class AbsorbRequest(BaseModel):
@@ -166,9 +214,7 @@ async def absorb_player(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_club_admin)],
 ):
-    division = await _get_division_or_404(division_id, db)
-    club = await get_club_or_404(division.club_id, db)
-    assert_club_access(club, current_user)
+    division = await get_division_or_404(division_id, db, current_user)
 
     keeper = await db.scalar(
         select(Player).where(Player.id == player_id, Player.is_active.is_(True))
@@ -227,9 +273,7 @@ async def upload_player_photo(
     if file.content_type not in ("image/png", "image/jpeg", "image/webp"):
         raise HTTPException(status_code=400, detail="Solo se aceptan imágenes PNG, JPEG o WebP")
 
-    division = await _get_division_or_404(division_id, db)
-    club = await get_club_or_404(division.club_id, db)
-    assert_club_access(club, current_user)
+    division = await get_division_or_404(division_id, db, current_user)
 
     player = await db.scalar(
         select(Player).where(Player.id == player_id, Player.division_id == division.id)

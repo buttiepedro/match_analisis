@@ -12,8 +12,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.anthropometry import calculate_bmi, calculate_body_fat
 from app.core.database import get_db
-from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin
-from app.models import Division, Player, User
+from app.core.deps import (
+    assert_club_access,
+    assert_division_access,
+    get_club_or_404,
+    get_current_user,
+    get_division_or_404,
+    require_club_admin,
+    require_player_self,
+)
+from app.models import Division, Player, User, UserRole
 from app.models.player import PhysicalTest, PlayerDivisionHistory, PlayerMeasurement
 from app.schemas.measurement import (
     BatchMoveRequest,
@@ -38,9 +46,10 @@ async def _get_player_with_access(
     player = await db.scalar(select(Player).where(Player.id == player_id, Player.is_active.is_(True)))
     if not player:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
-    div = await db.scalar(select(Division).where(Division.id == player.division_id))
-    club = await get_club_or_404(div.club_id, db)
-    assert_club_access(club, current_user)
+    await require_player_self(player_id, db, current_user)
+    if current_user.role != UserRole.player:
+        div = await db.scalar(select(Division).where(Division.id == player.division_id))
+        assert_division_access(div, current_user)
     return player
 
 
@@ -226,11 +235,7 @@ async def division_test_ranking(
     test_type: str = Query(...),
     test_date: Optional[date] = Query(None),
 ):
-    div = await db.scalar(select(Division).where(Division.id == division_id))
-    if not div:
-        raise HTTPException(status_code=404, detail="Division not found")
-    club = await get_club_or_404(div.club_id, db)
-    assert_club_access(club, current_user)
+    await get_division_or_404(division_id, db, current_user)
 
     players_result = await db.execute(
         select(Player).where(Player.division_id == division_id, Player.is_active.is_(True))

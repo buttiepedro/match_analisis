@@ -215,29 +215,29 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-overlay">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl animate-modal">
+      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl animate-modal">
 
         {/* Header */}
-        <div className="px-6 pt-5 pb-4 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-white font-bold text-lg">Vista de Cancha</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none transition-colors">×</button>
+        <div className="px-6 pt-5 pb-4 border-b border-line flex items-center justify-between flex-shrink-0">
+          <h2 className="text-ink font-bold text-lg">Vista de Cancha</h2>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink text-xl leading-none transition-colors">×</button>
         </div>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {loading ? (
-            <p className="text-gray-400 text-sm text-center py-12">Cargando alineación...</p>
+            <p className="text-ink-muted text-sm text-center py-12">Cargando alineación...</p>
           ) : (
             <div ref={printRef} className="space-y-4">
 
               {/* Match info */}
-              <div className="bg-gray-800 rounded-xl px-5 py-4">
+              <div className="bg-surface rounded-xl px-5 py-4">
                 <div className="flex items-center justify-center gap-4 mb-1">
-                  <span className="text-white font-bold text-xl">{session.home_team}</span>
-                  <span className="text-gray-400 text-lg font-light">vs</span>
-                  <span className="text-white font-bold text-xl">{session.away_team}</span>
+                  <span className="text-ink font-bold text-xl">{session.home_team}</span>
+                  <span className="text-ink-muted text-lg font-light">vs</span>
+                  <span className="text-ink font-bold text-xl">{session.away_team}</span>
                 </div>
-                <div className="text-center text-gray-400 text-sm">
+                <div className="text-center text-ink-muted text-sm">
                   {tournament && (
                     <span>{tournament.name} · {tournament.division.name}{tournament.season ? ` · ${tournament.season}` : ""}</span>
                   )}
@@ -248,7 +248,7 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
               </div>
 
               {userOnField.length === 0 ? (
-                <p className="text-gray-500 text-sm text-center py-8">
+                <p className="text-ink-muted text-sm text-center py-8">
                   No hay jugadores titulares cargados para este partido.
                 </p>
               ) : (
@@ -256,7 +256,7 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
 
                   {/* SVG field */}
                   <div className="flex-shrink-0">
-                    <p className="text-xs text-gray-500 mb-2 text-center">
+                    <p className="text-xs text-ink-muted mb-2 text-center">
                       {selected !== null ? "Seleccioná otro jugador para intercambiar posiciones" : "Click en dos jugadores para intercambiar posiciones"}
                     </p>
                     <svg
@@ -372,35 +372,35 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
 
                   {/* Bench */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-2">Suplentes</p>
+                    <p className="text-xs text-ink-muted uppercase tracking-wide font-semibold mb-2">Suplentes</p>
                     <div className="space-y-1">
                       {Array.from({ length: 8 }, (_, i) => i + 16).map((n) => {
                         const entry = userBench.find((e) => e.jersey_number === n);
                         const src = entry ? photoSrc(entry.player.profile_photo_url) : null;
                         return (
-                          <div key={n} className="flex items-center gap-3 bg-gray-800 rounded-lg px-3 py-2">
+                          <div key={n} className="flex items-center gap-3 bg-surface rounded-lg px-3 py-2">
                             {entry ? (
-                              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center flex-shrink-0">
+                              <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-strong flex items-center justify-center flex-shrink-0">
                                 {src ? (
                                   <img src={src} alt={entry.player.name} className="w-full h-full object-cover" />
                                 ) : (
-                                  <span className="text-green-400 font-bold text-sm">{n}</span>
+                                  <span className="text-brand font-bold text-sm">{n}</span>
                                 )}
                               </div>
                             ) : (
-                              <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
-                                <span className="text-gray-600 font-bold text-sm">{n}</span>
+                              <div className="w-8 h-8 rounded-full bg-surface-strong flex items-center justify-center flex-shrink-0">
+                                <span className="text-ink-faint font-bold text-sm">{n}</span>
                               </div>
                             )}
                             {entry ? (
                               <>
-                                <span className="text-white text-sm truncate flex-1">{entry.player.name}</span>
-                                <span className="text-gray-400 text-xs flex-shrink-0">
+                                <span className="text-ink text-sm truncate flex-1">{entry.player.name}</span>
+                                <span className="text-ink-muted text-xs flex-shrink-0">
                                   {entry.position ?? positionByJersey(n) ?? "—"}
                                 </span>
                               </>
                             ) : (
-                              <span className="text-gray-600 text-sm italic flex-1">—</span>
+                              <span className="text-ink-faint text-sm italic flex-1">—</span>
                             )}
                           </div>
                         );
@@ -415,17 +415,17 @@ export default function FieldViewModal({ isOpen, session, tournament, onClose }:
         </div>
 
         {/* Footer */}
-        <div className="px-6 pb-5 pt-3 border-t border-gray-700 flex items-center justify-between flex-shrink-0">
+        <div className="px-6 pb-5 pt-3 border-t border-line flex items-center justify-between flex-shrink-0">
           <button
             onClick={onClose}
-            className="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg transition-colors"
+            className="text-sm text-ink-muted hover:text-ink px-4 py-2 rounded-lg transition-colors"
           >
             Cerrar
           </button>
           <button
             onClick={handleExportPDF}
             disabled={exporting || loading || userOnField.length === 0}
-            className="text-sm bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white px-5 py-2 rounded-lg transition-colors font-medium"
+            className="text-sm bg-brand hover:bg-brand-hover disabled:opacity-40 text-white px-5 py-2 rounded-lg transition-colors font-medium"
           >
             {exporting ? "Exportando..." : "Exportar PDF"}
           </button>

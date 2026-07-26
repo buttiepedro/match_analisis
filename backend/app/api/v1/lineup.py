@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_club_admin
+from app.core.deps import get_current_user, get_division_or_404, require_club_admin
 from app.models import (
     Division,
     Event,
@@ -48,8 +48,9 @@ async def _get_session_and_club(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
 
     tournament = await db.scalar(select(Tournament).where(Tournament.id == session.tournament_id))
-    if current_user.role != UserRole.superadmin and current_user.club_id != tournament.club_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    # El partido cuelga de un torneo, y el torneo de una división: el alcance del
+    # usuario se valida ahí, no sólo contra el club.
+    await get_division_or_404(tournament.division_id, db, current_user)
 
     return session, tournament.club_id
 
