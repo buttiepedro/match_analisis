@@ -29,7 +29,10 @@ export interface Measurement {
   fat_fold_subscapular_mm: number | null;
   fat_fold_suprailiac_mm: number | null;
   fat_fold_abdominal_mm: number | null;
+  fat_fold_biceps_mm: number | null;
   body_fat_percent: number | null;
+  /** Juego de pliegues / sexo / banda etaria usados, ej. "dw4c/M/20-29". */
+  body_fat_method: string | null;
   notes: string | null;
   created_at: string;
 }

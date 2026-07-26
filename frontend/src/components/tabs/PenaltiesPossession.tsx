@@ -1,7 +1,7 @@
 import { useState } from "react";
-import api from "../../lib/axios";
-import { parseApiError } from "../../lib/errors";
-import { useSessionStore, countEvents, EventData } from "../../store/sessionStore";
+import { calcPoints } from "../../lib/stats";
+import { useEventRegistrar } from "../../lib/useEventRegistrar";
+import { useSessionStore, countEvents } from "../../store/sessionStore";
 import SubstitutionModal from "../SubstitutionModal";
 import EventLog from "../EventLog";
 
@@ -14,33 +14,17 @@ interface ModalState {
 
 const CLOSED: ModalState = { flow: null, team: null };
 
-function calcPoints(events: EventData[], team: "user" | "rival"): number {
-  return events.filter((e) => e.team === team).reduce((pts, e) => {
-    if (e.event_type === "try") {
-      pts += 5;
-      if (e.metadata?.converted === true) pts += 2;
-    }
-    if (e.event_type === "penalty" && e.reason === "a_los_palos" && e.metadata?.converted === true) {
-      pts += 3;
-    }
-    if (e.event_type === "drop") pts += 3;
-    return pts;
-  }, 0);
-}
-
 interface Props {
   sessionId: string;
   homeTeam: string;
   awayTeam: string;
-  onEvent: () => void;
 }
 
-export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props) {
+export default function Events({ sessionId, homeTeam, awayTeam }: Props) {
   const events = useSessionStore((s) => s.events);
   const [modal, setModal] = useState<ModalState>(CLOSED);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [showSub, setShowSub] = useState(false);
+  const { register, loading, error, setError } = useEventRegistrar(sessionId);
 
   const yellows = countEvents(events, ["yellow_card"]);
   const reds    = countEvents(events, ["red_card"]);
@@ -57,15 +41,11 @@ export default function Events({ sessionId, homeTeam, awayTeam, onEvent }: Props
     setError("");
   }
 
-  function selectTeam(team: "user" | "rival") {
+  async function selectTeam(team: "user" | "rival") {
     const { flow } = modal;
     if (!flow) return;
-    setLoading(true);
-    setError("");
-    api.post(`/sessions/${sessionId}/events`, { event_type: flow, team })
-      .then(() => { onEvent(); close(); })
-      .catch((err) => setError(parseApiError(err, "Error al registrar el evento")))
-      .finally(() => setLoading(false));
+    const ok = await register(flow, { team });
+    if (ok) close();
   }
 
   const isOpen = modal.flow !== null;

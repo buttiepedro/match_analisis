@@ -24,7 +24,7 @@ class Event(Base):
     player_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("players.id"), nullable=True)
     player_number: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     reason: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    metadata_: Mapped[dict] = mapped_column("metadata", JSON, server_default="{}")
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, default=dict, server_default="{}")
     recorded_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

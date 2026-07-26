@@ -10,6 +10,11 @@ class EventCreate(BaseModel):
     player_id: Optional[uuid.UUID] = None
     reason: Optional[str] = None
     metadata: dict = {}
+    # Marca temporal del cliente. Sólo se usa cuando el evento se registró sin
+    # conectividad y se envía diferido: sin esto el backend lo sellaría con el
+    # tiempo del timer al momento de recibirlo, que ya no es el del hecho real.
+    timer_seconds: Optional[int] = Field(default=None, ge=0)
+    half: Optional[int] = Field(default=None, ge=1, le=2)
 
 
 class EventResponse(BaseModel):

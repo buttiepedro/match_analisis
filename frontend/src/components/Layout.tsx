@@ -81,8 +81,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const items: NavItem[] = user ? (NAV_BY_ROLE[user.role] ?? []) : [];
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 

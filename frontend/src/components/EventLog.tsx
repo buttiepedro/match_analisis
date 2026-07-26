@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
+import { isLocalId, removeQueued } from "../lib/offlineQueue";
 import { EventData, LineupPlayer, useSessionStore } from "../store/sessionStore";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -131,6 +132,13 @@ export default function EventLog({ sessionId, types }: Props) {
     .sort((a, b) => b.half - a.half || b.timer_seconds - a.timer_seconds);
 
   const handleDelete = async (id: string) => {
+    // Un evento todavía encolado no existe en el servidor: se descarta local.
+    if (isLocalId(id)) {
+      removeQueued(id);
+      removeEvent(id);
+      return;
+    }
+
     setDeletingId(id);
     setError(null);
     try {
@@ -161,6 +169,14 @@ export default function EventLog({ sessionId, types }: Props) {
               <span className="text-xs text-gray-500 shrink-0 font-mono">
                 {fmt(e.half, e.timer_seconds)}
               </span>
+              {e.pending && (
+                <span
+                  className="text-xs shrink-0 text-amber-400"
+                  title="Pendiente de envío — se sincroniza al recuperar conexión"
+                >
+                  ⧗
+                </span>
+              )}
               <span className={`text-xs shrink-0 font-semibold px-1.5 py-0.5 rounded ${
                 e.team === "user" ? "bg-blue-900/60 text-blue-300" : "bg-orange-900/60 text-orange-300"
               }`}>

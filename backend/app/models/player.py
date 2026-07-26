@@ -31,7 +31,7 @@ class Player(Base):
     emergency_phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     obra_social: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     profile_photo_url: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     division: Mapped["Division"] = relationship(back_populates="players")
@@ -49,9 +49,9 @@ class MatchLineup(Base):
     player_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("players.id"), nullable=False)
     jersey_number: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     position: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    team: Mapped[str] = mapped_column(String(10), nullable=False, server_default="user")
+    team: Mapped[str] = mapped_column(String(10), nullable=False, default="user", server_default="user")
     status: Mapped[LineupStatus] = mapped_column(
-        Enum(LineupStatus), nullable=False, server_default="on_field"
+        Enum(LineupStatus), nullable=False, default=LineupStatus.on_field, server_default="on_field"
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -90,7 +90,10 @@ class PlayerMeasurement(Base):
     fat_fold_subscapular_mm: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1), nullable=True)
     fat_fold_suprailiac_mm: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1), nullable=True)
     fat_fold_abdominal_mm: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1), nullable=True)
+    fat_fold_biceps_mm: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1), nullable=True)
     body_fat_percent: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1), nullable=True)
+    # Juego de pliegues / sexo / banda etaria usados, ej. "dw4c/M/20-29".
+    body_fat_method: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     recorded_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

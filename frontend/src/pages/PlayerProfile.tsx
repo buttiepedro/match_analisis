@@ -10,6 +10,32 @@ import {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Traduce el método guardado por el backend (ej. `dw4c/M*/20-29`) a algo legible.
+// El asterisco marca un dato asumido por falta de sexo o fecha de nacimiento en
+// la ficha — importa mostrarlo, porque cambia el resultado.
+function describeBodyFatMethod(method: string): string {
+  const [foldSet, sexPart = "", bandPart = ""] = method.split("/");
+  const sexAssumed = sexPart.includes("*");
+  const bandAssumed = bandPart.includes("*");
+  const sex = sexPart.replace("*", "") === "F" ? "femenino" : "masculino";
+  const band = bandPart.replace("*", "");
+
+  const folds =
+    foldSet === "dw4c"
+      ? "pliegues bíceps/tríceps/subescapular/suprailíaco"
+      : "abdominal en lugar de bíceps";
+
+  const caveats = [
+    sexAssumed ? "sexo asumido" : null,
+    bandAssumed ? "edad asumida" : null,
+  ].filter(Boolean);
+
+  return (
+    `Durnin-Womersley · ${folds} · ${sex}, ${band} años` +
+    (caveats.length ? ` — ${caveats.join(" y ")}: completá la ficha del jugador` : "")
+  );
+}
+
 function delta(current: number | null, previous: number | null, inverse = false) {
   if (current == null || previous == null) return null;
   const diff = current - previous;
@@ -72,6 +98,7 @@ function MeasurementForm({
     fat_fold_subscapular_mm: "",
     fat_fold_suprailiac_mm: "",
     fat_fold_abdominal_mm: "",
+    fat_fold_biceps_mm: "",
     notes: "",
   });
   const [saving, setSaving] = useState(false);
@@ -102,6 +129,7 @@ function MeasurementForm({
         fat_fold_subscapular_mm: form.fat_fold_subscapular_mm ? (parseFloat(form.fat_fold_subscapular_mm) as any) : undefined,
         fat_fold_suprailiac_mm: form.fat_fold_suprailiac_mm ? (parseFloat(form.fat_fold_suprailiac_mm) as any) : undefined,
         fat_fold_abdominal_mm: form.fat_fold_abdominal_mm ? (parseFloat(form.fat_fold_abdominal_mm) as any) : undefined,
+        fat_fold_biceps_mm: form.fat_fold_biceps_mm ? (parseFloat(form.fat_fold_biceps_mm) as any) : undefined,
         notes: form.notes || undefined,
       } as any);
       onClose();
@@ -157,7 +185,13 @@ function MeasurementForm({
           {field("Tricipital", "fat_fold_tricep_mm", "12")}
           {field("Subescapular", "fat_fold_subscapular_mm", "15")}
           {field("Suprailíaco", "fat_fold_suprailiac_mm", "18")}
+          {field("Bicipital", "fat_fold_biceps_mm", "8")}
           {field("Abdominal", "fat_fold_abdominal_mm", "20")}
+          <p className="text-[11px] text-gray-500 leading-snug">
+            El % de grasa usa Durnin-Womersley con la edad y el sexo del jugador. Con el
+            pliegue bicipital cargado se aplica el juego de pliegues original del método;
+            sin él se usa el abdominal como reemplazo.
+          </p>
           <div>
             <label className="text-xs text-gray-400 block mb-1">Notas</label>
             <textarea
@@ -389,8 +423,15 @@ function TabFisico({ playerId, canEdit }: { playerId: string; canEdit: boolean }
               {statRow("Tricipital", latest.fat_fold_tricep_mm, prev?.fat_fold_tricep_mm, "mm", true)}
               {statRow("Subescapular", latest.fat_fold_subscapular_mm, prev?.fat_fold_subscapular_mm, "mm", true)}
               {statRow("Suprailíaco", latest.fat_fold_suprailiac_mm, prev?.fat_fold_suprailiac_mm, "mm", true)}
+              {latest.fat_fold_biceps_mm != null &&
+                statRow("Bicipital", latest.fat_fold_biceps_mm, prev?.fat_fold_biceps_mm, "mm", true)}
               {statRow("Abdominal", latest.fat_fold_abdominal_mm, prev?.fat_fold_abdominal_mm, "mm", true)}
               {statRow("% Grasa", latest.body_fat_percent, prev?.body_fat_percent, "%", true)}
+              {latest.body_fat_method && (
+                <p className="text-[11px] text-gray-500 pt-2">
+                  {describeBodyFatMethod(latest.body_fat_method)}
+                </p>
+              )}
             </>
           )}
         </div>

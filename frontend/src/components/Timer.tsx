@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { TimerData } from "../store/sessionStore";
+import { currentElapsed, formatTime } from "../lib/timer";
 import { sessionWS } from "../lib/ws";
 
 interface TimerProps {
@@ -7,34 +8,18 @@ interface TimerProps {
   canControl: boolean;
   homeTeam: string;
   awayTeam: string;
-}
-
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
-  const s = (seconds % 60).toString().padStart(2, "0");
-  return `${m}:${s}`;
+  halfDurationMinutes: number;
 }
 
 function useDisplayElapsed(timer: TimerData | null): number {
-  const [elapsed, setElapsed] = useState(timer?.elapsed_seconds ?? 0);
+  const [elapsed, setElapsed] = useState(() => currentElapsed(timer));
 
   useEffect(() => {
-    if (!timer) return;
+    setElapsed(currentElapsed(timer));
+    if (timer?.status !== "running") return;
 
-    if (timer.status === "running") {
-      const serverTs = new Date(timer.server_timestamp).getTime();
-      const base = timer.elapsed_seconds;
-
-      setElapsed(base + Math.floor((Date.now() - serverTs) / 1000));
-
-      const id = setInterval(() => {
-        setElapsed(base + Math.floor((Date.now() - serverTs) / 1000));
-      }, 500);
-
-      return () => clearInterval(id);
-    }
-
-    setElapsed(timer.elapsed_seconds);
+    const id = setInterval(() => setElapsed(currentElapsed(timer)), 500);
+    return () => clearInterval(id);
   }, [timer]);
 
   return elapsed;
@@ -48,10 +33,23 @@ const STATUS_COLOR: Record<string, string> = {
   stopped: "text-gray-400",
 };
 
-export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerProps) {
+export default function Timer({
+  timer,
+  canControl,
+  homeTeam,
+  awayTeam,
+  halfDurationMinutes,
+}: TimerProps) {
   const elapsed = useDisplayElapsed(timer);
   const status = timer?.status ?? "stopped";
   const half = timer?.half ?? 1;
+
+  // El reloj no se detiene solo: sigue corriendo hasta que el director toca HT
+  // o Finalizar. Lo que marcamos es que el tiempo reglamentario ya se cumplió.
+  const regulationSeconds = Math.max(0, halfDurationMinutes) * 60;
+  const overtime = regulationSeconds > 0 ? elapsed - regulationSeconds : 0;
+  const pastRegulation =
+    overtime >= 0 && (status === "running" || status === "paused");
 
   const [correcting, setCorrecting] = useState(false);
   const [corrMm, setCorrMm] = useState("00");
@@ -85,6 +83,11 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
       {/* Teams */}
       <div className="flex justify-between text-xs text-gray-400 mb-1">
         <span className="font-medium">{homeTeam}</span>
+        {pastRegulation && (
+          <span className="font-bold text-amber-400 uppercase tracking-wide">
+            Tiempo cumplido ({halfDurationMinutes}′)
+          </span>
+        )}
         <span className="font-medium">{awayTeam}</span>
       </div>
 
@@ -94,9 +97,18 @@ export default function Timer({ timer, canControl, homeTeam, awayTeam }: TimerPr
           <span className="text-xs font-bold text-gray-400 uppercase">
             {half === 1 ? "1T" : "2T"}
           </span>
-          <span className={`text-3xl font-mono font-bold tabular-nums ${STATUS_COLOR[status]}`}>
+          <span
+            className={`text-3xl font-mono font-bold tabular-nums ${
+              pastRegulation ? "text-amber-400" : STATUS_COLOR[status]
+            }`}
+          >
             {formatTime(elapsed)}
           </span>
+          {pastRegulation && (
+            <span className="text-xs font-bold text-amber-400 tabular-nums animate-pulse">
+              +{formatTime(overtime)}
+            </span>
+          )}
         </div>
 
         <span className="text-xs text-gray-500 capitalize">{status}</span>

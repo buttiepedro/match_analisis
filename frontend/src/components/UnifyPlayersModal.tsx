@@ -6,7 +6,7 @@ interface Player {
   id: string;
   name: string;
   position: string | null;
-  dni: string | null;
+  dni?: string | null;
 }
 
 interface Props {

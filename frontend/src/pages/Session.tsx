@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Timer from "../components/Timer";
 import JuegoEventos from "../components/tabs/JuegoEventos";
 import LinesScrum from "../components/tabs/LinesScrum";
 import Events from "../components/tabs/PenaltiesPossession";
 import api from "../lib/axios";
+import { flush, pendingEvents, usePendingCount } from "../lib/offlineQueue";
 import { sessionWS } from "../lib/ws";
 import { useAuthStore } from "../store/authStore";
 import { useSessionStore } from "../store/sessionStore";
@@ -33,6 +34,8 @@ export default function Session() {
   const [loading, setLoading] = useState(true);
   const touchStartX = useRef<number>(0);
 
+  const pending = usePendingCount(id);
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
@@ -53,6 +56,20 @@ export default function Session() {
     user?.role === "club_admin" ||
     user?.role === "match_director";
 
+  /**
+   * Trae los eventos del servidor conservando los que siguen encolados: sin eso,
+   * un refetch borraría de pantalla eventos que todavía no se enviaron.
+   */
+  const refreshEvents = useCallback(async () => {
+    if (!id) return;
+    const { data } = await api.get(`/sessions/${id}/events`);
+    const stillQueued = new Set(pendingEvents(id).map((e) => e.id));
+    const locals = useSessionStore
+      .getState()
+      .events.filter((e) => e.pending && stillQueued.has(e.id));
+    setEvents([...locals, ...data]);
+  }, [id, setEvents]);
+
   // Load session data + lineup
   useEffect(() => {
     if (!id) return;
@@ -66,27 +83,29 @@ export default function Session() {
         setEvents(eRes.data);
         setLineup(lRes.data);
       })
-      .catch(() => navigate("/dashboard"))
+      .catch(() => navigate("/tournaments"))
       .finally(() => setLoading(false));
   }, [id]);
 
-  // WebSocket connection
+  // WebSocket connection — se reconecta sola tras un corte
   useEffect(() => {
     if (!id || !token) return;
 
-    sessionWS.connect(
-      id,
-      token,
-      (msg) => {
+    sessionWS.connect(id, token, {
+      onMessage: (msg) => {
         if (msg.type === "timer_tick" || msg.type === "timer_state") {
           setTimer(msg.data as never);
         } else if (msg.type === "event_registered") {
           addEvent(msg.data as never);
         }
       },
-      () => setWsConnected(true),
-      () => setWsConnected(false),
-    );
+      onConnect: () => setWsConnected(true),
+      onDisconnect: () => setWsConnected(false),
+      onReconnect: () => {
+        // Al volver: vaciar la cola y re-sincronizar lo que pasó mientras no estábamos.
+        void flush().then(() => refreshEvents().catch(() => {}));
+      },
+    });
 
     return () => {
       sessionWS.disconnect();
@@ -94,11 +113,19 @@ export default function Session() {
     };
   }, [id, token]);
 
+  // Vaciar la cola en cuanto vuelve la conectividad del navegador
+  useEffect(() => {
+    const onOnline = () => {
+      void flush().then((r) => {
+        if (r.sent > 0) refreshEvents().catch(() => {});
+      });
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [refreshEvents]);
+
   // Cleanup on unmount
   useEffect(() => () => reset(), []);
-
-  const refreshEvents = () =>
-    api.get(`/sessions/${id}/events`).then((r) => setEvents(r.data));
 
   if (loading) {
     return (
@@ -115,14 +142,25 @@ export default function Session() {
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/tournaments")}
           className="text-gray-400 text-sm hover:text-white"
         >
           ← Volver
         </button>
-        <span className={`text-xs font-medium ${wsConnected ? "text-green-400" : "text-red-400"}`}>
-          {wsConnected ? "● En vivo" : "○ Desconectado"}
-        </span>
+        <div className="flex items-center gap-3">
+          {pending > 0 && (
+            <button
+              onClick={() => void flush().then(() => refreshEvents().catch(() => {}))}
+              className="text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
+              title="Eventos registrados sin conexión. Se envían solos al recuperarla — tocá para reintentar ahora."
+            >
+              ⧗ {pending} sin enviar
+            </button>
+          )}
+          <span className={`text-xs font-medium ${wsConnected ? "text-green-400" : "text-red-400"}`}>
+            {wsConnected ? "● En vivo" : "○ Reconectando..."}
+          </span>
+        </div>
       </div>
 
       {/* Timer (sticky) */}
@@ -132,6 +170,7 @@ export default function Session() {
           canControl={canControl}
           homeTeam={session.home_team}
           awayTeam={session.away_team}
+          halfDurationMinutes={session.half_duration_minutes}
         />
       </div>
 
@@ -161,15 +200,12 @@ export default function Session() {
         {activeTab === "tackles" && (
           <JuegoEventos sessionId={session.id} homeTeam={session.home_team} />
         )}
-        {activeTab === "lines" && (
-          <LinesScrum sessionId={session.id} onEvent={refreshEvents} />
-        )}
+        {activeTab === "lines" && <LinesScrum sessionId={session.id} />}
         {activeTab === "events" && (
           <Events
             sessionId={session.id}
             homeTeam={session.home_team}
             awayTeam={session.away_team}
-            onEvent={refreshEvents}
           />
         )}
       </div>

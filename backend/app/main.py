@@ -71,10 +71,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="match_analisis API", version="0.1.0", lifespan=lifespan)
 
+_cors_origins = settings.cors_origins
+if _cors_origins == ["*"]:
+    print(
+        "[cors] ADVERTENCIA: CORS_ORIGINS no está definido — se acepta cualquier origen. "
+        "Definí CORS_ORIGINS con la URL del frontend en producción.",
+        flush=True,
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    # La API se autentica con Bearer token, no con cookies: habilitar
+    # credentials junto a un origen comodín es además una combinación que la
+    # spec de CORS prohíbe y que los browsers rechazan.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

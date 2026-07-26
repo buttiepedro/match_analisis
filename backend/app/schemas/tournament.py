@@ -11,6 +11,13 @@ class TournamentCreate(BaseModel):
     season: Optional[str] = None
 
 
+class TournamentUpdate(BaseModel):
+    name: Optional[str] = None
+    division_id: Optional[uuid.UUID] = None
+    season: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class TournamentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

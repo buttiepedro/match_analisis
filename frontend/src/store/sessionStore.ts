@@ -17,6 +17,8 @@ export interface EventData {
   player_number?: number | null;
   reason?: string | null;
   metadata?: Record<string, unknown>;
+  /** true mientras el evento vive sólo en la cola offline del cliente. */
+  pending?: boolean;
 }
 
 export interface SessionData {
@@ -69,7 +71,14 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
   setSession: (s) => set({ session: s }),
   setTimer: (t) => set({ timer: t }),
-  addEvent: (e) => set((state) => ({ events: [e, ...state.events] })),
+  // Un evento puede llegar por WebSocket y por el POST optimista a la vez:
+  // el id es la única fuente de verdad para no duplicarlo.
+  addEvent: (e) =>
+    set((state) =>
+      state.events.some((prev) => prev.id === e.id)
+        ? state
+        : { events: [e, ...state.events] }
+    ),
   removeEvent: (id) => set((state) => ({ events: state.events.filter((e) => e.id !== id) })),
   setEvents: (ev) => set({ events: ev }),
   setLineup: (l) => set({ lineup: l }),

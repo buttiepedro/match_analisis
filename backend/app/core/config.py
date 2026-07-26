@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     SUPERADMIN_EMAIL: str
     SUPERADMIN_PASSWORD: str
 
+    # Orígenes permitidos por CORS, separados por coma.
+    # Ej: "https://app.miclub.com,http://localhost:3000"
+    # Si queda vacío se permite cualquier origen y se avisa al iniciar.
+    CORS_ORIGINS: str = ""
+
+    @property
+    def cors_origins(self) -> list[str]:
+        origins = [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        return origins or ["*"]
+
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None
     AWS_REGION: str = "us-east-1"

@@ -4,13 +4,13 @@ Also includes batch-move players between divisions.
 """
 import uuid
 from datetime import date
-from decimal import Decimal
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.anthropometry import calculate_bmi, calculate_body_fat
 from app.core.database import get_db
 from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin
 from app.models import Division, Player, User
@@ -44,31 +44,6 @@ async def _get_player_with_access(
     return player
 
 
-def _calculate_bmi(weight_kg: Optional[Decimal], height_cm: Optional[Decimal]) -> Optional[Decimal]:
-    if weight_kg and height_cm and height_cm > 0:
-        height_m = height_cm / Decimal("100")
-        return round(weight_kg / (height_m * height_m), 2)
-    return None
-
-
-def _calculate_body_fat(
-    age: Optional[int],
-    tricep: Optional[Decimal],
-    subscapular: Optional[Decimal],
-    suprailiac: Optional[Decimal],
-    abdominal: Optional[Decimal],
-) -> Optional[Decimal]:
-    """Durnin-Womersley formula (4-fold, males 17-19 as default)."""
-    if not all([tricep, subscapular, suprailiac, abdominal]):
-        return None
-    total = float(tricep) + float(subscapular) + float(suprailiac) + float(abdominal)
-    log_sum = __import__("math").log10(total)
-    # Using male 17-19 constants: D = 1.1620 - 0.0630 * log(sum)
-    density = 1.1620 - 0.0630 * log_sum
-    body_fat = (4.95 / density - 4.50) * 100
-    return round(Decimal(str(body_fat)), 1)
-
-
 # ─── Measurements ─────────────────────────────────────────────────────────────
 
 @router.post(
@@ -85,13 +60,16 @@ async def create_measurement(
 ):
     player = await _get_player_with_access(player_id, current_user, db)
 
-    bmi = _calculate_bmi(body.weight_kg, body.height_cm)
-    body_fat = _calculate_body_fat(
-        None,
-        body.fat_fold_tricep_mm,
-        body.fat_fold_subscapular_mm,
-        body.fat_fold_suprailiac_mm,
-        body.fat_fold_abdominal_mm,
+    bmi = calculate_bmi(body.weight_kg, body.height_cm)
+    body_fat, body_fat_method = calculate_body_fat(
+        tricep_mm=body.fat_fold_tricep_mm,
+        subscapular_mm=body.fat_fold_subscapular_mm,
+        suprailiac_mm=body.fat_fold_suprailiac_mm,
+        biceps_mm=body.fat_fold_biceps_mm,
+        abdominal_mm=body.fat_fold_abdominal_mm,
+        date_of_birth=player.date_of_birth,
+        sex=player.sex,
+        measured_at=body.measured_at,
     )
 
     m = PlayerMeasurement(
@@ -104,7 +82,9 @@ async def create_measurement(
         fat_fold_subscapular_mm=body.fat_fold_subscapular_mm,
         fat_fold_suprailiac_mm=body.fat_fold_suprailiac_mm,
         fat_fold_abdominal_mm=body.fat_fold_abdominal_mm,
+        fat_fold_biceps_mm=body.fat_fold_biceps_mm,
         body_fat_percent=body_fat,
+        body_fat_method=body_fat_method,
         notes=body.notes,
         recorded_by=current_user.id,
     )

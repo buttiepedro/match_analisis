@@ -72,3 +72,4 @@ match_analisis/
 - [[data-model]] — entidades de base de datos
 - [[match-session]] — sesión de partido y timer
 - [[statistics-screens]] — pantallas de registro de estadísticas
+- [[video-analysis-engine]] — módulo separado de análisis de video (contenedor propio con GPU, no forma parte de este stack)

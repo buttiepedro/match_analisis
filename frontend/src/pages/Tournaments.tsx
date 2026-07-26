@@ -71,6 +71,9 @@ export default function Tournaments() {
   const [tSubmitting, setTSubmitting] = useState(false);
   const [tError, setTError] = useState<string | null>(null);
 
+  const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
+  const [editTForm, setEditTForm] = useState(EMPTY_TOURNAMENT_FORM);
+
   const [divisionFilter, setDivisionFilter] = useState("");
 
   const filterDivisions = Array.from(
@@ -204,6 +207,42 @@ export default function Tournaments() {
       setTError(parseApiError(err, "Error al crear el torneo"));
     } finally {
       setTSubmitting(false);
+    }
+  };
+
+  const handleUpdateTournament = async (e: React.FormEvent, tournamentId: string) => {
+    e.preventDefault();
+    if (!clubId) return;
+    setTSubmitting(true);
+    setTError(null);
+    try {
+      const { data } = await api.patch<Tournament>(
+        `/clubs/${clubId}/tournaments/${tournamentId}`,
+        {
+          name: editTForm.name,
+          division_id: editTForm.division_id,
+          season: editTForm.season || null,
+        }
+      );
+      setTournaments((prev) => prev.map((t) => (t.id === tournamentId ? data : t)));
+      setEditingTournamentId(null);
+    } catch (err) {
+      setTError(parseApiError(err, "Error al editar el torneo"));
+    } finally {
+      setTSubmitting(false);
+    }
+  };
+
+  const handleDeleteTournament = async (t: Tournament) => {
+    if (!clubId) return;
+    if (!confirm(`¿Eliminar el torneo "${t.name}"?`)) return;
+    setTError(null);
+    try {
+      await api.delete(`/clubs/${clubId}/tournaments/${t.id}`);
+      setTournaments((prev) => prev.filter((x) => x.id !== t.id));
+    } catch (err) {
+      // El backend rechaza el borrado si el torneo tiene partidos y dice cuántos.
+      setTError(parseApiError(err, "Error al eliminar el torneo"));
     }
   };
 
@@ -559,6 +598,78 @@ export default function Tournaments() {
 
               {expandedId === t.id && (
                 <div className="border-t border-gray-700 px-4 py-3">
+                  {/* Editar / eliminar torneo */}
+                  {editingTournamentId === t.id ? (
+                    <form
+                      onSubmit={(e) => handleUpdateTournament(e, t.id)}
+                      className="bg-gray-700/50 rounded-lg p-3 mb-4 space-y-2"
+                    >
+                      <input
+                        required
+                        value={editTForm.name}
+                        onChange={(e) => setEditTForm((f) => ({ ...f, name: e.target.value }))}
+                        placeholder="Nombre del torneo"
+                        className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                      />
+                      <select
+                        value={editTForm.division_id}
+                        onChange={(e) => setEditTForm((f) => ({ ...f, division_id: e.target.value }))}
+                        className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                      >
+                        {divisions.map((d) => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                      <input
+                        value={editTForm.season}
+                        onChange={(e) => setEditTForm((f) => ({ ...f, season: e.target.value }))}
+                        placeholder="Temporada (opcional)"
+                        className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600"
+                      />
+                      {tError && <p className="text-red-400 text-xs">{tError}</p>}
+                      <div className="flex gap-2">
+                        <button
+                          type="submit"
+                          disabled={tSubmitting}
+                          className="text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          {tSubmitting ? "Guardando..." : "Guardar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setEditingTournamentId(null); setTError(null); }}
+                          className="text-xs text-gray-400 hover:text-white px-3 py-1.5 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-2 mb-4">
+                      <button
+                        onClick={() => {
+                          setEditingTournamentId(t.id);
+                          setEditTForm({
+                            name: t.name,
+                            division_id: t.division.id,
+                            season: t.season ?? "",
+                          });
+                          setTError(null);
+                        }}
+                        className="text-xs text-gray-400 hover:text-white transition-colors"
+                      >
+                        Editar torneo
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTournament(t)}
+                        className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                      >
+                        Eliminar torneo
+                      </button>
+                      {tError && <span className="text-red-400 text-xs">{tError}</span>}
+                    </div>
+                  )}
+
                   <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Partidos</p>
 
                   {sessionsLoading === t.id ? (

@@ -1,6 +1,5 @@
 import { useState } from "react";
-import api from "../../lib/axios";
-import { parseApiError } from "../../lib/errors";
+import { useEventRegistrar } from "../../lib/useEventRegistrar";
 import { useSessionStore, EventData } from "../../store/sessionStore";
 import EventLog from "../EventLog";
 
@@ -27,7 +26,6 @@ const LINE_SCRUM_TYPES = [
 
 interface Props {
   sessionId: string;
-  onEvent: () => void;
 }
 
 function countObtained(events: EventData[], type: string) {
@@ -52,32 +50,19 @@ function ObtentionModal({
   action,
   sessionId,
   onClose,
-  onEvent,
 }: {
   action: ActionConfig;
   sessionId: string;
   onClose: () => void;
-  onEvent: () => void;
 }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const { register: registerEvent, loading, error } = useEventRegistrar(sessionId);
 
   const register = async (obtained: boolean) => {
-    setLoading(true);
-    setError("");
-    try {
-      await api.post(`/sessions/${sessionId}/events`, {
-        event_type: action.eventType,
-        team: "user",
-        metadata: { obtained },
-      });
-      onEvent();
-      onClose();
-    } catch (err) {
-      setError(parseApiError(err, "Error al registrar el evento"));
-    } finally {
-      setLoading(false);
-    }
+    const ok = await registerEvent(action.eventType, {
+      team: "user",
+      metadata: { obtained },
+    });
+    if (ok) onClose();
   };
 
   return (
@@ -114,7 +99,7 @@ function ObtentionModal({
   );
 }
 
-export default function LinesScrum({ sessionId, onEvent }: Props) {
+export default function LinesScrum({ sessionId }: Props) {
   const [active, setActive] = useState<ActionConfig | null>(null);
   const events = useSessionStore((s) => s.events);
 
@@ -174,7 +159,6 @@ export default function LinesScrum({ sessionId, onEvent }: Props) {
           action={active}
           sessionId={sessionId}
           onClose={() => setActive(null)}
-          onEvent={onEvent}
         />
       )}
 

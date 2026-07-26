@@ -248,14 +248,20 @@ async def register_event(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     sid = str(session_id)
-    timer = manager.get_timer(sid)
-    if timer:
-        timer_seconds = timer.elapsed()
-        half = timer.current_half
+    if body.timer_seconds is not None and body.half is not None:
+        # Evento diferido desde la cola offline del cliente: conserva el tiempo
+        # de partido en que ocurrió, no el de la llegada al servidor.
+        timer_seconds = body.timer_seconds
+        half = body.half
     else:
-        ts = session.timer_state
-        timer_seconds = ts.elapsed_seconds if ts else 0
-        half = ts.current_half if ts else 1
+        timer = manager.get_timer(sid)
+        if timer:
+            timer_seconds = timer.elapsed()
+            half = timer.current_half
+        else:
+            ts = session.timer_state
+            timer_seconds = ts.elapsed_seconds if ts else 0
+            half = ts.current_half if ts else 1
 
     player_number: int | None = None
     if body.player_id:

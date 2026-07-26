@@ -5,6 +5,8 @@ __pycache__/
 .venv/
 venv/
 env/
+.pytest_cache/
+backend/tests/test.db
 
 # Environment
 .env
@@ -14,6 +16,7 @@ env/
 node_modules/
 dist/
 .vite/
+coverage/
 
 # IDE
 .vscode/

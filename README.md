@@ -1,16 +1,18 @@
 # match_analisis
 
-Tablero de estadísticas en tiempo real para partidos de rugby. Diseñado para uso en campo, mobile-first, con sincronización de timer via WebSocket.
+Plataforma de estadísticas de rugby y gestión de plantel. Diseñada para uso en campo: mobile-first, timer sincronizado por WebSocket y **tolerante a cortes de conectividad** — los eventos registrados sin señal se guardan y se envían solos al recuperarla.
 
 ## Stack
 
 | Capa | Tecnología |
 |------|------------|
-| Frontend | React 18 + TypeScript + Vite + TailwindCSS |
+| Frontend | React 18 + TypeScript + Vite + TailwindCSS + ECharts |
 | Backend | FastAPI (Python 3.12) |
 | Base de datos | PostgreSQL 15 |
 | Migraciones | Alembic (auto-apply al iniciar) |
 | Tiempo real | WebSockets nativos de FastAPI |
+| Almacenamiento | AWS S3 (fotos de jugadores) |
+| Tests | pytest (backend) · vitest (frontend) |
 | Contenedores | Docker + Docker Compose |
 
 ## Levantar con Docker Compose (local)
@@ -27,6 +29,24 @@ docker compose up --build
 
 El backend corre migraciones y crea el superadmin automáticamente al iniciar.
 
+## Tests
+
+```bash
+# Backend — 99 tests, corren sobre SQLite en memoria, sin dependencias externas
+cd backend
+python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/pytest
+
+# Frontend — 41 tests
+cd frontend
+npm install
+npm test
+```
+
+CI en GitHub Actions (`.github/workflows/ci.yml`) corre en cada push y PR:
+tests del backend, migraciones de Alembic contra Postgres real (upgrade + downgrade),
+y typecheck + tests + build del frontend.
+
 ## Variables de entorno
 
 ### Backend
@@ -37,11 +57,15 @@ El backend corre migraciones y crea el superadmin automáticamente al iniciar.
 | `SECRET_KEY` | Clave JWT — cambiar en producción | `una-clave-secreta-larga` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Expiración del access token | `60` |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | Expiración del refresh token | `7` |
+| `CORS_ORIGINS` | Orígenes permitidos, separados por coma | `https://app.miclub.com` |
 | `SUPERADMIN_EMAIL` | Email del superadmin (se crea al iniciar) | `admin@example.com` |
 | `SUPERADMIN_PASSWORD` | Contraseña del superadmin | `changeme123` |
-| `POSTGRES_USER` | Usuario de Postgres (para Docker Compose) | `match_user` |
-| `POSTGRES_PASSWORD` | Contraseña de Postgres | `changeme` |
-| `POSTGRES_DB` | Nombre de la base de datos | `match_analisis` |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credenciales S3 para fotos | — |
+| `AWS_REGION` / `AWS_S3_BUCKET` | Bucket de fotos de jugadores | `us-east-1` |
+| `AWS_S3_PUBLIC_URL` | Opcional: CDN delante del bucket | `https://cdn.midominio.com` |
+
+> **CORS_ORIGINS sin definir acepta cualquier origen** y el backend lo avisa por log al
+> arrancar. En producción conviene listar explícitamente la URL del frontend.
 
 ### Frontend
 
@@ -51,23 +75,13 @@ El backend corre migraciones y crea el superadmin automáticamente al iniciar.
 
 `VITE_API_URL` se bake en el bundle al momento del build. Si no se pasa, las requests van a la misma origin (útil para dev local con `npm run dev`, donde Vite proxy al backend).
 
-**Ejemplos:**
-
-```env
-# Railway
-VITE_API_URL=https://matchanalisisback-production.up.railway.app
-
-# Docker Compose local (el browser llega al backend por localhost:8000)
-VITE_API_URL=http://localhost:8000
-```
-
 ## Deploy en Railway
 
 ### Backend
-Variables de entorno del servicio backend:
 ```env
 DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
 SECRET_KEY=...
+CORS_ORIGINS=https://tu-frontend.up.railway.app
 SUPERADMIN_EMAIL=admin@example.com
 SUPERADMIN_PASSWORD=...
 ```
@@ -84,22 +98,25 @@ VITE_API_URL=https://tu-backend.up.railway.app
 match_analisis/
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/        # auth, clubs, divisions, tournaments, sessions, lineup, players
-│   │   ├── core/          # config, DB, seguridad, dependencias
+│   │   ├── api/v1/        # auth, clubs, divisions, tournaments, sessions,
+│   │   │                  # lineup, players, performance, import
+│   │   ├── core/          # config, DB, seguridad, dependencias, antropometría
 │   │   ├── models/        # SQLAlchemy ORM
 │   │   ├── schemas/       # Pydantic
 │   │   └── ws/            # WebSocket manager + timer en memoria
 │   ├── alembic/           # Migraciones (auto-run al iniciar)
+│   ├── tests/             # pytest
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── components/    # Timer, EventButton, SubstitutionModal, EventLog, tabs
-│   │   ├── pages/         # Login, Dashboard, Session
-│   │   ├── store/         # Zustand (auth, session/timer/lineup)
-│   │   └── lib/           # axios (VITE_API_URL), WebSocket client
+│   │   ├── components/    # Timer, EventLog, modales, tabs del tablero
+│   │   ├── pages/         # Login, Torneos, Sesión, Stats, Plantel, Perfil, Físico, Config
+│   │   ├── store/         # Zustand (auth, session, squad)
+│   │   └── lib/           # axios, tokens, WebSocket, cola offline, timer, stats
 │   ├── nginx.conf         # Sirve el SPA estático
 │   └── Dockerfile
 ├── openspec/              # Specs y change proposals (SDD)
+├── .github/workflows/     # CI
 ├── docker-compose.yml
 └── .env.example
 ```
@@ -113,67 +130,114 @@ match_analisis/
 | `match_director` | Controlar el timer + registrar eventos |
 | `analyst` | Solo registrar eventos |
 
-## Estadísticas (`/stats`)
+---
 
-Pantalla de análisis post-partido accesible para `club_admin`, `match_director` y `analyst`.
+# Funcionalidades
 
-- **Marcador** con desglose de puntos por equipo (tries, conversiones, penales a palos, drops)
-- **Gráficos**: tries (conv/no conv), penales por destino, drops, errores, tarjetas por jugador, line-outs y scrums con obtención
-- **Filtro de categoría**: Todos / Puntos / Juego / Errores / Disciplina
-- **Línea de tiempo** de eventos (cuando hay un partido seleccionado)
-- **Perspectiva normalizada por club**: el club del usuario siempre es el protagonista. Los eventos se agrupan por club real, no por posición home/away de cada partido.
+## Resiliencia en cancha
 
-## Funcionalidades principales
+Lo que hace que la app sea usable en un club con mala señal:
 
-### Multi-tenant
-Cada club está aislado. Un usuario solo puede ver y operar datos de su propio club.
+- **Cola offline de eventos.** Si el POST falla por red (o el navegador está offline), el evento se guarda en `localStorage` **junto con el minuto de partido en que ocurrió**. Al volver la conexión se reenvía solo, conservando el tiempo real del hecho en vez del de la reconexión. Los eventos pendientes se muestran con ⧗ y el header indica cuántos faltan enviar.
+- **Reconexión automática del WebSocket** con backoff exponencial (1s → 30s, con jitter) y reintento inmediato al recuperar conectividad. Al reconectar se vacía la cola y se re-sincronizan los eventos que hayan entrado mientras tanto.
+- **Refresh token transparente.** Ante un 401 el cliente renueva el access token y reintenta la request, con un único refresh en vuelo aunque fallen diez requests a la vez. Sólo se cierra sesión si el refresh también falla — nadie queda afuera a mitad de partido.
 
-### Timer en tiempo real
-El admin/director controla el timer (iniciar, pausar, medio tiempo, finalizar). Todos los participantes conectados via WebSocket ven el timer actualizado cada segundo.
+## Multi-tenant
+
+Cada club está aislado. Un usuario solo puede ver y operar datos de su propio club; el `superadmin` es el único que cruza esa frontera.
+
+## Timer en tiempo real
+
+El admin/director controla el timer (iniciar, pausar, medio tiempo, finalizar, corregir). Todos los participantes conectados ven el timer actualizado cada segundo. Al cumplirse el tiempo reglamentario del período el reloj se marca en ámbar y muestra el tiempo adicional corrido (`+2:31`); no se detiene solo, la decisión sigue siendo del director.
 
 ```
 WS /ws/session/{session_id}?token=<jwt>
 ```
 
-### Registro de eventos
-Cada evento queda sellado con el tiempo exacto del timer en el momento del registro.
+## Registro de eventos
 
-**Pantalla Tackles**: lista de los 15 jugadores en cancha con botones Errado / Efectivo. Soporte para cambios con registro de evento de sustitución.
+Cada evento queda sellado con el tiempo exacto de partido del momento del registro.
 
-**Pantalla Lines & Scrum**: 4 botones (line a favor, line en contra, scrum a favor, scrum en contra) con popup de obtención del balón.
+- **Juego**: modo Ataque/Defensa. Quiebre, offload, perdida (con motivo), tackles concretado/errado/positivo, pelota ganada, y anotaciones (Try + conversión, Penal con destino, Drop).
+- **Lines & Scrum**: line, scrum y salidas — a favor y en contra, con obtención del balón y contadores en vivo.
+- **Cambios**: disciplina (amarilla/roja) por equipo, sustituciones y marcador de puntos en tiempo real.
 
-**Pantalla Eventos** (tab 3): flujo guiado multi-paso para Try (+conversión), Penal (Line/Scrum/Juega/A los palos +conversión), Drop, Error (Knock-on/Forward/Perdida en contacto) y Disciplina (Amarilla/Roja). Auto-submit al seleccionar la última opción. Muestra marcador de puntos en tiempo real (Try=5+2, Penal a palos=3, Drop=3) y contadores de tarjetas por equipo.
+## Estadísticas (`/stats`)
 
-**Pantalla Lines & Scrum** muestra contadores de obtención por tipo (A favor / En contra · Ganados / Perdidos) calculados en tiempo real desde el store.
+Pantalla de análisis post-partido para `club_admin`, `match_director` y `analyst`.
 
-### Jugadores y lineup
-- Los jugadores se registran por división con su posición habitual.
-- Antes de cada partido se define el lineup con número de camiseta y titular/suplente.
-- Los cambios durante el partido actualizan el lineup en tiempo real y registran el evento.
+- **Marcador** con desglose por equipo (tries, conversiones, penales a palos, drops)
+- **Gráficos**: tries, penales por destino, drops, errores, tarjetas por jugador, line-outs, scrums, salidas, tackles, posesión y ataque
+- **Filtro de categoría** y **línea de tiempo** de eventos
+- **Perspectiva normalizada por club**: el club del usuario siempre es el protagonista, sin importar si fue local o visitante
+- **Objetivos** configurables por métrica
+- Exportación a Excel y PDF
+
+## Plantel (`/squad`)
+
+- Jugadores por división, con búsqueda y multi-selección
+- **Mover jugadores entre divisiones** en lote, con historial de movimientos
+- Alta manual, importación desde planilla xlsx/xls y unificación de duplicados
+- Foto de perfil con recorte, almacenada en S3
+
+## Perfil del jugador (`/squad/:id`)
+
+Cuatro solapas: **Datos**, **Físico**, **Tests** e **Historial** de divisiones.
+
+## Físico (`/performance`)
+
+- **Mediciones antropométricas**: peso, altura, IMC calculado y pliegues cutáneos.
+- **% de grasa corporal** por Durnin-Womersley usando la **edad y el sexo reales del jugador**. Cada medición guarda el método efectivo (`dw4c/F/20-29`): juego de pliegues, sexo y banda etaria. Un `*` marca un dato asumido por ficha incompleta y la UI lo explica.
+  - Con el pliegue **bicipital** cargado se usa el juego de pliegues original del método (bíceps, tríceps, subescapular, suprailíaco).
+  - Sin él se usa el **abdominal** como reemplazo, y el método guardado lo refleja (`dw4a/...`) para no mezclar series calculadas distinto.
+- **Tests físicos**: 13 tipos (velocidad, aceleración, aeróbico, fuerza, salto, flexibilidad) con evolución por jugador.
+- **Ranking por división y test**, ordenado según el test (menor tiempo = mejor; mayor carga = mejor).
+
+## Importación
+
+- **Ficha BD UAR (PDF)**: parser de lineup e incidencias con modal de confirmación y resolución de jugadores no encontrados.
+- **Planilla de jugadores (xlsx/xls)**: alta masiva con mapeo de posiciones UAR.
+
+---
 
 ## API principal
 
 | Método | Ruta | Descripción | Acceso |
 |--------|------|-------------|--------|
 | POST | `/auth/login` | Login → tokens JWT | Público |
+| POST | `/auth/refresh` | Renovar access token | Público |
+| POST | `/auth/logout` | Revocar refresh token | Público |
 | GET | `/auth/me` | Usuario actual | Autenticado |
 | POST | `/clubs` | Crear club + admin | superadmin |
-| POST | `/clubs/{id}/users` | Crear usuario en club | club_admin |
-| POST | `/clubs/{id}/divisions` | Crear división | club_admin |
-| POST | `/clubs/{id}/tournaments` | Crear torneo | club_admin |
-| POST | `/divisions/{id}/players` | Agregar jugador a división | club_admin |
-| POST | `/tournaments/{id}/sessions` | Crear sesión/partido | club_admin |
-| POST | `/sessions/{id}/lineup` | Definir lineup del partido | club_admin |
-| POST | `/sessions/{id}/lineup/substitute` | Registrar cambio de jugador | club_admin |
-| PATCH | `/sessions/{id}/timer` | Controlar timer (REST) | club_admin, match_director |
+| POST/GET | `/clubs/{id}/users` | Usuarios del club | club_admin |
+| POST/GET | `/clubs/{id}/divisions` | Divisiones | club_admin |
+| PATCH/DELETE | `/clubs/{id}/divisions/{div_id}` | Renombrar / dar de baja | club_admin |
+| POST/GET | `/clubs/{id}/tournaments` | Torneos | club_admin |
+| PATCH/DELETE | `/clubs/{id}/tournaments/{t_id}` | Editar / dar de baja | club_admin |
+| POST/GET | `/divisions/{id}/players` | Jugadores de la división | club_admin |
+| PATCH | `/players/batch-move` | Mover jugadores de división | club_admin |
+| GET/POST | `/players/{id}/measurements` | Mediciones antropométricas | analyst+ |
+| GET/POST | `/players/{id}/tests` | Tests físicos | analyst+ |
+| GET | `/divisions/{id}/tests/ranking` | Ranking por test | analyst+ |
+| POST | `/tournaments/{id}/sessions` | Crear partido | club_admin |
+| POST | `/sessions/{id}/lineup` | Definir lineup | club_admin |
+| PATCH | `/sessions/{id}/timer` | Controlar timer (REST) | match_director+ |
 | POST | `/sessions/{id}/events` | Registrar evento | analyst+ |
 | GET | `/health` | Healthcheck | Público |
 
-Documentación interactiva completa en `/docs` cuando el backend está corriendo.
+Documentación interactiva completa en `/docs` con el backend corriendo.
+
+### Eventos diferidos
+
+`POST /sessions/{id}/events` acepta `timer_seconds` y `half` opcionales. **Ambos o ninguno**: si vienen los dos, el backend respeta ese sello en lugar de usar su propio timer. Es lo que permite que la cola offline conserve el minuto real del evento. Si falta uno de los dos, se ignora el sello del cliente.
+
+## Bajas lógicas
+
+Divisiones y torneos se archivan (`is_active = false`), no se borran. El backend rechaza con `409` la baja de una división con jugadores o torneos activos, y la de un torneo con partidos cargados — y dice cuántos hay. Archivar algo con contenido activo lo esconde sin borrarlo, que es peor que no poder archivarlo.
 
 ## Migraciones
 
-Alembic corre `upgrade head` automáticamente al iniciar el contenedor. Las migraciones son idempotentes: si las tablas ya existen las saltea, si el schema cambió genera las alteraciones necesarias.
+Alembic corre `upgrade head` automáticamente al iniciar el contenedor. Las migraciones son idempotentes: si las tablas ya existen las saltea.
 
 Para generar una nueva migración tras cambiar un modelo:
 

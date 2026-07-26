@@ -64,6 +64,8 @@ export default function Configuracion() {
   const [divSubmitting, setDivSubmitting] = useState(false);
   const [divError,      setDivError]      = useState<string | null>(null);
   const [divLoadError,  setDivLoadError]  = useState<string | null>(null);
+  const [editingDivId,  setEditingDivId]  = useState<string | null>(null);
+  const [editDivName,   setEditDivName]   = useState("");
 
   useEffect(() => {
     if (!clubId) return;
@@ -87,6 +89,37 @@ export default function Configuracion() {
       setDivError(parseApiError(err, "Error al crear la división"));
     } finally {
       setDivSubmitting(false);
+    }
+  };
+
+  const handleRenameDivision = async (id: string) => {
+    if (!clubId) return;
+    const name = editDivName.trim();
+    if (!name) return;
+    setDivSubmitting(true);
+    setDivError(null);
+    try {
+      const { data } = await api.patch<Division>(`/clubs/${clubId}/divisions/${id}`, { name });
+      setDivisions((prev) => prev.map((d) => (d.id === id ? data : d)));
+      setEditingDivId(null);
+    } catch (err) {
+      setDivError(parseApiError(err, "Error al renombrar la división"));
+    } finally {
+      setDivSubmitting(false);
+    }
+  };
+
+  const handleDeleteDivision = async (d: Division) => {
+    if (!clubId) return;
+    if (!confirm(`¿Eliminar la división "${d.name}"?`)) return;
+    setDivError(null);
+    try {
+      await api.delete(`/clubs/${clubId}/divisions/${d.id}`);
+      setDivisions((prev) => prev.filter((x) => x.id !== d.id));
+    } catch (err) {
+      // El backend rechaza el borrado si quedan jugadores o torneos activos y
+      // explica cuántos: ese detalle es la parte útil del mensaje.
+      setDivError(parseApiError(err, "Error al eliminar la división"));
     }
   };
 
@@ -405,13 +438,62 @@ export default function Configuracion() {
           ) : divisions.length === 0 ? (
             <p className="text-gray-500 text-sm">No hay divisiones todavía.</p>
           ) : (
-            <ul className="space-y-2">
-              {divisions.map((d) => (
-                <li key={d.id} className="bg-gray-800 rounded-xl px-4 py-3">
-                  <span className="text-white text-sm font-medium">{d.name}</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              {divError && !addingDiv && <p className="text-red-400 text-xs mb-2">{divError}</p>}
+              <ul className="space-y-2">
+                {divisions.map((d) => (
+                  <li key={d.id} className="bg-gray-800 rounded-xl px-4 py-3 flex items-center gap-2">
+                    {editingDivId === d.id ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={editDivName}
+                          onChange={(e) => setEditDivName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRenameDivision(d.id);
+                            if (e.key === "Escape") setEditingDivId(null);
+                          }}
+                          className="flex-1 bg-gray-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-green-600"
+                        />
+                        <button
+                          onClick={() => handleRenameDivision(d.id)}
+                          disabled={divSubmitting}
+                          className="text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          onClick={() => setEditingDivId(null)}
+                          className="text-xs text-gray-400 hover:text-white px-2 py-1.5 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-white text-sm font-medium flex-1">{d.name}</span>
+                        <button
+                          onClick={() => {
+                            setEditingDivId(d.id);
+                            setEditDivName(d.name);
+                            setDivError(null);
+                          }}
+                          className="text-xs text-gray-400 hover:text-white px-2 py-1 transition-colors"
+                        >
+                          Renombrar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDivision(d)}
+                          className="text-xs text-gray-500 hover:text-red-400 px-2 py-1 transition-colors"
+                        >
+                          Eliminar
+                        </button>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </>
       )}

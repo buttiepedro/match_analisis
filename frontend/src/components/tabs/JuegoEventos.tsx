@@ -1,6 +1,5 @@
 import { useState } from "react";
-import api from "../../lib/axios";
-import { parseApiError } from "../../lib/errors";
+import { useEventRegistrar } from "../../lib/useEventRegistrar";
 import { useSessionStore } from "../../store/sessionStore";
 import EventLog from "../EventLog";
 
@@ -39,27 +38,19 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
   const [modalFlow, setModalFlow] = useState<ModalFlow>(null);
   const [penalStep, setPenalStep] = useState<"reason" | "conversion">("reason");
   const [penalReason, setPenalReason] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const { register, loading, error } = useEventRegistrar(sessionId);
 
-  const activeTeam = mode === "attack" ? "user" : "rival";
+  const activeTeam: "user" | "rival" = mode === "attack" ? "user" : "rival";
 
   const events = useSessionStore((s) => s.events);
   const homeEvents = events.filter((e) => JUEGO_EVENT_TYPES.includes(e.event_type) && e.team === "user");
   const attackCount  = homeEvents.filter((e) => ["line_break", "offload"].includes(e.event_type)).length;
   const defenseCount = homeEvents.filter((e) => ["tackle_effective", "tackle_missed", "tackle_positive"].includes(e.event_type)).length;
 
-  const registerEvent = async (event_type: string, extra?: object) => {
-    setLoading(true);
-    setError("");
-    try {
-      await api.post(`/sessions/${sessionId}/events`, { event_type, team: activeTeam, ...extra });
-    } catch (err) {
-      setError(parseApiError(err, "Error al registrar"));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const registerEvent = (
+    event_type: string,
+    extra?: { reason?: string; metadata?: Record<string, unknown> }
+  ) => register(event_type, { team: activeTeam, ...extra });
 
   const closeModal = () => {
     setModalFlow(null);
@@ -90,7 +81,7 @@ export default function JuegoEventos({ sessionId, homeTeam }: Props) {
     if (modalFlow === "try") {
       await registerEvent("try", { metadata: { converted } });
     } else {
-      await registerEvent("penalty", { reason: penalReason, metadata: { converted } });
+      await registerEvent("penalty", { reason: penalReason ?? undefined, metadata: { converted } });
     }
     closeModal();
   };

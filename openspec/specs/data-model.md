@@ -2,9 +2,13 @@
 title: Modelo de Datos
 status: active
 created: 2026-05-29
+updated: 2026-07-25
 ---
 
 # Modelo de Datos
+
+> Este documento refleja el schema **realmente implementado** en
+> `backend/app/models/` y `backend/alembic/versions/` (migración `0009`).
 
 ## Entidades Principales
 
@@ -39,7 +43,7 @@ divisions
   id            UUID PK
   club_id       UUID FK → clubs.id
   name          VARCHAR(100) NOT NULL  -- ej: "M17", "Primera", "Femenino"
-  is_active     BOOLEAN DEFAULT TRUE
+  is_active     BOOLEAN DEFAULT TRUE   -- baja lógica
   created_at    TIMESTAMP
 ```
 
@@ -51,7 +55,7 @@ tournaments
   division_id   UUID FK → divisions.id
   name          VARCHAR(100) NOT NULL  -- ej: "Torneo Apertura 2026"
   season        VARCHAR(20)            -- ej: "2026"
-  is_active     BOOLEAN DEFAULT TRUE
+  is_active     BOOLEAN DEFAULT TRUE   -- baja lógica
   created_at    TIMESTAMP
   updated_at    TIMESTAMP
 ```
@@ -61,11 +65,11 @@ tournaments
 sessions
   id              UUID PK
   tournament_id   UUID FK → tournaments.id
-  home_team       VARCHAR(100) NOT NULL   -- nombre del equipo local
-  away_team       VARCHAR(100) NOT NULL   -- nombre visitante
-  scheduled_at    TIMESTAMP               -- fecha/hora programada
+  home_team       VARCHAR(100) NOT NULL   -- club del usuario
+  away_team       VARCHAR(100) NOT NULL   -- rival
+  scheduled_at    TIMESTAMP
   status          ENUM('scheduled', 'active', 'halftime', 'finished')
-  half_duration_minutes INT DEFAULT 40
+  half_duration_minutes INT DEFAULT 40    -- tiempo reglamentario por período
   created_by      UUID FK → users.id
   created_at      TIMESTAMP
   updated_at      TIMESTAMP
@@ -78,34 +82,40 @@ timer_states
   session_id      UUID FK → sessions.id UNIQUE
   current_half    SMALLINT DEFAULT 1     -- 1 o 2
   status          ENUM('stopped', 'running', 'paused', 'halftime', 'finished')
-  elapsed_seconds INT DEFAULT 0          -- segundos acumulados en el half actual
-  started_at      TIMESTAMP NULL         -- cuando se inició/reanudó por última vez
+  elapsed_seconds INT DEFAULT 0          -- acumulado del período actual
+  started_at      TIMESTAMP NULL         -- último start/resume
   updated_at      TIMESTAMP
 ```
-> `elapsed_seconds` se calcula como: `(NOW() - started_at)` + acumulado previo a la última pausa.
+> El tiempo vivo es `elapsed_seconds + (NOW() - started_at)` mientras `status = 'running'`.
+> El timer autoritativo vive en memoria del proceso (`app/ws/manager.py`) y se persiste
+> en esta tabla en cada transición, de modo que sobreviva a un reinicio del backend.
 
 ### Event (Evento de partido)
 ```sql
 events
   id              UUID PK
   session_id      UUID FK → sessions.id
-  event_type      VARCHAR(50) NOT NULL    -- ver catálogo de tipos abajo
+  event_type      VARCHAR(50) NOT NULL
   half            SMALLINT NOT NULL       -- 1 o 2
-  timer_seconds   INT NOT NULL            -- tiempo del timer al registrar
-  team            ENUM('home', 'away') NOT NULL
-  player_number   SMALLINT NULL
-  reason          VARCHAR(50) NULL        -- ej: 'offside', 'high_tackle'
+  timer_seconds   INT NOT NULL            -- tiempo de partido del hecho
+  team            ENUM('user', 'rival') NOT NULL
+  player_id       UUID FK → players.id NULL
+  player_number   SMALLINT NULL           -- se copia del lineup al registrar
+  reason          VARCHAR(50) NULL
   metadata        JSONB DEFAULT '{}'
   recorded_by     UUID FK → users.id
-  recorded_at     TIMESTAMP DEFAULT NOW()
+  recorded_at     TIMESTAMP DEFAULT NOW() -- auditoría, en UTC
 ```
+> `timer_seconds` / `half` describen **cuándo pasó en el partido**; `recorded_at`
+> describe **cuándo llegó al servidor**. Se separan porque un evento registrado sin
+> conexión puede enviarse minutos después (ver [[offline-resilience]]).
 
 ### RefreshToken
 ```sql
 refresh_tokens
   id          UUID PK
   user_id     UUID FK → users.id
-  token_hash  VARCHAR NOT NULL
+  token_hash  VARCHAR NOT NULL   -- SHA-256 del token, nunca el token en claro
   expires_at  TIMESTAMP NOT NULL
   revoked     BOOLEAN DEFAULT FALSE
   created_at  TIMESTAMP
@@ -113,39 +123,148 @@ refresh_tokens
 
 ---
 
+## Plantel
+
+### Player
+```sql
+players
+  id                 UUID PK
+  division_id        UUID FK → divisions.id   -- división actual (no hay club_id:
+                                              -- el club se deriva de la división)
+  name               VARCHAR(100) NOT NULL
+  position           VARCHAR(50)
+  dni                VARCHAR(20)
+  date_of_birth      DATE                     -- alimenta el cálculo de % graso
+  sex                VARCHAR(1)               -- 'M' | 'F'
+  email              VARCHAR(100)
+  phone              VARCHAR(30)
+  emergency_phone    VARCHAR(30)
+  obra_social        VARCHAR(100)
+  profile_photo_url  VARCHAR(300)             -- S3
+  is_active          BOOLEAN DEFAULT TRUE     -- baja lógica
+  created_at         TIMESTAMP
+```
+> El número de camiseta **no** vive en `players`: es por partido y está en `match_lineup`.
+
+### MatchLineup
+```sql
+match_lineup
+  id             UUID PK
+  session_id     UUID FK → sessions.id
+  player_id      UUID FK → players.id
+  jersey_number  SMALLINT NOT NULL
+  position       VARCHAR(50)
+  team           VARCHAR(10) DEFAULT 'user'   -- 'user' | 'rival'
+  status         ENUM('on_field', 'bench', 'substituted_out')
+  created_at     TIMESTAMP
+  updated_at     TIMESTAMP
+```
+
+### PlayerDivisionHistory
+```sql
+player_division_history
+  id           UUID PK
+  player_id    UUID FK → players.id
+  division_id  UUID FK → divisions.id
+  from_date    DATE NOT NULL
+  to_date      DATE NULL   -- NULL = división actual
+  moved_by     UUID FK → users.id
+  created_at   TIMESTAMP
+```
+
+### PlayerMeasurement
+```sql
+player_measurements
+  id                      UUID PK
+  player_id               UUID FK → players.id
+  measured_at             DATE NOT NULL
+  weight_kg               DECIMAL(5,2)
+  height_cm               DECIMAL(5,1)
+  bmi                     DECIMAL(4,2)   -- calculado en el backend
+  fat_fold_tricep_mm      DECIMAL(4,1)
+  fat_fold_subscapular_mm DECIMAL(4,1)
+  fat_fold_suprailiac_mm  DECIMAL(4,1)
+  fat_fold_abdominal_mm   DECIMAL(4,1)
+  fat_fold_biceps_mm      DECIMAL(4,1)   -- pliegue canónico de Durnin-Womersley
+  body_fat_percent        DECIMAL(4,1)   -- calculado en el backend
+  body_fat_method         VARCHAR(30)    -- ver abajo
+  notes                   TEXT
+  recorded_by             UUID FK → users.id
+  created_at              TIMESTAMP
+```
+
+**`body_fat_method`** deja registro de cómo se calculó cada medición, con formato
+`<juego de pliegues>/<sexo>/<banda etaria>` — por ejemplo `dw4c/F/20-29`:
+
+| Parte | Valores | Significado |
+|-------|---------|-------------|
+| juego | `dw4c` | 4 pliegues canónicos: bíceps, tríceps, subescapular, suprailíaco |
+| juego | `dw4a` | abdominal en lugar de bíceps (el bicipital no se cargó) |
+| sexo | `M` / `F` | coeficientes de Durnin-Womersley aplicados |
+| banda | `<17`, `17-19`, `20-29`, `30-39`, `40-49`, `50+` | banda etaria a la fecha de la medición |
+
+Un `*` marca un dato **asumido** por ficha incompleta: `dw4a/M*/20-29*` significa que
+el jugador no tenía sexo ni fecha de nacimiento cargados. Series con distinto juego de
+pliegues no son comparables entre sí.
+
+### PhysicalTest
+```sql
+physical_tests
+  id          UUID PK
+  player_id   UUID FK → players.id
+  test_date   DATE NOT NULL
+  test_type   VARCHAR(50) NOT NULL   -- catálogo en app/schemas/measurement.py
+  value       DECIMAL(8,3) NOT NULL
+  unit        VARCHAR(20) NOT NULL   -- 'seconds' | 'kg' | 'cm' | 'm' | 'ml_kg_min'
+  notes       TEXT
+  recorded_by UUID FK → users.id
+  created_at  TIMESTAMP
+```
+
+---
+
 ## Catálogo de Tipos de Evento (`event_type`)
 
-### Tackles
+### Juego — ataque
 | Valor | Descripción |
 |-------|-------------|
-| `tackle_completed` | Tackle completado |
-| `tackle_missed` | Tackle fallado |
-| `dominant_tackle` | Tackle dominante |
-| `breakdown_won` | Ruck ganado |
-| `breakdown_lost` | Ruck perdido |
+| `line_break` | Quiebre |
+| `offload` | Offload |
+| `possession_lost` | Perdida (con `reason`) |
 
-### Lines & Scrum
+### Juego — defensa
 | Valor | Descripción |
 |-------|-------------|
-| `lineout_won` | Line-out ganado |
-| `lineout_lost` | Line-out perdido |
-| `lineout_steal` | Line-out robado |
-| `scrum_won` | Scrum ganado |
-| `scrum_lost` | Scrum perdido |
-| `scrum_penalty_won` | Penal ganado en scrum |
-| `scrum_penalty_lost` | Penal perdido en scrum |
+| `tackle_effective` | Tackle concretado |
+| `tackle_missed` | Tackle errado |
+| `tackle_positive` | Tackle positivo |
+| `ball_won` | Pelota ganada (con `reason`) |
 
-### Penales & Posesión
+`reason` para `possession_lost` / `ball_won`: `ruck`, `maul`, `contacto`, `pesca`,
+`patada`, `knock_on`.
+
+### Anotaciones
+| Valor | Descripción | Puntos |
+|-------|-------------|--------|
+| `try` | Try — `metadata.converted` indica la conversión | 5 (+2) |
+| `penalty` | Penal — `reason`: `line`, `scrum`, `juega`, `a_los_palos` | 3 sólo si `a_los_palos` y `metadata.converted` |
+| `drop` | Drop | 3 |
+
+### Formaciones fijas
 | Valor | Descripción |
 |-------|-------------|
-| `penalty_conceded` | Penal cometido |
-| `penalty_won` | Penal recibido |
+| `lineout_favor` / `lineout_against` | Line-out a favor / en contra |
+| `scrum_favor` / `scrum_against` | Scrum a favor / en contra |
+| `exit_favor` / `exit_against` | Salida a favor / en contra |
+
+Todas llevan `metadata.obtained` (booleano) indicando obtención del balón.
+
+### Disciplina y cambios
+| Valor | Descripción |
+|-------|-------------|
 | `yellow_card` | Tarjeta amarilla |
 | `red_card` | Tarjeta roja |
-| `turnover_conceded` | Pérdida de posesión |
-| `turnover_won` | Posesión ganada |
-| `knock_on` | Knock-on |
-| `forward_pass` | Pase adelantado |
+| `substitution` | Cambio — nombres y números en `metadata` |
 
 ---
 
@@ -155,30 +274,61 @@ refresh_tokens
 Club
  ├── Users (1:N)
  ├── Divisions (1:N)
- └── Tournaments (1:N, via division)
+ │    ├── Players (1:N)  ──┬── PlayerDivisionHistory (1:N)
+ │    │                    ├── PlayerMeasurement (1:N)
+ │    │                    └── PhysicalTest (1:N)
+ │    └── Tournaments (1:N)
+ └── Tournaments (1:N)
       └── Sessions (1:N)
            ├── TimerState (1:1)
-           └── Events (1:N)
+           ├── Events (1:N)
+           └── MatchLineup (1:N) ──→ Player
 ```
 
-## Índices Recomendados
+## Índices
 
 ```sql
-CREATE INDEX idx_events_session_id ON events(session_id);
-CREATE INDEX idx_events_session_type ON events(session_id, event_type);
-CREATE INDEX idx_sessions_tournament ON sessions(tournament_id);
-CREATE INDEX idx_users_club ON users(club_id);
-CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
+-- 0001
+CREATE INDEX idx_events_session_id     ON events(session_id);
+CREATE INDEX idx_events_session_type   ON events(session_id, event_type);
+CREATE INDEX idx_sessions_tournament   ON sessions(tournament_id);
+CREATE INDEX idx_users_club            ON users(club_id);
+CREATE INDEX idx_refresh_tokens_user   ON refresh_tokens(user_id);
+-- 0002 / 0003
+CREATE INDEX idx_players_division      ON players(division_id);
+CREATE INDEX idx_lineup_session        ON match_lineup(session_id);
+CREATE INDEX idx_lineup_session_team   ON match_lineup(session_id, team);
+CREATE INDEX idx_events_player         ON events(player_id);
+-- 0007
+CREATE INDEX idx_pdh_player            ON player_division_history(player_id);
+CREATE INDEX idx_pdh_division          ON player_division_history(division_id);
+CREATE INDEX idx_pm_player             ON player_measurements(player_id);
+CREATE INDEX idx_pm_player_date        ON player_measurements(player_id, measured_at);
+CREATE INDEX idx_pt_player             ON physical_tests(player_id);
+CREATE INDEX idx_pt_player_type        ON physical_tests(player_id, test_type);
+CREATE INDEX idx_pt_player_type_date   ON physical_tests(player_id, test_type, test_date);
 ```
+
+## Convenciones
+
+- **Bajas lógicas, no borrados.** `clubs`, `users`, `divisions`, `tournaments` y `players`
+  usan `is_active`. Divisiones y torneos rechazan la baja con `409` si todavía tienen
+  contenido activo colgando.
+- **Defaults del lado del ORM.** Toda columna con `server_default` lleva también un
+  `default=` de Python. Depender sólo del default del motor rompe en cualquier backend
+  que no sea Postgres (SQLite guarda `server_default="true"` como el texto `'true'`).
+- **UTC siempre** en las columnas `TIMESTAMP WITH TIME ZONE`.
 
 ## Migraciones
 
-- Gestionadas con **Alembic**
-- El backend ejecuta `alembic upgrade head` al iniciar (en el entrypoint del Dockerfile)
-- Las migraciones se generan con `alembic revision --autogenerate -m "descripcion"`
+- Gestionadas con **Alembic**; el backend ejecuta `alembic upgrade head` al iniciar.
+- Idempotentes: chequean existencia de tabla/columna/índice antes de actuar.
+- CI corre `upgrade head` y `downgrade base` contra Postgres real en cada push.
 
 ## Relacionado
 
 - [[architecture]] — stack tecnológico y Docker
 - [[auth-and-users]] — roles y permisos
 - [[match-session]] — lógica del timer y eventos
+- [[offline-resilience]] — cola offline, reconexión y sellado de tiempo
+- [[statistics-screens]] — pantallas de registro y análisis

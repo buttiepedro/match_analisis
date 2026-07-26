@@ -14,6 +14,9 @@ class MeasurementCreate(BaseModel):
     fat_fold_subscapular_mm: Optional[Decimal] = None
     fat_fold_suprailiac_mm: Optional[Decimal] = None
     fat_fold_abdominal_mm: Optional[Decimal] = None
+    # Pliegue canónico de Durnin-Womersley. Si se carga, el % de grasa se
+    # calcula con el juego de pliegues original del método.
+    fat_fold_biceps_mm: Optional[Decimal] = None
     notes: Optional[str] = None
 
 
@@ -30,7 +33,9 @@ class MeasurementResponse(BaseModel):
     fat_fold_subscapular_mm: Optional[Decimal]
     fat_fold_suprailiac_mm: Optional[Decimal]
     fat_fold_abdominal_mm: Optional[Decimal]
+    fat_fold_biceps_mm: Optional[Decimal] = None
     body_fat_percent: Optional[Decimal]
+    body_fat_method: Optional[str] = None
     notes: Optional[str]
     created_at: datetime
 
