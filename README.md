@@ -192,8 +192,14 @@ La capa que faltaba entre partido y partido.
 
 ## Armado de equipo (`/sessions/:id/lineup`)
 
+Dos modos: **Convocatoria** (el paso del miércoles) y **Equipo** (el del sábado).
+
+- **Convocatoria**: se marcan los ~25 de la semana con un tap. Si está cargada, el
+  picker de la grilla pone a los convocados primero.
 - **Grilla de 23 casilleros** con la numeración reglamentaria ya puesta. Tap en el
   casillero → picker con los jugadores del puesto primero. Un solo guardado.
+- Un jugador lesionado, suspendido o con apto vencido se marca en el casillero y en
+  el picker, y se pide confirmación antes de guardar. Advierte, no bloquea.
 - **Traer última fecha**: precarga los 23 del partido anterior de la división y
   avisa quién quedó afuera por baja o cambio de división.
 - **Copiar convocatoria** al portapapeles, lista para pegar en el grupo.
@@ -277,6 +283,7 @@ jugar.
 | PATCH/DELETE | `/injuries/{id}` | Editar / cerrar lesión | club_admin |
 | PATCH | `/players/{id}/availability` | Estado y apto médico | club_admin |
 | GET | `/divisions/{id}/availability` | Disponibilidad del plantel | analyst+ |
+| GET | `/divisions/{id}/suspension-candidates` | Rojas sin suspensión cargada | analyst+ |
 | GET | `/players/{id}/season-stats` | Acumulados de temporada | analyst+ |
 | GET | `/divisions/{id}/minutes` | Minutos jugados del plantel | analyst+ |
 | POST | `/tournaments/{id}/sessions` | Crear partido | club_admin |

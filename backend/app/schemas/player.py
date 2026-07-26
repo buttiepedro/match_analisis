@@ -58,6 +58,10 @@ class PlayerWithDivisionResponse(BaseModel):
     name: str
     position: Optional[str]
     is_active: bool
+    # La grilla de armado arma el equipo con esta lista: sin disponibilidad acá,
+    # convocar a un lesionado no se puede advertir sin un request por jugador.
+    availability: str = "disponible"
+    medical_clearance_expires: Optional[date] = None
 
 
 class LineupEntryCreate(BaseModel):

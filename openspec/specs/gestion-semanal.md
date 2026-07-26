@@ -54,6 +54,13 @@ la ventana. Reglas que importan:
 `GET /players/{id}/attendance` — porcentajes a 30, 90 días y temporada, racha
 actual e histórico completo.
 
+El summary también trae `by_weekday`: promedio por día de semana, para elegir el
+horario con un dato. Un entrenamiento **sin planilla cargada no entra** en el
+promedio — eso es falta de datos, no 0% de asistencia.
+
+La marca "en riesgo" se muestra en la pantalla de asistencia **y en el plantel**,
+que es donde el entrenador mira antes de convocar.
+
 ---
 
 ## Disponibilidad, apto médico y lesiones
@@ -81,7 +88,17 @@ Reglas de sincronización:
 `clearance_expiring` (30 días de aviso).
 
 El apto vencido **advierte, no bloquea**. El sistema informa; la responsabilidad
-reglamentaria es del club.
+reglamentaria es del club. En la grilla de armado la advertencia aparece en el
+casillero, en el picker y en un `confirm` con el detalle antes de guardar.
+
+### Sugerencia de suspensión
+
+`GET /divisions/{id}/suspension-candidates` lista jugadores con roja reciente que
+**todavía no** figuran como suspendidos, con el partido y la fecha.
+
+Es una sugerencia, no una acción: la sanción y su duración las define el tribunal
+de la unión, no el sistema. Lo único que evita es que una roja se traspapele y el
+jugador termine convocado. Cargarla sigue siendo un `PATCH` manual.
 
 ---
 
@@ -122,6 +139,13 @@ activo o cambió de club, para que la UI lo deje afuera y avise.
 
 `match_squad` — el paso de la semana, previo al lineup. `PUT /sessions/{id}/squad`
 reemplaza la lista completa. Estados: `convocado`, `confirmado`, `baja`.
+
+Vive en la misma pantalla que la grilla, como modo aparte, porque el equipo del
+sábado sale de la convocatoria del miércoles. **Si hay convocatoria cargada, el
+picker de la grilla pone a los convocados primero** — sin eso la tabla sería un
+registro que no le sirve a nadie.
+
+Ambas vistas copian al portapapeles en formato de lista, para pegar en el grupo.
 
 ---
 

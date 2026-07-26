@@ -37,6 +37,7 @@ from app.schemas.training import (
     TrainingResponse,
     TrainingUpdate,
     TrainingWithCountsResponse,
+    WeekdayAttendance,
 )
 
 router = APIRouter()
@@ -47,6 +48,8 @@ AT_RISK_STREAK = 3
 AT_RISK_PERCENT = 50.0
 #: Estados que cuentan como asistencia efectiva.
 ATTENDED = (AttendanceStatus.presente, AttendanceStatus.tarde)
+#: `date.weekday()`: 0 = lunes.
+WEEKDAY_LABELS = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
 
 
 async def _get_division_or_404(
@@ -387,12 +390,39 @@ async def attendance_summary(
     rated = [s for s in summaries if s.total]
     average = round(sum(s.percent for s in rated) / len(rated), 1) if rated else 0.0
 
+    # Promedio por día de semana: con esto se elige el horario con un dato en vez
+    # de con la sensación de que "los martes viene poca gente".
+    per_training: dict[uuid.UUID, list[Attendance]] = {}
+    for r in records:
+        per_training.setdefault(r.training_id, []).append(r)
+
+    weekday_buckets: dict[int, list[float]] = {}
+    for training in trainings:
+        rows_for = per_training.get(training.id, [])
+        if not rows_for:
+            continue
+        attended = sum(1 for r in rows_for if r.status in ATTENDED)
+        weekday_buckets.setdefault(training.date.weekday(), []).append(
+            attended / len(rows_for) * 100
+        )
+
+    by_weekday = [
+        WeekdayAttendance(
+            weekday=day,
+            label=WEEKDAY_LABELS[day],
+            trainings_count=len(values),
+            average_percent=round(sum(values) / len(values), 1),
+        )
+        for day, values in sorted(weekday_buckets.items())
+    ]
+
     return DivisionAttendanceSummary(
         division_id=division_id,
         days=days,
         trainings_count=len(trainings),
         average_percent=average,
         players=summaries,
+        by_weekday=by_weekday,
     )
 
 

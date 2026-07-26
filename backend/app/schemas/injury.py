@@ -49,6 +49,16 @@ class AvailabilityUpdate(BaseModel):
     medical_clearance_expires: Optional[date] = None
 
 
+class SuspensionCandidate(BaseModel):
+    """Roja registrada sin suspensión cargada. Sugerencia, no acción automática."""
+
+    player_id: uuid.UUID
+    player_name: str
+    session_id: uuid.UUID
+    match_label: str
+    card_date: date
+
+
 class DivisionAvailabilityRow(BaseModel):
     player_id: uuid.UUID
     player_name: str

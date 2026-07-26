@@ -174,6 +174,8 @@ async def list_club_players(
             name=p.name,
             position=p.position,
             is_active=p.is_active,
+            availability=p.availability.value,
+            medical_clearance_expires=p.medical_clearance_expires,
         )
         for p, div_name in result.all()
     ]

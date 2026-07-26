@@ -36,12 +36,27 @@ interface PlayerSummary {
   at_risk: boolean;
 }
 
+interface WeekdayRow {
+  weekday: number;
+  label: string;
+  trainings_count: number;
+  average_percent: number;
+}
+
 interface Summary {
   division_id: string;
   days: number;
   trainings_count: number;
   average_percent: number;
   players: PlayerSummary[];
+  by_weekday: WeekdayRow[];
+}
+
+interface SuspensionCandidate {
+  player_id: string;
+  player_name: string;
+  match_label: string;
+  card_date: string;
 }
 
 const WINDOWS = [30, 90] as const;
@@ -62,6 +77,7 @@ export default function Trainings() {
   const [divisionId, setDivisionId] = useState("");
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [suspensions, setSuspensions] = useState<SuspensionCandidate[]>([]);
   const [days, setDays] = useState<number>(30);
   const [tab, setTab] = useState<"lista" | "asistencia">("lista");
   const [loading, setLoading] = useState(true);
@@ -99,6 +115,14 @@ export default function Trainings() {
       .then(({ data }) => setSummary(data))
       .catch(() => setSummary(null));
   }, [divisionId, days]);
+
+  useEffect(() => {
+    if (!divisionId) return;
+    api
+      .get<SuspensionCandidate[]>(`/divisions/${divisionId}/suspension-candidates`)
+      .then(({ data }) => setSuspensions(data))
+      .catch(() => setSuspensions([]));
+  }, [divisionId]);
 
   const atRisk = useMemo(
     () => (summary?.players ?? []).filter((p) => p.at_risk),
@@ -297,6 +321,48 @@ export default function Trainings() {
               <p className="text-[11px] text-red-200/50 mt-1">
                 3 ausencias seguidas o menos de 50% de asistencia.
               </p>
+            </div>
+          )}
+
+          {suspensions.length > 0 && (
+            <div className="bg-amber-950/40 border border-amber-900/60 rounded-xl px-4 py-3 mb-4">
+              <p className="text-xs font-bold text-amber-300 uppercase tracking-wider mb-1">
+                Rojas sin suspensión cargada ({suspensions.length})
+              </p>
+              {suspensions.map((s) => (
+                <p key={s.player_id} className="text-xs text-amber-200/80">
+                  {s.player_name} · {s.match_label}
+                </p>
+              ))}
+              <p className="text-[11px] text-amber-200/50 mt-1">
+                La sanción la define el tribunal; cargala en el perfil del jugador.
+              </p>
+            </div>
+          )}
+
+          {summary && summary.by_weekday.length > 1 && (
+            <div className="bg-gray-800/50 rounded-xl px-4 py-3 mb-4">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                Por día de semana
+              </p>
+              <div className="space-y-1.5">
+                {summary.by_weekday.map((d) => (
+                  <div key={d.weekday} className="flex items-center gap-3">
+                    <span className="w-16 text-xs text-gray-400 shrink-0">{d.label}</span>
+                    <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-green-600 rounded-full transition-[width] duration-500"
+                        style={{ width: `${d.average_percent}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`w-10 text-right text-xs font-bold tabular-nums ${percentColor(d.average_percent)}`}
+                    >
+                      {d.average_percent}%
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

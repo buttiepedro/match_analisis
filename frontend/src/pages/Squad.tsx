@@ -412,6 +412,8 @@ export default function Squad() {
   const [showMoveSheet, setShowMoveSheet] = useState(false);
   const [confirmMove, setConfirmMove] = useState<{ divId: string; divName: string } | null>(null);
   const [toast, setToast] = useState("");
+  /** Ids en riesgo de deserción, por división. El plantel es donde se los mira. */
+  const [atRisk, setAtRisk] = useState<Set<string>>(new Set());
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const canEdit = user?.role === "club_admin" || user?.role === "match_director";
@@ -421,6 +423,32 @@ export default function Squad() {
     fetchDivisions(user.club_id);
     fetchAllPlayers(user.club_id);
   }, [user?.club_id]);
+
+  useEffect(() => {
+    if (divisions.length === 0) return;
+    const targets =
+      activeDivId === "all" ? divisions.map((d) => d.id) : [activeDivId];
+
+    let cancelled = false;
+    Promise.all(
+      targets.map((id) =>
+        api
+          .get<{ players: { player_id: string; at_risk: boolean }[] }>(
+            `/divisions/${id}/attendance/summary`,
+            { params: { days: 30 } }
+          )
+          .then(({ data }) => data.players.filter((p) => p.at_risk).map((p) => p.player_id))
+          // Sin asistencia cargada no hay riesgo que reportar: no es un error.
+          .catch(() => [] as string[])
+      )
+    ).then((lists) => {
+      if (!cancelled) setAtRisk(new Set(lists.flat()));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [divisions, activeDivId]);
 
   const visiblePlayers = players.filter((p) => {
     const matchDiv = activeDivId === "all" || p.division_id === activeDivId;
@@ -676,6 +704,15 @@ export default function Squad() {
                   )}
                 </p>
               </div>
+
+              {atRisk.has(player.id) && (
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 bg-red-900/60 text-red-300"
+                  title="3 ausencias seguidas o menos de 50% de asistencia"
+                >
+                  en riesgo
+                </span>
+              )}
 
               {/* Disponibilidad: sin esto, armar el equipo se hace de memoria. */}
               {player.availability && player.availability !== "disponible" && (

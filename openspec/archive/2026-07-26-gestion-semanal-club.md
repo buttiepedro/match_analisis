@@ -318,7 +318,7 @@ implementado.
 
 | Métrica | Antes | Después |
 |---------|-------|---------|
-| Tests backend | 99 | **147** |
+| Tests backend | 99 | **153** |
 | Tests frontend | 41 | **48** |
 | Migraciones | `0009` | `0013` |
 
@@ -330,7 +330,26 @@ Verificado además fuera de la suite:
   registro más viejo conserva el `#10`, el duplicado pasa a `#100`, el resto no se
   toca y el `UNIQUE` queda creado.
 
-Dos desvíos del plan, ambos por algo que apareció al implementar:
+### Auditoría de cierre
+
+Al revisar el cambio contra sus propios criterios de aceptación aparecieron **seis
+items marcados como hechos que no lo estaban**. Se completaron antes de archivar:
+
+| Faltaba | Estado |
+|---------|--------|
+| Chips de disponibilidad en el picker de la grilla y advertencia al guardar — criterio de aceptación explícito | Hecho: chip en el casillero y en el picker, `confirm` con el detalle antes de guardar |
+| Marca "en riesgo" **en el plantel** (estaba sólo en la pantalla de asistencia) | Hecho: `Squad.tsx` consulta el summary de la división visible |
+| UI de convocatoria — `PUT/GET /sessions/{id}/squad` no lo llamaba nadie | Hecho: modo Convocatoria en el lineup; los convocados salen primero en el picker |
+| Sugerencia de suspensión por tarjeta roja | Hecho: `GET /divisions/{id}/suspension-candidates` + aviso en la pantalla de asistencia |
+| Asistencia promedio por día de semana | Hecho: `by_weekday` en el summary + barras en la UI |
+| Cruce asistencia ↔ minutos — el dato que más se vendió en el relevamiento | Hecho: aviso en la solapa Temporada cuando juega y no entrena |
+
+La lección para el próximo cambio: marcar los checkboxes en lote al final no es
+verificar. Cada criterio se contrasta contra el código.
+
+### Desvíos del plan
+
+Dos, ambos por algo que apareció al implementar:
 
 1. **`PUT /sessions/{id}/lineup` rechaza el partido ya empezado** (`409`). No estaba
    en la propuesta: con el partido en curso hay jugadores en `substituted_out` y el

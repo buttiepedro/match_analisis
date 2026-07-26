@@ -196,6 +196,87 @@ async def test_only_unavailable_filters_out_healthy_players(client, db, injury_c
     assert [r["player_name"] for r in res.json()] == ["Ana Perez"]
 
 
+# ── Sugerencia de suspensión por roja ─────────────────────────────────────────
+
+@pytest.fixture
+async def red_card_ctx(client, db, injury_ctx, club_admin_ctx):
+    from tests.conftest import make_tournament
+
+    tournament = await make_tournament(
+        db, injury_ctx["division"].club_id, injury_ctx["division"].id
+    )
+    res = await client.post(
+        f"/tournaments/{tournament.id}/sessions",
+        json={"home_team": "Club Test", "away_team": "Rival"},
+        headers=club_admin_ctx["headers"],
+    )
+    return {**injury_ctx, "session_id": res.json()["id"]}
+
+
+async def _send_red_card(client, ctx, player_id):
+    res = await client.post(
+        f"/sessions/{ctx['session_id']}/events",
+        json={
+            "event_type": "red_card",
+            "team": "user",
+            "player_id": player_id,
+            "timer_seconds": 600,
+            "half": 1,
+        },
+        headers=ctx["headers"],
+    )
+    assert res.status_code == 201, res.text
+
+
+async def test_a_red_card_surfaces_the_player_as_a_suspension_candidate(client, red_card_ctx):
+    """Una roja que se traspapela termina con el tipo convocado."""
+    await _send_red_card(client, red_card_ctx, red_card_ctx["player"]["id"])
+
+    res = await client.get(
+        f"/divisions/{red_card_ctx['division'].id}/suspension-candidates",
+        headers=red_card_ctx["headers"],
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert len(body) == 1
+    assert body[0]["player_name"] == "Ana Perez"
+    assert body[0]["match_label"] == "Club Test vs Rival"
+
+
+async def test_an_already_suspended_player_is_not_a_candidate(client, red_card_ctx):
+    await _send_red_card(client, red_card_ctx, red_card_ctx["player"]["id"])
+    await client.patch(
+        f"/players/{red_card_ctx['player']['id']}/availability",
+        json={"availability": "suspendido"},
+        headers=red_card_ctx["headers"],
+    )
+
+    res = await client.get(
+        f"/divisions/{red_card_ctx['division'].id}/suspension-candidates",
+        headers=red_card_ctx["headers"],
+    )
+    assert res.json() == []
+
+
+async def test_two_red_cards_for_one_player_report_only_the_latest(client, red_card_ctx):
+    await _send_red_card(client, red_card_ctx, red_card_ctx["player"]["id"])
+    await _send_red_card(client, red_card_ctx, red_card_ctx["player"]["id"])
+
+    res = await client.get(
+        f"/divisions/{red_card_ctx['division'].id}/suspension-candidates",
+        headers=red_card_ctx["headers"],
+    )
+    assert len(res.json()) == 1
+
+
+async def test_no_red_cards_means_no_candidates(client, red_card_ctx):
+    res = await client.get(
+        f"/divisions/{red_card_ctx['division'].id}/suspension-candidates",
+        headers=red_card_ctx["headers"],
+    )
+    assert res.json() == []
+
+
 async def test_another_club_cannot_read_availability(client, db, injury_ctx):
     from app.models import UserRole
     from tests.conftest import auth_header, login, make_club, make_user

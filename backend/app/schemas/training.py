@@ -73,12 +73,23 @@ class PlayerAttendanceSummary(BaseModel):
     at_risk: bool
 
 
+class WeekdayAttendance(BaseModel):
+    """Promedio por día de semana: sirve para decidir horarios con un dato."""
+
+    #: 0 = lunes, 6 = domingo.
+    weekday: int
+    label: str
+    trainings_count: int
+    average_percent: float
+
+
 class DivisionAttendanceSummary(BaseModel):
     division_id: uuid.UUID
     days: int
     trainings_count: int
     average_percent: float
     players: list[PlayerAttendanceSummary]
+    by_weekday: list[WeekdayAttendance] = []
 
 
 class TrainingAttendanceRecord(BaseModel):

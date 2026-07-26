@@ -316,6 +316,60 @@ async def test_player_attendance_detail_has_windowed_percentages(client, trainin
     assert len(body["records"]) == 2
 
 
+async def test_summary_breaks_attendance_down_by_weekday(client, training_ctx):
+    """Elegir el horario con un dato, no con la sensación de que 'los martes viene poca gente'."""
+    ana, bruno, _ = training_ctx["players"]
+
+    # Dos entrenamientos el mismo día de semana (hoy y hace 7 días) y uno ayer.
+    same_weekday = [date.today(), date.today() - timedelta(days=7)]
+    for day in same_weekday:
+        training_id = await _create_training(client, training_ctx, day)
+        await client.put(
+            f"/trainings/{training_id}/attendance",
+            json={
+                "entries": [
+                    {"player_id": ana["id"], "status": "presente"},
+                    {"player_id": bruno["id"], "status": "ausente"},
+                ]
+            },
+            headers=training_ctx["headers"],
+        )
+
+    other_day = date.today() - timedelta(days=1)
+    training_id = await _create_training(client, training_ctx, other_day)
+    await client.put(
+        f"/trainings/{training_id}/attendance",
+        json={
+            "entries": [
+                {"player_id": ana["id"], "status": "presente"},
+                {"player_id": bruno["id"], "status": "presente"},
+            ]
+        },
+        headers=training_ctx["headers"],
+    )
+
+    res = await client.get(
+        f"/divisions/{training_ctx['division'].id}/attendance/summary",
+        headers=training_ctx["headers"],
+    )
+    by_weekday = {row["weekday"]: row for row in res.json()["by_weekday"]}
+
+    assert by_weekday[date.today().weekday()]["trainings_count"] == 2
+    assert by_weekday[date.today().weekday()]["average_percent"] == 50.0
+    assert by_weekday[other_day.weekday()]["average_percent"] == 100.0
+
+
+async def test_weekday_breakdown_ignores_trainings_without_attendance(client, training_ctx):
+    """Un entrenamiento sin planilla cargada no es 0% de asistencia, es sin datos."""
+    await _create_training(client, training_ctx, date.today())
+
+    res = await client.get(
+        f"/divisions/{training_ctx['division'].id}/attendance/summary",
+        headers=training_ctx["headers"],
+    )
+    assert res.json()["by_weekday"] == []
+
+
 async def test_late_counts_as_attended(client, training_ctx):
     ana = training_ctx["players"][0]
     training_id = await _create_training(client, training_ctx, date.today())

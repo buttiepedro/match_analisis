@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,9 +19,12 @@ from app.core.deps import get_current_user, require_club_admin
 from app.models import (
     Availability,
     Division,
+    Event,
     InjurySeverity,
     Player,
     PlayerInjury,
+    Session,
+    Tournament,
     User,
     UserRole,
 )
@@ -31,12 +34,24 @@ from app.schemas.injury import (
     InjuryCreate,
     InjuryResponse,
     InjuryUpdate,
+    SuspensionCandidate,
 )
 
 router = APIRouter()
 
 #: Ventana de aviso para el vencimiento del apto médico.
 CLEARANCE_WARNING_DAYS = 30
+
+
+async def _get_division_or_404(
+    division_id: uuid.UUID, db: AsyncSession, current_user: User
+) -> Division:
+    division = await db.scalar(select(Division).where(Division.id == division_id))
+    if not division:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="División no encontrada")
+    if current_user.role != UserRole.superadmin and current_user.club_id != division.club_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    return division
 
 
 async def _get_player_or_404(
@@ -203,6 +218,58 @@ def _availability_row(player: Player) -> DivisionAvailabilityRow:
     )
 
 
+@router.get("/divisions/{division_id}/suspension-candidates", response_model=list[SuspensionCandidate])
+async def suspension_candidates(
+    division_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    days: Annotated[int, Query(ge=1, le=365)] = 60,
+):
+    """
+    Jugadores con roja reciente que **todavía no** están suspendidos.
+
+    Es una sugerencia, no una acción: la suspensión y su duración las define el
+    tribunal de la unión, no el sistema. Acá sólo se evita que una roja se
+    traspapele y el tipo termine convocado.
+    """
+    division = await _get_division_or_404(division_id, db, current_user)
+    since = date.today() - timedelta(days=days)
+
+    rows = (
+        await db.execute(
+            select(Event, Session, Player)
+            .join(Session, Session.id == Event.session_id)
+            .join(Tournament, Tournament.id == Session.tournament_id)
+            .join(Player, Player.id == Event.player_id)
+            .where(
+                Event.event_type == "red_card",
+                Tournament.division_id == division.id,
+                Player.availability != Availability.suspendido,
+                Player.is_active.is_(True),
+                func.date(Event.recorded_at) >= since,
+            )
+            .order_by(Event.recorded_at.desc())
+        )
+    ).all()
+
+    seen: set[uuid.UUID] = set()
+    candidates: list[SuspensionCandidate] = []
+    for event, session, player in rows:
+        if player.id in seen:
+            continue
+        seen.add(player.id)
+        candidates.append(
+            SuspensionCandidate(
+                player_id=player.id,
+                player_name=player.name,
+                session_id=session.id,
+                match_label=f"{session.home_team} vs {session.away_team}",
+                card_date=event.recorded_at.date(),
+            )
+        )
+    return candidates
+
+
 @router.get("/divisions/{division_id}/availability", response_model=list[DivisionAvailabilityRow])
 async def division_availability(
     division_id: uuid.UUID,
@@ -210,11 +277,7 @@ async def division_availability(
     current_user: Annotated[User, Depends(get_current_user)],
     only_unavailable: Annotated[bool, Query()] = False,
 ):
-    division = await db.scalar(select(Division).where(Division.id == division_id))
-    if not division:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="División no encontrada")
-    if current_user.role != UserRole.superadmin and current_user.club_id != division.club_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    await _get_division_or_404(division_id, db, current_user)
 
     players = (
         await db.execute(

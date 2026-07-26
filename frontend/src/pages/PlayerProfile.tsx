@@ -722,8 +722,26 @@ function TabTemporada({ playerId }: { playerId: string }) {
 
   const noData = !attendance || attendance.records.length === 0;
 
+  /**
+   * El cruce que un club no puede hacer en papel: juega mucho y entrena poco.
+   * Requiere las dos series cargadas — con una sola no hay nada que cruzar.
+   */
+  const playsMoreThanTrains =
+    !noData &&
+    attendance!.records.length >= 3 &&
+    (season?.matches ?? 0) > 0 &&
+    attendance!.percent_90 < 60;
+
   return (
     <div className="py-4 space-y-5">
+      {playsMoreThanTrains && (
+        <p className="text-xs text-amber-200 bg-amber-950/40 border border-amber-900/50 rounded-lg px-3 py-2">
+          Jugó <span className="font-semibold">{season!.matches}</span> partido(s) y{" "}
+          <span className="font-semibold">{season!.minutes}′</span> con{" "}
+          <span className="font-semibold">{attendance!.percent_90}%</span> de asistencia a 90
+          días.
+        </p>
+      )}
       {/* Partidos y minutos: el dato que ya estaba en la base y nadie podía ver. */}
       <div>
         <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Partidos</p>
