@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "../store/authStore";
-import { useSquadStore, TEST_TYPE_META, formatTestValue } from "../store/squadStore";
+import {
+  useSquadStore,
+  TEST_TYPE_META,
+  formatTestValue,
+  testsByCategory,
+} from "../store/squadStore";
+import NutritionTab from "../components/NutritionTab";
 import api from "../lib/axios";
 
 interface RankingEntry {
@@ -12,9 +18,7 @@ interface RankingEntry {
   rank: number;
 }
 
-const TEST_CATEGORIES = Array.from(
-  new Set(Object.values(TEST_TYPE_META).map((t) => t.category))
-);
+
 
 function BarRow({
   entry,
@@ -62,6 +66,8 @@ export default function Performance() {
   const user = useAuthStore((s) => s.user);
   const { divisions, fetchDivisions } = useSquadStore();
 
+  /** Dos trabajos distintos, hechos por personas distintas: se separan. */
+  const [tab, setTab] = useState<"fisico" | "nutricion">("fisico");
   const [activeDivId, setActiveDivId] = useState<string>("");
   const [activeTestType, setActiveTestType] = useState<string>("bronco");
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
@@ -106,10 +112,31 @@ export default function Performance() {
     <div className="min-h-screen bg-white text-ink">
       {/* Header */}
       <div className="px-4 pt-4 pb-3">
-        <h1 className="text-xl font-bold">Rendimiento</h1>
-        <p className="text-xs text-ink-muted mt-0.5">Ranking por división y test</p>
+        <h1 className="text-xl font-bold">Mediciones</h1>
+        <p className="text-xs text-ink-muted mt-0.5">Físico y nutrición por división</p>
       </div>
 
+      <div className="flex gap-1 bg-surface p-1 rounded-xl mx-4 mb-4">
+        {([
+          ["fisico", "Físico"],
+          ["nutricion", "Nutrición"],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors duration-150 ${
+              tab === key ? "bg-brand text-white" : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "nutricion" ? (
+        <NutritionTab divisions={divisions} />
+      ) : (
+      <>
       {/* Division pills */}
       <div className="flex gap-2 px-4 pb-3 overflow-x-auto scrollbar-none">
         {divisions.map((d) => (
@@ -130,10 +157,8 @@ export default function Performance() {
       {/* Test type selector */}
       <div className="px-4 pb-4">
         <div className="space-y-2">
-          {TEST_CATEGORIES.map((cat) => {
-            const types = Object.entries(TEST_TYPE_META).filter(
-              ([, m]) => m.category === cat
-            );
+          {testsByCategory().map(({ category: cat, types: typeKeys }) => {
+            const types = typeKeys.map((k) => [k, TEST_TYPE_META[k]] as const);
             return (
               <div key={cat}>
                 <p className="text-xs text-ink-muted mb-1.5 uppercase tracking-wider">{cat}</p>
@@ -213,6 +238,8 @@ export default function Performance() {
           </p>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

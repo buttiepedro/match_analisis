@@ -88,14 +88,14 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { label: "Partidos",   path: "/tournaments", icon: <IconBall /> },
     { label: "Asistencia", path: "/trainings",   icon: <IconClipboard /> },
     { label: "Plantel",    path: "/squad",       icon: <IconUsers /> },
-    { label: "Físico",     path: "/performance", icon: <IconActivity /> },
+    { label: "Mediciones", path: "/mediciones",  icon: <IconActivity /> },
   ],
   analyst: [
     { label: "Hoy",        path: "/hoy",         icon: <IconHome /> },
     { label: "Partidos",   path: "/tournaments", icon: <IconBall /> },
     { label: "Asistencia", path: "/trainings",   icon: <IconClipboard /> },
     { label: "Plantel",    path: "/squad",       icon: <IconUsers /> },
-    { label: "Físico",     path: "/performance", icon: <IconActivity /> },
+    { label: "Mediciones", path: "/mediciones",  icon: <IconActivity /> },
   ],
   // El jugador no tiene nada que hacer en las pantallas de club.
   player: [

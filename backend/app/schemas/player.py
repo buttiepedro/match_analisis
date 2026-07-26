@@ -146,3 +146,10 @@ class SquadMemberResponse(BaseModel):
     player_name: str
     position: Optional[str] = None
     status: str
+
+
+class SquadMessage(BaseModel):
+    """Convocatoria como texto plano, para pegar en el grupo."""
+
+    text: str
+    count: int

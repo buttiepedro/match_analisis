@@ -3,6 +3,7 @@ from app.models.club import Club
 from app.models.user import User, UserRole, user_divisions
 from app.models.division import Division
 from app.models.tournament import Tournament
+from app.models.opponent import Opponent
 from app.models.session import Session, TimerState, SessionStatus, TimerStatus
 from app.models.event import Event, TeamSide
 from app.models.refresh_token import RefreshToken
@@ -35,6 +36,7 @@ __all__ = [
     "user_divisions",
     "Division",
     "Tournament",
+    "Opponent",
     "Session",
     "TimerState",
     "SessionStatus",

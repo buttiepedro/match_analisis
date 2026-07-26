@@ -41,20 +41,31 @@ class MeasurementResponse(BaseModel):
 
 
 # Catálogo de tipos de test físico
+# Las tres categorías que pidió el club van primero; el resto de los tests ya
+# cargados conserva la suya. Recategorizar no puede perder datos históricos.
+TEST_CATEGORY_ORDER = ["Potencia", "Resistencia", "Fuerza", "Velocidad", "Flexibilidad"]
+
 TEST_TYPES = {
-    "sprint_10m":    {"label": "Sprint 10m",       "unit": "seconds",    "category": "Velocidad"},
-    "sprint_20m":    {"label": "Sprint 20m",       "unit": "seconds",    "category": "Velocidad"},
-    "sprint_40m":    {"label": "Sprint 40m",       "unit": "seconds",    "category": "Velocidad"},
-    "accel_5m":      {"label": "Aceleración 5m",   "unit": "seconds",    "category": "Aceleración"},
-    "bronco":        {"label": "Bronco Test",       "unit": "seconds",    "category": "Aeróbico"},
-    "bench_1rm":     {"label": "Press banca 1RM",  "unit": "kg",         "category": "Fuerza"},
-    "squat_1rm":     {"label": "Sentadilla 1RM",   "unit": "kg",         "category": "Fuerza"},
-    "hip_thrust_1rm":{"label": "Hip Thrust 1RM",   "unit": "kg",         "category": "Fuerza"},
-    "shoulder_1rm":  {"label": "Press hombro 1RM", "unit": "kg",         "category": "Fuerza"},
-    "cmj":           {"label": "Salto CMJ",         "unit": "cm",         "category": "Salto"},
-    "long_jump":     {"label": "Salto horizontal",  "unit": "m",          "category": "Salto"},
-    "sit_reach":     {"label": "Sit and reach",     "unit": "cm",         "category": "Flexibilidad"},
-    "vo2max":        {"label": "VO2max estimado",   "unit": "ml_kg_min",  "category": "Aeróbico"},
+    # Potencia
+    "cmj":           {"label": "Test de Salto (CMJ)", "unit": "cm",       "category": "Potencia"},
+    "long_jump":     {"label": "Salto horizontal",    "unit": "m",        "category": "Potencia"},
+    # Resistencia
+    "bronco":        {"label": "Bronco",              "unit": "seconds",  "category": "Resistencia"},
+    "vo2max":        {"label": "VO2max estimado",     "unit": "ml_kg_min","category": "Resistencia"},
+    # Fuerza
+    "bench_3rm":     {"label": "Press Banca 3RM",     "unit": "kg",       "category": "Fuerza"},
+    "squat_3rm":     {"label": "Sentadilla 3RM",      "unit": "kg",       "category": "Fuerza"},
+    "bench_1rm":     {"label": "Press banca 1RM",     "unit": "kg",       "category": "Fuerza"},
+    "squat_1rm":     {"label": "Sentadilla 1RM",      "unit": "kg",       "category": "Fuerza"},
+    "hip_thrust_1rm":{"label": "Hip Thrust 1RM",      "unit": "kg",       "category": "Fuerza"},
+    "shoulder_1rm":  {"label": "Press hombro 1RM",    "unit": "kg",       "category": "Fuerza"},
+    # Velocidad
+    "sprint_10m":    {"label": "Sprint 10m",          "unit": "seconds",  "category": "Velocidad"},
+    "sprint_20m":    {"label": "Sprint 20m",          "unit": "seconds",  "category": "Velocidad"},
+    "sprint_40m":    {"label": "Sprint 40m",          "unit": "seconds",  "category": "Velocidad"},
+    "accel_5m":      {"label": "Aceleración 5m",      "unit": "seconds",  "category": "Velocidad"},
+    # Flexibilidad
+    "sit_reach":     {"label": "Sit and reach",       "unit": "cm",       "category": "Flexibilidad"},
 }
 
 

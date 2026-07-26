@@ -29,6 +29,11 @@ class Session(Base):
     tournament_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tournaments.id"), nullable=False)
     home_team: Mapped[str] = mapped_column(String(100), nullable=False)
     away_team: Mapped[str] = mapped_column(String(100), nullable=False)
+    #: Nullable: los partidos cargados antes de que existiera la entidad, y los
+    #: amistosos contra un rival que no vale la pena dar de alta.
+    opponent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("opponents.id"), nullable=True
+    )
     scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), nullable=False, default=SessionStatus.scheduled, server_default="scheduled")
     half_duration_minutes: Mapped[int] = mapped_column(Integer, default=40, server_default="40")
@@ -37,6 +42,7 @@ class Session(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     tournament: Mapped["Tournament"] = relationship(back_populates="sessions")
+    opponent: Mapped[Optional["Opponent"]] = relationship(back_populates="sessions")
     timer_state: Mapped[Optional["TimerState"]] = relationship(back_populates="session", uselist=False)
     events: Mapped[list["Event"]] = relationship(back_populates="session")
     lineup: Mapped[list["MatchLineup"]] = relationship(back_populates="session")

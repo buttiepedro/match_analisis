@@ -247,21 +247,42 @@ export const useSquadStore = create<SquadState>((set, get) => ({
   },
 }));
 
+/** Orden de las categorías en la UI. Las tres del club primero. */
+export const TEST_CATEGORY_ORDER = [
+  "Potencia",
+  "Resistencia",
+  "Fuerza",
+  "Velocidad",
+  "Flexibilidad",
+];
+
 export const TEST_TYPE_META: Record<string, { label: string; unit: string; category: string }> = {
-  sprint_10m:     { label: "Sprint 10m",       unit: "seconds",   category: "Velocidad" },
-  sprint_20m:     { label: "Sprint 20m",       unit: "seconds",   category: "Velocidad" },
-  sprint_40m:     { label: "Sprint 40m",       unit: "seconds",   category: "Velocidad" },
-  accel_5m:       { label: "Aceleración 5m",   unit: "seconds",   category: "Aceleración" },
-  bronco:         { label: "Bronco Test",       unit: "seconds",   category: "Aeróbico" },
-  bench_1rm:      { label: "Press banca 1RM",  unit: "kg",        category: "Fuerza" },
-  squat_1rm:      { label: "Sentadilla 1RM",   unit: "kg",        category: "Fuerza" },
-  hip_thrust_1rm: { label: "Hip Thrust 1RM",   unit: "kg",        category: "Fuerza" },
-  shoulder_1rm:   { label: "Press hombro 1RM", unit: "kg",        category: "Fuerza" },
-  cmj:            { label: "Salto CMJ",         unit: "cm",        category: "Salto" },
-  long_jump:      { label: "Salto horizontal",  unit: "m",         category: "Salto" },
-  sit_reach:      { label: "Sit and reach",     unit: "cm",        category: "Flexibilidad" },
-  vo2max:         { label: "VO2max estimado",   unit: "ml/kg/min", category: "Aeróbico" },
+  cmj:            { label: "Test de Salto (CMJ)", unit: "cm",        category: "Potencia" },
+  long_jump:      { label: "Salto horizontal",    unit: "m",         category: "Potencia" },
+  bronco:         { label: "Bronco",              unit: "seconds",   category: "Resistencia" },
+  vo2max:         { label: "VO2max estimado",     unit: "ml/kg/min", category: "Resistencia" },
+  bench_3rm:      { label: "Press Banca 3RM",     unit: "kg",        category: "Fuerza" },
+  squat_3rm:      { label: "Sentadilla 3RM",      unit: "kg",        category: "Fuerza" },
+  bench_1rm:      { label: "Press banca 1RM",     unit: "kg",        category: "Fuerza" },
+  squat_1rm:      { label: "Sentadilla 1RM",      unit: "kg",        category: "Fuerza" },
+  hip_thrust_1rm: { label: "Hip Thrust 1RM",      unit: "kg",        category: "Fuerza" },
+  shoulder_1rm:   { label: "Press hombro 1RM",    unit: "kg",        category: "Fuerza" },
+  sprint_10m:     { label: "Sprint 10m",          unit: "seconds",   category: "Velocidad" },
+  sprint_20m:     { label: "Sprint 20m",          unit: "seconds",   category: "Velocidad" },
+  sprint_40m:     { label: "Sprint 40m",          unit: "seconds",   category: "Velocidad" },
+  accel_5m:       { label: "Aceleración 5m",      unit: "seconds",   category: "Velocidad" },
+  sit_reach:      { label: "Sit and reach",       unit: "cm",        category: "Flexibilidad" },
 };
+
+/** Tipos de test agrupados por categoría, en el orden de arriba. */
+export function testsByCategory(): { category: string; types: string[] }[] {
+  return TEST_CATEGORY_ORDER.map((category) => ({
+    category,
+    types: Object.keys(TEST_TYPE_META).filter(
+      (t) => TEST_TYPE_META[t].category === category
+    ),
+  })).filter((g) => g.types.length > 0);
+}
 
 export function formatTestValue(value: number, unit: string): string {
   if (unit === "seconds") {

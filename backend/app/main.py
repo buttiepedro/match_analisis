@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.clubs import router as clubs_router
+from app.api.v1.competition import router as competition_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.divisions import router as divisions_router
 from app.api.v1.health import router as health_router
@@ -110,3 +111,4 @@ app.include_router(trainings_router, tags=["trainings"])
 app.include_router(injuries_router, tags=["injuries"])
 app.include_router(season_router, tags=["season"])
 app.include_router(dashboard_router, tags=["dashboard"])
+app.include_router(competition_router, tags=["competition"])

@@ -30,6 +30,7 @@ from app.schemas.player import (
     LineupEntryUpdate,
     SquadBulkRequest,
     SquadMemberResponse,
+    SquadMessage,
     SubstituteRequest,
     SuggestedLineupEntry,
     SuggestedLineupResponse,
@@ -408,6 +409,41 @@ async def get_squad(
         ),
         key=lambda m: m.player_name,
     )
+
+
+@router.get("/{session_id}/squad/message", response_model=SquadMessage)
+async def squad_message(
+    session_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Texto de la convocatoria, listo para pegar en el grupo.
+
+    El grupo de WhatsApp ya existe y funciona; mandar push exigiría service
+    worker, permisos y backend de envío para el mismo resultado.
+    """
+    session = await _get_session_and_check_access(session_id, db, current_user)
+
+    members = await get_squad(session_id, db, current_user)
+    if not members:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Todavía no hay convocatoria cargada para este partido",
+        )
+
+    when = ""
+    if session.scheduled_at:
+        when = session.scheduled_at.strftime("%d/%m a las %H:%M")
+
+    header = f"Convocatoria — {session.home_team} vs {session.away_team}"
+    lines = [header]
+    if when:
+        lines.append(when)
+    lines.append("")
+    lines += [f"{i}. {m.player_name}" for i, m in enumerate(members, start=1)]
+
+    return SquadMessage(text="\n".join(lines), count=len(members))
 
 
 @router.post("/{session_id}/lineup/substitute", status_code=status.HTTP_200_OK)

@@ -65,7 +65,9 @@ export default function App() {
           <Route path="/config"       element={<LayoutRoute><Configuracion /></LayoutRoute>} />
           <Route path="/squad"        element={<LayoutRoute><Squad /></LayoutRoute>} />
           <Route path="/squad/:id"    element={<LayoutRoute><PlayerProfile /></LayoutRoute>} />
-          <Route path="/performance"  element={<LayoutRoute><Performance /></LayoutRoute>} />
+          <Route path="/mediciones"   element={<LayoutRoute><Performance /></LayoutRoute>} />
+          {/* Ruta anterior: se conserva para no romper links ya guardados. */}
+          <Route path="/performance"  element={<Navigate to="/mediciones" replace />} />
           <Route path="/trainings"     element={<LayoutRoute><Trainings /></LayoutRoute>} />
           <Route path="/trainings/:id" element={<LayoutRoute><TrainingAttendance /></LayoutRoute>} />
           <Route path="/calendario"    element={<LayoutRoute><Calendar /></LayoutRoute>} />

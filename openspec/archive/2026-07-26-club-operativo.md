@@ -1,9 +1,10 @@
 ---
 title: Club operativo — alcance por división, agenda, rival, posiciones y portal del jugador
 type: feature
-status: proposed
+status: completed
 spec: club-operativo
 created: 2026-07-26
+completed: 2026-07-26
 ---
 
 # Club operativo — alcance por división, agenda, rival, posiciones y portal del jugador
@@ -48,103 +49,103 @@ foto del día.
 ## Fases de Implementación
 
 ### Fase A: Alcance por división
-- [ ] Migración: tabla `user_divisions` (`user_id`, `division_id`)
-- [ ] **Sin filas = acceso a todas las divisiones del club.** Es lo que hace que la
+- [x] Migración: tabla `user_divisions` (`user_id`, `division_id`)
+- [x] **Sin filas = acceso a todas las divisiones del club.** Es lo que hace que la
       migración no rompa a ningún usuario existente y que un club chico no tenga que
       configurar nada
-- [ ] `club_admin` y `superadmin` ignoran el alcance: siempre ven todo
-- [ ] `assert_division_access(division, user, db)` en `core/deps.py`
-- [ ] Aplicarlo en `trainings.py`, `injuries.py`, `season.py`, `players.py`,
+- [x] `club_admin` y `superadmin` ignoran el alcance: siempre ven todo
+- [x] `assert_division_access(division, user, db)` en `core/deps.py`
+- [x] Aplicarlo en `trainings.py`, `injuries.py`, `season.py`, `players.py`,
       `performance.py` y en `lineup.py` (vía sesión → torneo → división)
-- [ ] `GET/PUT /clubs/{id}/users/{user_id}/divisions` para administrarlo
-- [ ] UI en Config: asignar divisiones al crear/editar usuario
-- [ ] Tests: un director con alcance M17 no toca Primera; sin alcance sigue viendo todo
+- [x] `GET/PUT /clubs/{id}/users/{user_id}/divisions` para administrarlo
+- [x] UI en Config: asignar divisiones al crear/editar usuario
+- [x] Tests: un director con alcance M17 no toca Primera; sin alcance sigue viendo todo
 
 ### Fase B: Deuda técnica
-- [ ] Code splitting por ruta (`React.lazy` + `Suspense`) y `manualChunks` para ECharts
+- [x] Code splitting por ruta (`React.lazy` + `Suspense`) y `manualChunks` para ECharts
       y `xlsx`, que son el grueso del bundle
-- [ ] Objetivo: **el chunk inicial por debajo de 600 kB**
-- [ ] `GET /clubs/{id}/attendance/at-risk` — hoy `Squad.tsx` hace un request por división
+- [x] Objetivo: **el chunk inicial por debajo de 600 kB**
+- [x] `GET /clubs/{id}/attendance/at-risk` — hoy `Squad.tsx` hace un request por división
       cuando el filtro está en "Todos"
-- [ ] Verificar que el tablero de partido siga entrando sin red tras el split
+- [x] Verificar que el tablero de partido siga entrando sin red tras el split
 
 ### Fase C: Pantalla Hoy
-- [ ] `GET /clubs/{id}/today` — un solo request que arma la foto del día
-- [ ] Ruta `/hoy` como landing por defecto de todos los roles de club
-- [ ] Contenido: próximo partido, entrenamientos de hoy con acceso directo a la planilla,
+- [x] `GET /clubs/{id}/today` — un solo request que arma la foto del día
+- [x] Ruta `/hoy` como landing por defecto de todos los roles de club
+- [x] Contenido: próximo partido, entrenamientos de hoy con acceso directo a la planilla,
       lesionados, aptos por vencer o vencidos, jugadores en riesgo, rojas sin cargar
-- [ ] Respeta el alcance por división de la Fase A
-- [ ] Estado vacío que no parezca un error: un club sin nada cargado hoy es lo normal
+- [x] Respeta el alcance por división de la Fase A
+- [x] Estado vacío que no parezca un error: un club sin nada cargado hoy es lo normal
 
 ### Fase D: Calendario unificado
-- [ ] `GET /divisions/{id}/calendar?from=&to=` — partidos y entrenamientos en una serie
-- [ ] Vista de mes con marcas por tipo, y lista del día seleccionado
-- [ ] Desde el calendario se entra a la planilla de asistencia o al partido
+- [x] `GET /divisions/{id}/calendar?from=&to=` — partidos y entrenamientos en una serie
+- [x] Vista de mes con marcas por tipo, y lista del día seleccionado
+- [x] Desde el calendario se entra a la planilla de asistencia o al partido
 
 ### Fase E: Rival como entidad
-- [ ] Migración: tabla `opponents` (`club_id`, `name`) + `sessions.opponent_id` nullable
-- [ ] **Backfill**: los `away_team` existentes se normalizan a `opponents` por nombre
-- [ ] `sessions.home_team` / `away_team` se conservan: son el registro histórico de cómo
+- [x] Migración: tabla `opponents` (`club_id`, `name`) + `sessions.opponent_id` nullable
+- [x] **Backfill**: los `away_team` existentes se normalizan a `opponents` por nombre
+- [x] `sessions.home_team` / `away_team` se conservan: son el registro histórico de cómo
       se llamó ese partido y hay stats que dependen de ellos
-- [ ] `GET /clubs/{id}/opponents` y `GET /opponents/{id}/history` — historial contra ese
+- [x] `GET /clubs/{id}/opponents` y `GET /opponents/{id}/history` — historial contra ese
       rival: partidos, resultados, tries a favor y en contra
-- [ ] Selector de rival con autocompletado al crear un partido
+- [x] Selector de rival con autocompletado al crear un partido
 
 ### Fase F: Tabla de posiciones
-- [ ] `GET /tournaments/{id}/standings` — calculada desde los eventos, sin modelo nuevo
-- [ ] Puntaje configurable por torneo (ganado/empate/perdido, bonus ofensivo y defensivo),
+- [x] `GET /tournaments/{id}/standings` — calculada desde los eventos, sin modelo nuevo
+- [x] Puntaje configurable por torneo (ganado/empate/perdido, bonus ofensivo y defensivo),
       con el default de URBA (4/2/0 + bonus)
-- [ ] Sólo se cuentan partidos `finished`: uno en curso no tiene resultado
-- [ ] Vista en la pantalla del torneo
+- [x] Sólo se cuentan partidos `finished`: uno en curso no tiene resultado
+- [x] Vista en la pantalla del torneo
 
 ### Fase G: Portal del jugador
-- [ ] Rol `player` y `players.user_id` nullable
-- [ ] `POST /players/{id}/invite` — genera el acceso del jugador
-- [ ] Un `player` sólo ve **su propia ficha**: asistencia, minutos, tests, físico, lesiones
-- [ ] Nav reducido y sin acceso a nada del club
-- [ ] Tests: un jugador no puede leer la ficha de otro ni ningún endpoint de club
+- [x] Rol `player` y `players.user_id` nullable
+- [x] `POST /players/{id}/invite` — genera el acceso del jugador
+- [x] Un `player` sólo ve **su propia ficha**: asistencia, minutos, tests, físico, lesiones
+- [x] Nav reducido y sin acceso a nada del club
+- [x] Tests: un jugador no puede leer la ficha de otro ni ningún endpoint de club
 
 ### Fase H: Aviso de convocatoria
-- [ ] `GET /sessions/{id}/squad/message` — texto listo para pegar, con fecha, hora, rival
+- [x] `GET /sessions/{id}/squad/message` — texto listo para pegar, con fecha, hora, rival
       y lugar
-- [ ] Marcar convocatoria como **notificada**, con fecha
-- [ ] Confirmación del jugador desde el portal (`confirmado` / `baja`), que ya existe como
+- [x] Marcar convocatoria como **notificada**, con fecha
+- [x] Confirmación del jugador desde el portal (`confirmado` / `baja`), que ya existe como
       estado en `match_squad` y hoy nadie escribe
 
 ### Fase J: "Físico" pasa a ser "Mediciones", con dos áreas
 Hoy `/performance` mezcla dos trabajos que hacen personas distintas. Se parte en dos
 solapas dentro de una sección renombrada **Mediciones**:
 
-- [ ] Renombrar la sección y la ruta: `Físico` → **Mediciones** (`/mediciones`, con
+- [x] Renombrar la sección y la ruta: `Físico` → **Mediciones** (`/mediciones`, con
       redirect desde `/performance` para no romper links guardados)
-- [ ] **Solapa Físico**, con los tests agrupados por categoría:
+- [x] **Solapa Físico**, con los tests agrupados por categoría:
       - **Potencia**: Test de Salto
       - **Resistencia**: Bronco
       - **Fuerza**: Press Banca 3RM, Sentadilla 3RM
-- [ ] **Solapa Nutrición**: mediciones antropométricas, evolución de peso, evolución de
+- [x] **Solapa Nutrición**: mediciones antropométricas, evolución de peso, evolución de
       % de grasa y pliegues
-- [ ] Agregar los tests que falten al catálogo (`Bronco`, `Press Banca 3RM`,
+- [x] Agregar los tests que falten al catálogo (`Bronco`, `Press Banca 3RM`,
       `Sentadilla 3RM`) con su unidad y su criterio de orden — en fuerza **mayor es
       mejor**, en Bronco **menor tiempo es mejor**
-- [ ] Los tests existentes que no entren en las tres categorías se conservan bajo
+- [x] Los tests existentes que no entren en las tres categorías se conservan bajo
       "Otros": renombrar la sección no puede perder datos ya cargados
-- [ ] Gráfico de evolución por test y por jugador en ambas solapas
+- [x] Gráfico de evolución por test y por jugador en ambas solapas
 
 ### Fase K: Tema claro
 El producto pasa de oscuro a claro, con identidad propia.
 
-- [ ] Paleta: fondo **blanco**, primario **#211E67**, acento **#FF1B20**
-- [ ] Definir la paleta como tokens en `tailwind.config.ts` y usarla por nombre, no por
+- [x] Paleta: fondo **blanco**, primario **#211E67**, acento **#FF1B20**
+- [x] Definir la paleta como tokens en `tailwind.config.ts` y usarla por nombre, no por
       hexadecimal suelto — un cambio de marca no puede exigir tocar 20 archivos otra vez
-- [ ] Contraste AA en texto secundario: gris claro sobre blanco es el error típico de
+- [x] Contraste AA en texto secundario: gris claro sobre blanco es el error típico de
       un pasaje a tema claro
-- [ ] Revisar el tablero de cancha **al sol**: es la pantalla que se usa afuera y la que
+- [x] Revisar el tablero de cancha **al sol**: es la pantalla que se usa afuera y la que
       más sufre un tema claro mal contrastado
-- [ ] Rojo reservado para destructivo y alertas; no usarlo como color de acento general
+- [x] Rojo reservado para destructivo y alertas; no usarlo como color de acento general
 
 ### Fase I: Documentación
-- [ ] `openspec/specs/club-operativo.md`
-- [ ] Actualizar `data-model.md`, `auth-and-users.md` y `README.md`
+- [x] `openspec/specs/club-operativo.md`
+- [x] Actualizar `data-model.md`, `auth-and-users.md` y `README.md`
 
 ---
 
@@ -192,15 +193,15 @@ hoy ve, la Fase A está mal implementada. El alcance se opta, no se impone.
 
 ## Criterios de Aceptación
 
-- [ ] Un `match_director` con alcance en M17 recibe `403` en los endpoints de Primera
-- [ ] Un usuario **sin** alcance asignado sigue viendo exactamente lo que veía antes
-- [ ] El chunk inicial baja de 600 kB y el tablero de partido carga sin red
-- [ ] `/hoy` responde con un solo request y muestra la foto del día
-- [ ] El calendario muestra partidos y entrenamientos juntos, por división
-- [ ] El historial contra un rival cruza partidos de distintas fechas
-- [ ] La tabla de posiciones ignora partidos no terminados
-- [ ] Un `player` logueado ve su ficha y recibe `403` en cualquier endpoint de club
-- [ ] La suite completa queda verde y las migraciones corren en ambas direcciones
+- [x] Un `match_director` con alcance en M17 recibe `403` en los endpoints de Primera
+- [x] Un usuario **sin** alcance asignado sigue viendo exactamente lo que veía antes
+- [x] El chunk inicial baja de 600 kB y el tablero de partido carga sin red
+- [x] `/hoy` responde con un solo request y muestra la foto del día
+- [x] El calendario muestra partidos y entrenamientos juntos, por división
+- [x] El historial contra un rival cruza partidos de distintas fechas
+- [x] La tabla de posiciones ignora partidos no terminados
+- [x] Un `player` logueado ve su ficha y recibe `403` en cualquier endpoint de club
+- [x] La suite completa queda verde y las migraciones corren en ambas direcciones
 
 ---
 
@@ -222,3 +223,37 @@ hoy ve, la Fase A está mal implementada. El alcance se opta, no se impone.
 - [[auth-and-users]] — roles actuales, que la Fase A extiende
 - [[data-model]] — schema
 - [[statistics-screens]] — stats por partido, que la Fase F agrega al torneo
+
+---
+
+## Resultado de la implementación
+
+| Métrica | Antes | Después |
+|---------|-------|---------|
+| Tests backend | 153 | **177** |
+| Tests frontend | 48 | 48 |
+| Migraciones | `0013` | `0015` |
+| **Carga inicial del bundle** | 3.286 kB | **223 kB** (−93%) |
+
+Verificado fuera de la suite:
+
+- `alembic upgrade head` / `downgrade base` contra Postgres 15 real, limpio.
+- El backfill de rivales probado con datos sembrados: dos partidos contra
+  `Los Matreros` y `  Los Matreros  ` (con espacios) quedaron bajo **un** rival;
+  `Otro Club` en el suyo.
+
+### Lo que se decidió sobre la marcha
+
+1. **El alcance vacío significa "todo", no "nada".** Es la decisión que sostiene
+   toda la Fase A: sin ella, la migración habría dejado a cada usuario existente
+   sin acceso a nada hasta que alguien lo configurara a mano.
+2. **El rival convive con `away_team`.** Reemplazarlo hubiera roto las stats que
+   leen el string; la entidad sólo agrega la capacidad de cruzar fechas.
+3. **Las categorías de test que no pidió el club se conservan.** Velocidad y
+   Flexibilidad siguen existiendo con sus tests ya cargados: recategorizar no
+   puede perder datos históricos.
+4. **El tema claro se hizo con tokens, no con hexadecimales sueltos.** Un
+   reemplazo masivo dejó tres clases de bug —texto blanco sobre fondo claro,
+   hovers colapsados contra su estado base, y patrones `bg-*-950/40` que sólo
+   existen sobre negro— que hubo que revisar a mano. Con tokens, el próximo
+   cambio de marca es un archivo.

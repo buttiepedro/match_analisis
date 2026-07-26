@@ -7,6 +7,7 @@ Plataforma de estadísticas de rugby y gestión de plantel. Diseñada para uso e
 | Capa | Tecnología |
 |------|------------|
 | Frontend | React 18 + TypeScript + Vite + TailwindCSS + ECharts |
+| Tema | Claro. Paleta como tokens en `tailwind.config.ts`: `brand` #211E67, `danger` #FF1B20 |
 | Backend | FastAPI (Python 3.12) |
 | Base de datos | PostgreSQL 15 |
 | Migraciones | Alembic (auto-apply al iniciar) |
@@ -32,12 +33,12 @@ El backend corre migraciones y crea el superadmin automáticamente al iniciar.
 ## Tests
 
 ```bash
-# Backend — 99 tests, corren sobre SQLite en memoria, sin dependencias externas
+# Backend — 177 tests, corren sobre SQLite en archivo temporal, sin dependencias externas
 cd backend
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest
 
-# Frontend — 41 tests
+# Frontend — 48 tests
 cd frontend
 npm install
 npm test
@@ -100,7 +101,7 @@ match_analisis/
 │   ├── app/
 │   │   ├── api/v1/        # auth, clubs, divisions, tournaments, sessions,
 │   │   │                  # lineup, players, performance, import,
-│   │   │                  # trainings, injuries, season
+│   │   │                  # trainings, injuries, season, dashboard, competition
 │   │   ├── core/          # config, DB, seguridad, dependencias, antropometría
 │   │   ├── models/        # SQLAlchemy ORM
 │   │   ├── schemas/       # Pydantic
@@ -112,7 +113,8 @@ match_analisis/
 │   ├── src/
 │   │   ├── components/    # Timer, EventLog, modales, tabs del tablero
 │   │   ├── pages/         # Login, Torneos, Sesión, Lineup, Stats, Plantel, Perfil,
-│   │   │                  # Físico, Entrenamientos, Asistencia, Config
+│   │   │                  # Hoy, Calendario, Mediciones, Entrenamientos,
+│   │   │                  # Asistencia, Portal del jugador, Config
 │   │   ├── store/         # Zustand (auth, session, squad)
 │   │   └── lib/           # axios, tokens, WebSocket, cola offline, timer, stats,
 │   │                      # asistencia
@@ -132,6 +134,11 @@ match_analisis/
 | `club_admin` | Crear usuarios, divisiones, torneos, sesiones, lineup, lesiones y apto médico |
 | `match_director` | Controlar el timer, registrar eventos y crear entrenamientos |
 | `analyst` | Registrar eventos y tomar asistencia |
+| `player` | Sólo su propia ficha, en el portal |
+
+> **Alcance por división.** A un `match_director` o `analyst` se le pueden asignar
+> divisiones desde Config. **Sin ninguna asignada ve todas** — el alcance se opta,
+> no se impone, y por eso activarlo no le saca acceso a nadie.
 
 ---
 
@@ -175,6 +182,16 @@ Pantalla de análisis post-partido para `club_admin`, `match_director` y `analys
 - **Perspectiva normalizada por club**: el club del usuario siempre es el protagonista, sin importar si fue local o visitante
 - **Objetivos** configurables por métrica
 - Exportación a Excel y PDF
+
+## Hoy (`/hoy`)
+
+La foto del día en un solo request: entrenamientos de hoy con acceso directo a la
+planilla, próximos partidos, lesionados, aptos por vencer, jugadores en riesgo de
+deserción y tarjetas rojas sin sanción cargada. Es la pantalla de inicio.
+
+## Calendario (`/calendario`)
+
+Partidos y entrenamientos juntos, por división, en vista de mes.
 
 ## Entrenamientos y asistencia (`/trainings`)
 
@@ -239,7 +256,7 @@ no se guardan, para no tener una segunda fuente de verdad. Un suplente que nunca
 entró tiene 0 minutos, y cada amarilla descuenta 10, acotado a lo que quedaba por
 jugar.
 
-## Físico (`/performance`)
+## Mediciones (`/mediciones`)
 
 - **Mediciones antropométricas**: peso, altura, IMC calculado y pliegues cutáneos.
 - **% de grasa corporal** por Durnin-Womersley usando la **edad y el sexo reales del jugador**. Cada medición guarda el método efectivo (`dw4c/F/20-29`): juego de pliegues, sexo y banda etaria. Un `*` marca un dato asumido por ficha incompleta y la UI lo explica.
@@ -247,6 +264,22 @@ jugar.
   - Sin él se usa el **abdominal** como reemplazo, y el método guardado lo refleja (`dw4a/...`) para no mezclar series calculadas distinto.
 - **Tests físicos**: 13 tipos (velocidad, aceleración, aeróbico, fuerza, salto, flexibilidad) con evolución por jugador.
 - **Ranking por división y test**, ordenado según el test (menor tiempo = mejor; mayor carga = mejor).
+
+## Rivales y tabla de posiciones
+
+El rival dejó de ser un string suelto: es una entidad por club, así que el
+historial cruza fechas. `GET /opponents/{id}/history` devuelve partidos,
+resultados y puntos a favor y en contra contra ese club.
+
+La **tabla de posiciones** del torneo se calcula desde los eventos, con puntaje
+URBA (4/2/0, bonus ofensivo con 4 tries y defensivo perdiendo por 7 o menos).
+Sólo entran partidos terminados.
+
+## Portal del jugador (`/mi-ficha`)
+
+Un jugador invitado (`POST /divisions/{id}/players/{pid}/invite`) entra con rol
+`player` y ve **sólo su ficha**: asistencia, minutos, tests y estado. Sin acceso a
+ninguna pantalla del club.
 
 ## Importación
 
