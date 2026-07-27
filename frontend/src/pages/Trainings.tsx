@@ -161,7 +161,7 @@ export default function Trainings() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto pb-24">
+    <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
       <h1 className="text-lg font-bold text-ink mb-4">Entrenamientos</h1>
 
       <select

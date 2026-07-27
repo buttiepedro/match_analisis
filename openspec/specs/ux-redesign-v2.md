@@ -16,7 +16,15 @@ La experiencia está diseñada para entrenadores y analistas que usan el celular
 
 ## Arquitectura de Información (IA)
 
-### Navegación Principal — Bottom Tab Bar (5 ítems)
+### Navegación Principal — ~~Bottom Tab Bar (5 ítems)~~ **Superado**
+
+> **Reemplazado el 2026-07-26 por la barra lateral.** Ver [[navigation]].
+>
+> La barra inferior no sobrevivió al crecimiento de la app. Cinco ítems era el
+> techo a 360px, y cada pantalla nueva tenía que desalojar a otra para entrar:
+> así fue como Mediciones quedó sin entrada para el administrador, y Calendario
+> y Estadísticas sin entrada para ningún rol. El resto de este documento —
+> Plantel, Mediciones, Tests— sigue vigente.
 
 ```
 ┌────────────────────────────────────────────────────────────┐

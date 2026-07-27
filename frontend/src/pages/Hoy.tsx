@@ -86,7 +86,7 @@ export default function Hoy() {
     data && !data.trainings.length && !data.upcoming_matches.length && !data.alerts.length;
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto pb-24">
+    <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
       <p className="text-xs text-ink-muted uppercase tracking-wider">Hoy</p>
       <h1 className="text-lg font-bold text-ink capitalize mb-5">{today}</h1>
 

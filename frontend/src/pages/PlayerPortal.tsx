@@ -91,7 +91,7 @@ export default function PlayerPortal() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-md mx-auto pb-24">
+    <div className="p-4 md:p-6 max-w-md mx-auto pb-10">
       <div className="flex items-center gap-3 mb-5">
         {player.profile_photo_url ? (
           <img
