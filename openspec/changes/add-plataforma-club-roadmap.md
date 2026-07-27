@@ -103,27 +103,20 @@ El alcance por división sigue siendo **ortogonal** y ya funciona: una capacidad
 
 ### 2. Socios y cuotas — *el que más valor le da al club*
 
+> **Reducido tras las respuestas del club.** Ver [[add-socios-padron]] para el detalle.
+
+El estado de cuota **no se calcula en la app**: llega importado del sistema contable
+como un booleano, con la fecha en que se sincronizó. La app espeja, no lleva la
+contabilidad.
+
 ```
-members          club_id, user_id?, nombre, dni, categoría, fecha_alta, estado
-fee_schedules    club_id, categoría, monto, vigente_desde
-fees             member_id, período (YYYY-MM), monto, estado, paid_at, método, registrado_por
+members         club_id, user_id, nombre, categoría, n° socio,
+                dues_up_to_date, dues_synced_at, is_active
+member_imports  log de cada sincronización
 ```
 
-Categorías: activo, cadete, vitalicio, adherente. Estados de cuota: pendiente, pagada,
-exenta, vencida.
-
-**Lo que ve el socio**: al día, o cuántos meses debe y desde cuándo. Nada más.
-Es la pregunta que hace y hoy sólo se responde llamando por teléfono.
-
-**Decisión de alcance que conviene tomar ahora**: la app **registra** pagos, no los
-**cobra**. Un gateway trae PCI, conciliación, contracargos y devoluciones — es un
-proyecto propio, no una fase de este. Se deja preparado el campo `método` para cuando
-llegue.
-
-**Porque es plata:**
-- Las cuotas no se borran nunca; se anulan con motivo y queda quién y cuándo.
-- Toda escritura queda auditada.
-- La generación mensual es idempotente: correrla dos veces no duplica la cuota de mayo.
+Trae además trabajo de autenticación que no estaba previsto: **ingreso por DNI**,
+`users.email` a nullable y cambio de contraseña forzado en el primer ingreso.
 
 ---
 
@@ -134,8 +127,8 @@ quiere ver y **ya está en la base**:
 
 - Sus **tests físicos** con evolución por categoría (Potencia, Resistencia, Fuerza).
 - Su **antropometría**: peso y % de grasa en el tiempo.
-- Su **posición en el ranking** de la división — opcional por club: motiva a algunos
-  y expone a otros, así que lo decide el club, no el default.
+
+El ranking contra los compañeros **queda afuera**: el club decidió que por ahora no.
 
 Casi todo es UI sobre endpoints existentes. Va temprano porque es lo que hace que el
 jugador *entre* a la app, y sin eso los módulos siguientes no tienen público.
@@ -232,18 +225,32 @@ medias.
 
 ---
 
-## Lo que hay que decidir antes de escribir la propuesta 1
+## Preguntas respondidas por el club (27/07)
 
-Tres preguntas que cambian el diseño y no puedo contestar solo:
+1. **Hay padrón para importar.** Y el estado de cuota **no se calcula**: llega como un
+   booleano desde el sistema contable del club, que ya lo tiene. Semanal por Excel al
+   principio; por endpoint si el contable llega a exponer uno. Por ahora sólo socios
+   activos.
+2. **El socio entra con DNI** y una contraseña por defecto que cambia en el primer
+   ingreso.
+3. **El ranking del jugador contra sus compañeros: por ahora no.**
 
-1. **¿Los socios se cargan a mano o hay un padrón para importar?** Si existe un Excel
-   de socios, el cambio 2 arranca con un importador y no con un ABM.
-2. **¿Las cuotas son mensuales para todos, o hay anuales y semestrales?** Cambia si
-   `período` es `YYYY-MM` o algo más general.
-3. **¿El club quiere que el jugador vea su ranking contra sus compañeros?** Motiva a
-   unos y expone a otros; prefiero que sea decisión del club y no default mío.
+### Qué cambió en el plan por estas respuestas
 
----
+- **El cambio 2 se achicó mucho.** Se cae todo lo que había propuesto de `fees`,
+  `fee_schedules`, períodos, montos y métodos de pago. Modelar cuotas mes a mes sería
+  levantar un sistema contable paralelo al que el club ya usa, y dos fuentes de verdad
+  sobre plata terminan mal siempre. Queda un booleano espejado con su fecha de
+  sincronización.
+- **Aparece trabajo que no estaba: autenticación.** Login por DNI, `users.email` a
+  nullable —un socio puede no tener email— y cambio de contraseña forzado. Es la parte
+  más delicada del cambio y no figuraba en el roadmap original.
+- **La actualización periódica pasa a ser el centro del diseño**, no un extra. El
+  importador de Excel y el futuro cliente de API escriben por la misma función:
+  cambiar de fuente tiene que ser un parser nuevo, no una reescritura.
+- El cambio 3 pierde el ranking, que era su única pieza discutible.
+
+Detalle completo en [[add-socios-padron]].
 
 ## Relacionado
 
