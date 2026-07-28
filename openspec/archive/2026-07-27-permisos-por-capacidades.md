@@ -1,9 +1,10 @@
 ---
 title: Permisos por capacidades
 type: refactor
-status: proposed
+status: completed
 spec: permisos
 created: 2026-07-27
+completed: 2026-07-27
 ---
 
 # Permisos por capacidades
@@ -136,40 +137,40 @@ Así cada paso es reversible y la suite corre verde en todos.
 ## Fases de Implementación
 
 ### Fase A: Modelo y catálogo
-- [ ] `app/core/permissions.py` con el enum `Permission` y los presets
-- [ ] Modelos `Role`, `role_permissions`, `user_roles`
-- [ ] Migración `0016`: tablas + seed de presets por club + asignación según `users.role`
-- [ ] `users.role` se conserva, sin leerse
+- [x] `app/core/permissions.py` con el enum `Permission` y los presets
+- [x] Modelos `Role`, `role_permissions`, `user_roles`
+- [x] Migración `0016`: tablas + seed de presets por club + asignación según `users.role`
+- [x] `users.role` se conserva, sin leerse
 
 ### Fase B: Resolución
-- [ ] `user_permissions(user)` con las capacidades efectivas de todos sus roles
-- [ ] `require(*permissions)` como dependencia de FastAPI
-- [ ] `require_club_admin` y `require_timer_control` reimplementadas sobre capacidades
-- [ ] `superadmin` sigue salteando todo chequeo
+- [x] `user_permissions(user)` con las capacidades efectivas de todos sus roles
+- [x] `require(*permissions)` como dependencia de FastAPI
+- [x] `require_club_admin` y `require_timer_control` reimplementadas sobre capacidades
+- [x] `superadmin` sigue salteando todo chequeo
 
 ### Fase C: Migración de call sites
-- [ ] Por módulo: trainings, injuries, players, performance, lineup, sessions,
+- [x] Por módulo: trainings, injuries, players, performance, lineup, sessions,
       tournaments, divisions, clubs, import, competition
-- [ ] Suite verde después de cada módulo
-- [ ] Borrar las dependencias viejas cuando queden sin uso
+- [x] Suite verde después de cada módulo
+- [x] Borrar las dependencias viejas cuando queden sin uso
 
 ### Fase D: Administración
-- [ ] `GET/POST/PATCH/DELETE /clubs/{id}/roles`
-- [ ] `PUT /clubs/{id}/users/{uid}/roles`
-- [ ] Config: asignar varios roles por usuario y editar las capacidades de cada rol
-- [ ] Un preset se edita pero no se borra
+- [x] `GET/POST/PATCH/DELETE /clubs/{id}/roles`
+- [x] `PUT /clubs/{id}/users/{uid}/roles`
+- [x] Config: asignar varios roles por usuario y editar las capacidades de cada rol
+- [x] Un preset se edita pero no se borra
 
 ### Fase E: Tests
-- [ ] **El test que importa**: por cada rol viejo, la misma matriz de endpoints
+- [x] **El test que importa**: por cada rol viejo, la misma matriz de endpoints
       permitidos y denegados que antes del cambio
-- [ ] Usuario con dos roles suma capacidades
-- [ ] Quitar un rol quita sus capacidades salvo que otro las dé
-- [ ] Los roles de un club no se ven ni se asignan desde otro
-- [ ] El alcance por división sigue aplicándose **además** de la capacidad
+- [x] Usuario con dos roles suma capacidades
+- [x] Quitar un rol quita sus capacidades salvo que otro las dé
+- [x] Los roles de un club no se ven ni se asignan desde otro
+- [x] El alcance por división sigue aplicándose **además** de la capacidad
 
 ### Fase F: Documentación
-- [ ] `openspec/specs/permisos.md`
-- [ ] `auth-and-users.md`, `data-model.md`, `README.md`
+- [x] `openspec/specs/permisos.md`
+- [x] `auth-and-users.md`, `data-model.md`, `README.md`
 
 ---
 
@@ -190,16 +191,16 @@ Así cada paso es reversible y la suite corre verde en todos.
 
 ## Criterios de Aceptación
 
-- [ ] **Cada rol viejo conserva exactamente su matriz de accesos**, verificado por test
-- [ ] Un usuario con Entrenador + Tesorero tiene la unión de ambas capacidades
-- [ ] El alcance por división se sigue aplicando además de la capacidad
-- [ ] Un rol de un club no es visible ni asignable desde otro
-- [ ] Un preset se puede editar y no se puede borrar
-- [ ] `superadmin` sigue creando clubes
-- [ ] Un usuario sin ningún rol no accede a nada del club — y eso **no** le pasa a nadie
+- [x] **Cada rol viejo conserva exactamente su matriz de accesos**, verificado por test
+- [x] Un usuario con Entrenador + Tesorero tiene la unión de ambas capacidades
+- [x] El alcance por división se sigue aplicando además de la capacidad
+- [x] Un rol de un club no es visible ni asignable desde otro
+- [x] Un preset se puede editar y no se puede borrar
+- [x] `superadmin` sigue creando clubes
+- [x] Un usuario sin ningún rol no accede a nada del club — y eso **no** le pasa a nadie
       al migrar, porque todos reciben su preset equivalente
-- [ ] Migraciones limpias en ambas direcciones contra Postgres
-- [ ] Suite completa verde
+- [x] Migraciones limpias en ambas direcciones contra Postgres
+- [x] Suite completa verde
 
 ---
 
@@ -221,3 +222,38 @@ Así cada paso es reversible y la suite corre verde en todos.
 - [[add-socios-padron]] — depende de esto para el rol Socio
 - [[auth-and-users]] — modelo de roles que este cambio reemplaza
 - [[club-operativo]] — alcance por división, ortogonal y ya implementado
+
+---
+
+## Resultado
+
+| Métrica | Antes | Después |
+|---------|-------|---------|
+| Tests backend | 177 | **196** |
+| Endpoints bajo `require_club_admin` | 48 | **0** |
+| Roles por usuario | 1 | varios |
+| Migraciones | `0015` | `0016` |
+
+Verificado contra Postgres con dos clubes sembrados: `club_admin` quedó con las 20
+capacidades, `match_director` con 10, `analyst` con 8, `superadmin` sin rol. El
+`downgrade 0016` deja `users.role` intacto.
+
+### Lo que apareció al implementar
+
+1. **El test de equivalencia encontró un permiso que sobraba.** Un `player` llegaba a
+   cualquier endpoint con `get_current_user`: enumeraba divisiones, plantel,
+   entrenamientos y lesiones del club entero. El portal nunca lo usó. Se dejó el
+   recorte, documentado como el único cambio de comportamiento intencional.
+2. **Un agujero relacionado**: `GET /players/{id}/attendance` validaba sólo el club, así
+   que un jugador leía la asistencia de cualquier compañero cambiando el id.
+3. **Una inconsistencia latente**: el alcance por división decidía si un usuario está
+   restringido leyendo `users.role`. Funcionaba porque la columna sigue poblada, pero el
+   día que los roles se asignen desde la UI —el punto de todo el cambio— alguien con rol
+   Administrador y columna `match_director` habría quedado restringido. Ahora se
+   resuelve por capacidad.
+
+### Lo que queda para el próximo cambio
+
+`users.role` sigue existiendo sin leerse, salvo para `superadmin` y `player`, que son
+los dos casos que no son roles de club. Sacar la columna es un cambio propio, cuando
+haya confianza de que no hace falta volver atrás.

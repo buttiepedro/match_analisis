@@ -6,8 +6,9 @@ import { useAuthStore } from "../store/authStore";
 import { RUGBY_POSITIONS } from "../lib/rugby";
 import CropModal from "../components/CropModal";
 import UnifyPlayersModal from "../components/UnifyPlayersModal";
+import RolesTab from "../components/RolesTab";
 
-type ConfigTab = "divisions" | "players" | "users";
+type ConfigTab = "divisions" | "players" | "users" | "roles";
 
 interface Division { id: string; name: string; is_active: boolean }
 interface PlayerWithDivision {
@@ -40,16 +41,11 @@ function PlayerAvatar({ player, size = 38 }: { player: PlayerWithDivision; size?
 }
 interface ClubUser { id: string; email: string; full_name: string; role: string }
 
-const ROLE_LABEL: Record<string, string> = {
-  club_admin:     "Admin de club",
-  match_director: "Director de partido",
-  analyst:        "Analista",
-};
-
 const TABS: { id: ConfigTab; label: string }[] = [
   { id: "divisions", label: "Divisiones" },
   { id: "players",   label: "Jugadores" },
   { id: "users",     label: "Usuarios" },
+  { id: "roles",     label: "Roles" },
 ];
 
 export default function Configuracion() {
@@ -340,6 +336,10 @@ export default function Configuracion() {
   /** Alcance por usuario. **Vacío = todas las divisiones**, no "ninguna". */
   const [userScopes,     setUserScopes]     = useState<Record<string, string[]>>({});
   const [editingScopeFor, setEditingScopeFor] = useState<string | null>(null);
+  /** Roles del club y los asignados a cada usuario. Sus permisos se suman. */
+  const [clubRoles, setClubRoles] = useState<{ id: string; name: string }[]>([]);
+  const [userRoles, setUserRoles] = useState<Record<string, string[]>>({});
+  const [editingRolesFor, setEditingRolesFor] = useState<string | null>(null);
   const [loadingUsers,   setLoadingUsers]   = useState(false);
   const [usersLoaded,    setUsersLoaded]    = useState(false);
   const [showUserModal,  setShowUserModal]  = useState(false);
@@ -357,18 +357,53 @@ export default function Configuracion() {
       .then(async ({ data }) => {
         setUsers(data);
         setUsersLoaded(true);
-        const scopes = await Promise.all(
-          data.map((u) =>
-            api
-              .get<string[]>(`/clubs/${clubId}/users/${u.id}/divisions`)
-              .then(({ data: ids }) => [u.id, ids] as const)
-              .catch(() => [u.id, [] as string[]] as const)
-          )
-        );
+        const [scopes, roles, catalog] = await Promise.all([
+          Promise.all(
+            data.map((u) =>
+              api
+                .get<string[]>(`/clubs/${clubId}/users/${u.id}/divisions`)
+                .then(({ data: ids }) => [u.id, ids] as const)
+                .catch(() => [u.id, [] as string[]] as const)
+            )
+          ),
+          Promise.all(
+            data.map((u) =>
+              api
+                .get<string[]>(`/clubs/${clubId}/users/${u.id}/roles`)
+                .then(({ data: ids }) => [u.id, ids] as const)
+                .catch(() => [u.id, [] as string[]] as const)
+            )
+          ),
+          api
+            .get<{ id: string; name: string }[]>(`/clubs/${clubId}/roles`)
+            .then(({ data }) => data)
+            .catch(() => []),
+        ]);
         setUserScopes(Object.fromEntries(scopes));
+        setUserRoles(Object.fromEntries(roles));
+        setClubRoles(catalog);
       })
       .finally(() => setLoadingUsers(false));
   }, [activeTab, clubId, usersLoaded]);
+
+  const toggleUserRole = async (userId: string, roleId: string) => {
+    if (!clubId) return;
+    const current = userRoles[userId] ?? [];
+    const next = current.includes(roleId)
+      ? current.filter((id) => id !== roleId)
+      : [...current, roleId];
+
+    setUserRoles((prev) => ({ ...prev, [userId]: next }));
+    try {
+      const { data } = await api.put<string[]>(
+        `/clubs/${clubId}/users/${userId}/roles`,
+        { role_ids: next }
+      );
+      setUserRoles((prev) => ({ ...prev, [userId]: data }));
+    } catch {
+      setUserRoles((prev) => ({ ...prev, [userId]: current }));
+    }
+  };
 
   const toggleUserDivision = async (userId: string, divisionId: string) => {
     if (!clubId) return;
@@ -770,6 +805,8 @@ export default function Configuracion() {
       )}
 
       {/* ── Usuarios ───────────────────────────────────────────────────── */}
+      {activeTab === "roles" && clubId && <RolesTab clubId={clubId} />}
+
       {activeTab === "users" && (
         <>
           <div className="flex items-center justify-between mb-4">
@@ -791,6 +828,7 @@ export default function Configuracion() {
               {users.map((u) => {
                 const scope = userScopes[u.id] ?? [];
                 const editing = editingScopeFor === u.id;
+                const editingRoles = editingRolesFor === u.id;
                 return (
                   <li key={u.id} className="bg-surface rounded-xl px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
@@ -798,10 +836,41 @@ export default function Configuracion() {
                         <p className="text-ink text-sm font-medium truncate">{u.full_name}</p>
                         <p className="text-ink-muted text-xs truncate">{u.email}</p>
                       </div>
-                      <span className="text-xs text-ink-muted shrink-0">
-                        {ROLE_LABEL[u.role] ?? u.role}
-                      </span>
+                      <button
+                        onClick={() => setEditingRolesFor(editingRoles ? null : u.id)}
+                        className="pressable text-xs text-brand hover:text-brand-hover shrink-0 transition-colors duration-150"
+                      >
+                        {(userRoles[u.id] ?? []).length === 0
+                          ? "Sin roles"
+                          : (userRoles[u.id] ?? [])
+                              .map((id) => clubRoles.find((r) => r.id === id)?.name ?? "?")
+                              .join(" · ")}
+                      </button>
                     </div>
+
+                    {editingRoles && (
+                      <div className="mt-2 pt-2 border-t border-line">
+                        <p className="text-[11px] text-ink-muted mb-2">
+                          Los permisos de todos los roles asignados se suman.
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {clubRoles.map((r) => {
+                            const on = (userRoles[u.id] ?? []).includes(r.id);
+                            return (
+                              <button
+                                key={r.id}
+                                onClick={() => toggleUserRole(u.id, r.id)}
+                                className={`pressable px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-150 ${
+                                  on ? "bg-brand text-white" : "bg-surface-strong text-ink-soft"
+                                }`}
+                              >
+                                {r.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className="text-[11px] text-ink-muted">
