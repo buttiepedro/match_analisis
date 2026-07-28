@@ -17,7 +17,19 @@ user_roles = Table(
 
 
 class RolePermission(Base):
-    """Una capacidad concedida a un rol. El valor es un `Permission`."""
+    """
+    Una capacidad concedida a un rol. El valor es un `Permission`.
+
+    Guarda las **propias y las heredadas**, distinguidas por `inherited`. Las
+    heredadas están materializadas —se recalculan al escribir— y no resueltas al
+    leer, porque `user_permissions()` es una función *sync* que corre en el
+    camino de todos los requests. Recorrer ahí la cadena de padres significaría
+    lazy-loading dentro de código sync, que en este proyecto ya explotó dos veces
+    con `MissingGreenlet`.
+
+    El precio es recalcular al editar un rol. Un club tiene ocho o quince roles:
+    es barato, y pasa una vez por edición en vez de una vez por request.
+    """
 
     __tablename__ = "role_permissions"
 
@@ -25,6 +37,11 @@ class RolePermission(Base):
         ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True
     )
     permission: Mapped[str] = mapped_column(String(50), primary_key=True)
+    #: False = la tildó alguien en este rol. True = viene de un ancestro.
+    #: Si es las dos cosas gana "propia": sacarle el padre no debe quitársela.
+    inherited: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
 
 
 class Role(Base):
@@ -42,6 +59,17 @@ class Role(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     club_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("clubs.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
+    #: De quién deriva. "Jugador hereda de Socio" es un `parent_role_id`.
+    #:
+    #: Un solo padre, no varios: así el club queda como un árbol que se puede
+    #: dibujar y explicar ("Jugador = Socio + 2 propias"). La suma de dos ramas
+    #: —el entrenador que además es tesorero— ya se resuelve asignándole los dos
+    #: roles al usuario, que es donde ese caso pertenece.
+    #:
+    #: `RESTRICT` y no `CASCADE`: borrar Socio no puede llevarse puesto a Jugador.
+    parent_role_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("roles.id", ondelete="RESTRICT"), nullable=True
+    )
     #: Un preset se puede editar pero no borrar: es la red que evita que un club
     #: se quede sin ningún rol capaz de administrar.
     is_preset: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
@@ -56,4 +84,10 @@ class Role(Base):
 
     @property
     def permission_values(self) -> set[str]:
+        """Lo que el rol concede de verdad: propias **más** heredadas."""
         return {p.permission for p in self.permissions}
+
+    @property
+    def own_permission_values(self) -> set[str]:
+        """Sólo las tildadas en este rol. Es lo que se edita."""
+        return {p.permission for p in self.permissions if not p.inherited}

@@ -21,8 +21,24 @@ type NavItem = {
   icon: React.ReactNode;
   /** Rutas que también deben marcar este ítem como activo. */
   alias?: string[];
-  /** Capacidad que habilita el ítem. Sin ella no aparece en el menú. */
-  permission?: string;
+  /**
+   * Capacidades que habilitan el ítem: alcanza con **una**. Sin ninguna de
+   * ellas, no aparece.
+   *
+   * Varias porque hay pantallas que agregan cosas de distinto dominio —
+   * Calendario junta entrenamientos y partidos—, y exigir todas dejaría afuera
+   * a quien tiene motivos legítimos para entrar.
+   */
+  permission?: string | string[];
+  /**
+   * Se muestra sólo a quien está cargado como jugador.
+   *
+   * Es lo único que sigue mirando el `role` del enum viejo, y a propósito: no
+   * responde a "qué podés hacer" sino a "quién sos". No hay capacidad que diga
+   * *soy jugador*, y no tendría que haberla — la ficha propia no es un permiso
+   * sobre el club.
+   */
+  onlyForPlayers?: boolean;
 };
 
 type NavGroup = { title: string; items: NavItem[] };
@@ -163,41 +179,67 @@ const IconLogout = () => (
 
 // ── Menú por rol ──────────────────────────────────────────────────────────────
 
-const HOY: NavItem = { label: "Hoy", path: "/hoy", icon: <IconHome /> };
-const CALENDARIO: NavItem = { label: "Calendario", path: "/calendario", icon: <IconCalendar /> };
-const PARTIDOS: NavItem = { label: "Partidos", path: "/tournaments", icon: <IconBall />, alias: ["/torneos"] };
-const STATS: NavItem = { label: "Estadísticas", path: "/stats", icon: <IconChart /> };
-const PLANTEL: NavItem = { label: "Plantel", path: "/squad", icon: <IconUsers /> };
-const ASISTENCIA: NavItem = { label: "Asistencia", path: "/trainings", icon: <IconClipboard /> };
-const MEDICIONES: NavItem = { label: "Mediciones", path: "/mediciones", icon: <IconActivity />, alias: ["/performance"] };
-const CONFIG: NavItem = { label: "Configuración", path: "/config", icon: <IconSettings /> };
+const HOY: NavItem = { label: "Hoy", path: "/hoy", icon: <IconHome />, permission: ["asistencia.ver", "partido.ver", "plantel.ver"] };
+const CALENDARIO: NavItem = { label: "Calendario", path: "/calendario", icon: <IconCalendar />, permission: ["entrenamiento.gestionar", "asistencia.ver", "partido.ver"] };
+const PARTIDOS: NavItem = { label: "Partidos", path: "/tournaments", icon: <IconBall />, alias: ["/torneos"], permission: "partido.ver" };
+const STATS: NavItem = { label: "Estadísticas", path: "/stats", icon: <IconChart />, permission: "partido.ver" };
+const PLANTEL: NavItem = { label: "Plantel", path: "/squad", icon: <IconUsers />, permission: "plantel.ver" };
+const ASISTENCIA: NavItem = { label: "Asistencia", path: "/trainings", icon: <IconClipboard />, permission: "asistencia.ver" };
+const MEDICIONES: NavItem = { label: "Mediciones", path: "/mediciones", icon: <IconActivity />, alias: ["/performance"], permission: "mediciones.ver" };
+const CONFIG: NavItem = { label: "Configuración", path: "/config", icon: <IconSettings />, permission: ["club.usuarios", "club.divisiones", "club.torneos", "club.rivales"] };
 const SOCIOS: NavItem = { label: "Socios", path: "/socios", icon: <IconCard />, permission: "socios.ver_todas" };
 const GIMNASIO: NavItem = { label: "Gimnasio", path: "/gimnasio", icon: <IconDumbbell />, permission: "gimnasio.ver" };
 const BOLSA: NavItem = { label: "Bolsa de trabajo", path: "/bolsa", icon: <IconBriefcase />, permission: "bolsa.ver" };
-const MI_CUOTA: NavItem = { label: "Mi cuota", path: "/mi-club", icon: <IconCard /> };
+const MI_CUOTA: NavItem = { label: "Mi cuota", path: "/mi-club", icon: <IconCard />, permission: "socios.ver_propia" };
+const MI_FICHA: NavItem = { label: "Mi ficha", path: "/mi-ficha", icon: <IconUser />, onlyForPlayers: true };
 
-/** Mismo menú para director y analista: ninguno de los dos configura el club. */
-const CUERPO_TECNICO: NavGroup[] = [
+/*
+  El menú sale de las **capacidades**, no del `role` del enum viejo.
+
+  Antes cada rol traía su lista fija y la capacidad sólo podía sacar ítems de
+  esa lista. Con roles editables eso se rompe solo: un club que le da el rol
+  Entrenador a alguien cargado como `player` le da las capacidades pero no la
+  forma de llegar a las pantallas. El permiso existía y el menú no, que es la
+  peor de las dos mitades — la app dice que no podés y el backend dice que sí.
+
+  `superadmin` sigue aparte: tiene todas las capacidades pero ningún club, y
+  estas pantallas necesitan uno.
+*/
+export const SUPERADMIN_NAV: NavGroup[] = [
+  { title: "Administración", items: [{ label: "Clubes", path: "/clubs", icon: <IconBuilding /> }] },
+];
+
+/**
+ * Menú de un usuario. Exportada porque es la única lógica del layout que se
+ * puede —y conviene— probar sola: decide a qué llega cada persona.
+ */
+export function navFor(role: string | undefined, permissions: string[]): NavGroup[] {
+  const granted = new Set(permissions);
+  const isPlayer = role === "player";
+
+  const visible = (item: NavItem): boolean => {
+    if (item.onlyForPlayers) return isPlayer;
+    if (!item.permission) return true;
+    const needed = Array.isArray(item.permission) ? item.permission : [item.permission];
+    return needed.some((p) => granted.has(p));
+  };
+
+  // `superadmin` va aparte: tiene todas las capacidades pero ningún club, y
+  // estas pantallas necesitan uno.
+  return (role === "superadmin" ? SUPERADMIN_NAV : NAV)
+    .map((g) => ({ ...g, items: g.items.filter(visible) }))
+    .filter((g) => g.items.length > 0);
+}
+
+export const NAV: NavGroup[] = [
+  // Primero lo propio: para un jugador o un socio es todo lo que hay, y sería
+  // raro que apareciera al final de una lista de cosas que no puede tocar.
+  { title: "Mi cuenta", items: [MI_CUOTA, MI_FICHA] },
   { title: "Día a día", items: [HOY, CALENDARIO] },
   { title: "Partido", items: [PARTIDOS, STATS] },
   { title: "Plantel", items: [PLANTEL, ASISTENCIA, MEDICIONES, GIMNASIO] },
+  { title: "Club", items: [SOCIOS, BOLSA, CONFIG] },
 ];
-
-const NAV_BY_ROLE: Record<string, NavGroup[]> = {
-  superadmin: [{ title: "Administración", items: [{ label: "Clubes", path: "/clubs", icon: <IconBuilding /> }] }],
-  club_admin: [...CUERPO_TECNICO, { title: "Club", items: [SOCIOS, BOLSA, CONFIG] }],
-  match_director: CUERPO_TECNICO,
-  analyst: CUERPO_TECNICO,
-  // Un socio importado del padrón entra con `player` en el enum viejo. Ve su
-  // cuota; la ficha deportiva sólo si además es jugador, y la pantalla lo resuelve.
-  player: [
-    {
-      title: "Mi cuenta",
-      items: [MI_CUOTA, { label: "Mi ficha", path: "/mi-ficha", icon: <IconUser /> }],
-    },
-    { title: "Club", items: [BOLSA] },
-  ],
-};
 
 const ROLE_LABEL: Record<string, string> = {
   superadmin: "Superadmin",
@@ -220,15 +262,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     () => localStorage.getItem(COLLAPSED_KEY) === "1"
   );
 
-  // El menú se filtra por capacidad, no sólo por rol: con permisos por
-  // capacidades, dos usuarios con el mismo `role` pueden tener menús distintos.
-  const granted = new Set(user?.permissions ?? []);
-  const groups = (user ? NAV_BY_ROLE[user.role] ?? [] : [])
-    .map((g) => ({
-      ...g,
-      items: g.items.filter((i) => !i.permission || granted.has(i.permission)),
-    }))
-    .filter((g) => g.items.length > 0);
+  const groups = navFor(user?.role, user?.permissions ?? []);
 
   // Navegar cierra el cajón: si quedara abierto taparía la pantalla recién abierta.
   useEffect(() => setDrawerOpen(false), [location.pathname]);

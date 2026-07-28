@@ -6,8 +6,15 @@ interface Role {
   id: string;
   name: string;
   is_preset: boolean;
+  /** Propias + heredadas: lo que el rol concede de verdad. */
   permissions: string[];
+  /** Lo único editable. */
+  own_permissions: string[];
+  inherited_permissions: string[];
+  parent_role_id: string | null;
+  parent_name: string | null;
   user_count: number;
+  child_count: number;
 }
 
 interface PermissionEntry {
@@ -24,6 +31,9 @@ const DOMAIN_LABEL: Record<string, string> = {
   partido: "Partidos",
   medico: "Médico",
   mediciones: "Mediciones",
+  gimnasio: "Gimnasio",
+  socios: "Socios y cuotas",
+  bolsa: "Bolsa de trabajo",
   club: "Configuración del club",
 };
 
@@ -41,10 +51,38 @@ const ACTION_LABEL: Record<string, string> = {
   torneos: "Torneos",
   usuarios: "Usuarios y roles",
   rivales: "Rivales",
+  publicar: "Publicar avisos",
+  moderar: "Moderar avisos",
+  // Estas tres son sobre **lo propio**, no sobre el club. Etiquetarlas "Ver" a
+  // secas haría que alguien le diera a un jugador acceso a todo el plantel
+  // creyendo que le da acceso a su ficha.
+  ver_propio: "Ver sólo lo suyo",
+  ver_propia: "Ver sólo la suya",
+  ver_todas: "Ver las de todos",
 };
 
 function label(entry: PermissionEntry): string {
   return ACTION_LABEL[entry.action] ?? entry.action;
+}
+
+/**
+ * Roles que no se pueden ofrecer como padre de `roleId`: él mismo y su
+ * descendencia. El backend igual rechaza el ciclo, pero ofrecer una opción que
+ * después da error es hacerle perder el tiempo a quien la elige.
+ */
+function forbiddenParents(roleId: string, roles: Role[]): Set<string> {
+  const blocked = new Set([roleId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    roles.forEach((r) => {
+      if (r.parent_role_id && blocked.has(r.parent_role_id) && !blocked.has(r.id)) {
+        blocked.add(r.id);
+        grew = true;
+      }
+    });
+  }
+  return blocked;
 }
 
 export default function RolesTab({ clubId }: { clubId: string }) {
@@ -56,7 +94,7 @@ export default function RolesTab({ clubId }: { clubId: string }) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
 
-  const load = () => {
+  const load = () =>
     Promise.all([
       api.get<Role[]>(`/clubs/${clubId}/roles`),
       api.get<PermissionEntry[]>("/permissions"),
@@ -67,9 +105,10 @@ export default function RolesTab({ clubId }: { clubId: string }) {
       })
       .catch((err) => setError(parseApiError(err, "No se pudieron cargar los roles")))
       .finally(() => setLoading(false));
-  };
 
-  useEffect(load, [clubId]);
+  useEffect(() => {
+    load();
+  }, [clubId]);
 
   const byDomain = useMemo(() => {
     const map: Record<string, PermissionEntry[]> = {};
@@ -80,23 +119,34 @@ export default function RolesTab({ clubId }: { clubId: string }) {
   }, [catalog]);
 
   const toggle = async (role: Role, permission: string) => {
-    const next = role.permissions.includes(permission)
-      ? role.permissions.filter((p) => p !== permission)
-      : [...role.permissions, permission];
+    // Se togglea contra las **propias**: mandar una heredada la convertiría en
+    // propia sin que nadie lo haya pedido.
+    const next = role.own_permissions.includes(permission)
+      ? role.own_permissions.filter((p) => p !== permission)
+      : [...role.own_permissions, permission];
 
-    // Optimista: marcar una capacidad tiene que sentirse inmediato.
-    setRoles((prev) =>
-      prev.map((r) => (r.id === role.id ? { ...r, permissions: next } : r))
-    );
     setError("");
     try {
-      const { data } = await api.patch<Role>(`/clubs/${clubId}/roles/${role.id}`, {
-        permissions: next,
-      });
-      setRoles((prev) => prev.map((r) => (r.id === role.id ? data : r)));
+      await api.patch(`/clubs/${clubId}/roles/${role.id}`, { permissions: next });
+      // Se recarga todo y no sólo este rol: si tiene hijos, les cambió lo
+      // heredado y sus listas quedaron viejas en pantalla.
+      await load();
     } catch (err) {
-      setRoles((prev) => prev.map((r) => (r.id === role.id ? role : r)));
       setError(parseApiError(err, "No se pudo guardar el cambio"));
+    }
+  };
+
+  const setParent = async (role: Role, parentId: string) => {
+    setError("");
+    try {
+      await api.patch(
+        `/clubs/${clubId}/roles/${role.id}`,
+        parentId ? { parent_role_id: parentId } : { clear_parent: true }
+      );
+      await load();
+    } catch (err) {
+      // El backend explica el ciclo o el largo de la cadena.
+      setError(parseApiError(err, "No se pudo cambiar de quién hereda"));
     }
   };
 
@@ -109,7 +159,7 @@ export default function RolesTab({ clubId }: { clubId: string }) {
         name,
         permissions: [],
       });
-      setRoles((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      await load();
       setNewName("");
       setCreating(false);
       setEditing(data.id);
@@ -123,9 +173,9 @@ export default function RolesTab({ clubId }: { clubId: string }) {
     setError("");
     try {
       await api.delete(`/clubs/${clubId}/roles/${role.id}`);
-      setRoles((prev) => prev.filter((r) => r.id !== role.id));
+      await load();
     } catch (err) {
-      // El backend explica por qué no se puede: preset, o asignado a gente.
+      // El backend explica por qué no se puede: preset, asignado, o con hijos.
       setError(parseApiError(err, "No se pudo eliminar el rol"));
     }
   };
@@ -137,8 +187,10 @@ export default function RolesTab({ clubId }: { clubId: string }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-ink-muted">
-        Un usuario puede tener varios roles y sus permisos se suman. Los roles del
-        sistema se pueden editar pero no eliminar.
+        Un rol puede <strong className="font-semibold text-ink-soft">heredar</strong> de
+        otro y sumarle lo suyo — "Jugador hereda de Socio y agrega ver sus tests". Lo
+        que cambies en el padre les llega solo a los hijos. Un usuario también puede
+        tener varios roles, y ahí las capacidades se suman igual.
       </p>
 
       {error && (
@@ -147,6 +199,7 @@ export default function RolesTab({ clubId }: { clubId: string }) {
 
       {roles.map((role) => {
         const open = editing === role.id;
+        const blocked = forbiddenParents(role.id, roles);
         return (
           <div key={role.id} className="bg-surface rounded-xl overflow-hidden">
             <button
@@ -163,6 +216,11 @@ export default function RolesTab({ clubId }: { clubId: string }) {
                   )}
                 </span>
                 <span className="block text-xs text-ink-muted">
+                  {role.parent_name && (
+                    <span className="text-brand font-medium">
+                      hereda de {role.parent_name} ·{" "}
+                    </span>
+                  )}
                   {role.permissions.length === 0
                     ? "Sin permisos"
                     : `${role.permissions.length} permiso(s)`}
@@ -174,6 +232,32 @@ export default function RolesTab({ clubId }: { clubId: string }) {
 
             {open && (
               <div className="px-4 pb-4 border-t border-line pt-3 space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">
+                    Hereda de
+                  </label>
+                  <select
+                    value={role.parent_role_id ?? ""}
+                    onChange={(e) => setParent(role, e.target.value)}
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
+                  >
+                    <option value="">— No hereda de nadie —</option>
+                    {roles
+                      .filter((r) => !blocked.has(r.id))
+                      .map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                  </select>
+                  {role.child_count > 0 && (
+                    <p className="text-[11px] text-ink-muted mt-1.5">
+                      {role.child_count} rol(es) heredan de éste: lo que toques acá
+                      les llega también.
+                    </p>
+                  )}
+                </div>
+
                 {Object.entries(byDomain).map(([domain, entries]) => (
                   <div key={domain}>
                     <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">
@@ -181,14 +265,31 @@ export default function RolesTab({ clubId }: { clubId: string }) {
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {entries.map((entry) => {
-                        const on = role.permissions.includes(entry.value);
+                        const own = role.own_permissions.includes(entry.value);
+                        const inherited = role.inherited_permissions.includes(entry.value);
+
+                        // Heredada: se muestra pero no se apaga desde acá. Para
+                        // sacarla hay que ir al rol de donde viene, que es
+                        // justamente lo que heredar significa.
+                        if (inherited) {
+                          return (
+                            <span
+                              key={entry.value}
+                              title={`Viene de ${role.parent_name} — para sacarla, editá ese rol`}
+                              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-brand-soft text-brand border border-dashed border-brand/40 cursor-default"
+                            >
+                              {label(entry)}
+                            </span>
+                          );
+                        }
+
                         return (
                           <button
                             key={entry.value}
                             onClick={() => toggle(role, entry.value)}
                             title={entry.value}
                             className={`pressable px-2.5 py-1 rounded-lg text-xs font-medium transition-colors duration-150 ${
-                              on
+                              own
                                 ? "bg-brand text-white"
                                 : "bg-surface-strong text-ink-muted hover:text-ink"
                             }`}
@@ -200,6 +301,12 @@ export default function RolesTab({ clubId }: { clubId: string }) {
                     </div>
                   </div>
                 ))}
+
+                {role.inherited_permissions.length > 0 && (
+                  <p className="text-[11px] text-ink-faint">
+                    Las de borde punteado vienen de {role.parent_name}.
+                  </p>
+                )}
 
                 {!role.is_preset && (
                   <button
