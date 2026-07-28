@@ -2,7 +2,17 @@ import uuid
 import enum
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum, Table, func
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    String,
+    Table,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
@@ -29,10 +39,24 @@ user_divisions = Table(
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("club_id", "document_id", name="uq_user_club_document"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     club_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("clubs.id"), nullable=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    #: Nullable: un socio del padrón puede no tener email. Postgres permite
+    #: varios NULL bajo un UNIQUE, así que la restricción sigue valiendo para
+    #: los emails que sí existen.
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
+    #: DNI. Credencial de ingreso del socio, única **por club**: la misma
+    #: persona puede ser socia de dos clubes.
+    document_id: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    #: Con la contraseña por defecto sin cambiar, el frontend no deja pasar a
+    #: ninguna pantalla que no sea la de cambiarla.
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)

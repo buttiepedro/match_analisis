@@ -7,7 +7,9 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    email: str
+    email: Optional[str] = None
+    document_id: Optional[str] = None
+    must_change_password: bool = False
     full_name: str
     role: str
     club_id: Optional[uuid.UUID]

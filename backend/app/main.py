@@ -14,6 +14,7 @@ from app.api.v1.health import router as health_router
 from app.api.v1.import_ import router as import_router
 from app.api.v1.injuries import router as injuries_router
 from app.api.v1.lineup import router as lineup_router
+from app.api.v1.members import router as members_router
 from app.api.v1.performance import router as performance_router
 from app.api.v1.players import router as players_router
 from app.api.v1.roles import router as roles_router
@@ -114,3 +115,4 @@ app.include_router(season_router, tags=["season"])
 app.include_router(dashboard_router, tags=["dashboard"])
 app.include_router(competition_router, tags=["competition"])
 app.include_router(roles_router, tags=["roles"])
+app.include_router(members_router, tags=["members"])

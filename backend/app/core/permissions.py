@@ -41,6 +41,12 @@ class Permission(str, enum.Enum):
     mediciones_ver = "mediciones.ver"
     mediciones_cargar = "mediciones.cargar"
 
+    # Socios
+    #: Ver el estado de cuota propio. La tiene el socio y nadie más la necesita.
+    socios_ver_propia = "socios.ver_propia"
+    socios_ver_todas = "socios.ver_todas"
+    socios_importar = "socios.importar"
+
     # Configuración del club
     club_divisiones = "club.divisiones"
     club_torneos = "club.torneos"
@@ -105,8 +111,12 @@ PRESET_PERMISSIONS: dict[str, frozenset[str]] = {
     # dejarlo sin asignar.
     PREPARADOR_FISICO: READ_ONLY | {Permission.mediciones_cargar.value},
     NUTRICIONISTA: READ_ONLY | {Permission.mediciones_cargar.value},
-    TESORERO: frozenset(),
-    SOCIO: frozenset(),
+    # Tesorero: ve el padrón entero y sincroniza contra el sistema contable.
+    TESORERO: frozenset(
+        {Permission.socios_ver_todas.value, Permission.socios_importar.value}
+    ),
+    # Socio: sólo su propio estado de cuota. Nada del club.
+    SOCIO: frozenset({Permission.socios_ver_propia.value}),
 }
 
 #: Rol preset que le corresponde a cada valor del enum viejo. `superadmin` no
