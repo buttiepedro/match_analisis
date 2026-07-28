@@ -2,11 +2,19 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 
+interface ClubOption {
+  slug: string;
+  name: string;
+}
+
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  /** Sólo aparece si el mismo DNI existe en más de un club. */
+  const [clubs, setClubs] = useState<ClubOption[]>([]);
+  const [clubSlug, setClubSlug] = useState("");
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
 
@@ -15,10 +23,17 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
-      navigate("/tournaments");
-    } catch {
-      setError("Email o contrasena incorrectos");
+      await login(identifier, password, clubSlug || undefined);
+      navigate("/");
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      if (err?.response?.status === 409 && detail?.clubs) {
+        setClubs(detail.clubs);
+        setClubSlug(detail.clubs[0]?.slug ?? "");
+        setError(detail.message ?? "Elegí tu club");
+      } else {
+        setError("Usuario o contraseña incorrectos");
+      }
     } finally {
       setLoading(false);
     }
@@ -31,7 +46,7 @@ export default function Login() {
           Rugby Analisis
         </h1>
         <p className="text-ink-muted text-center mb-8 text-sm">
-          Estadisticas de Rugby
+          Estadísticas y gestión del club
         </p>
 
         <form
@@ -39,21 +54,25 @@ export default function Login() {
           className="bg-surface rounded-2xl p-6 space-y-4"
         >
           <div>
-            <label className="block text-sm text-ink-soft mb-1">Email</label>
+            <label className="block text-sm text-ink-soft mb-1">
+              Email o DNI
+            </label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              inputMode="text"
+              value={identifier}
+              onChange={(e) => { setIdentifier(e.target.value); setClubs([]); setClubSlug(""); }}
               required
-              autoComplete="email"
+              autoComplete="username"
               className="w-full bg-surface-strong text-ink rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand-ring"
             />
+            <p className="text-xs text-ink-faint mt-1">
+              Si sos socio, ingresá con tu DNI sin puntos.
+            </p>
           </div>
 
           <div>
-            <label className="block text-sm text-ink-soft mb-1">
-              Contrasena
-            </label>
+            <label className="block text-sm text-ink-soft mb-1">Contraseña</label>
             <input
               type="password"
               value={password}
@@ -64,14 +83,27 @@ export default function Login() {
             />
           </div>
 
-          {error && (
-            <p className="text-red-600 text-sm text-center">{error}</p>
+          {clubs.length > 0 && (
+            <div>
+              <label className="block text-sm text-ink-soft mb-1">Club</label>
+              <select
+                value={clubSlug}
+                onChange={(e) => setClubSlug(e.target.value)}
+                className="w-full bg-surface-strong text-ink rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand-ring"
+              >
+                {clubs.map((c) => (
+                  <option key={c.slug} value={c.slug}>{c.name}</option>
+                ))}
+              </select>
+            </div>
           )}
+
+          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="pressable w-full bg-brand hover:bg-brand-hover disabled:bg-green-800 text-white font-semibold rounded-xl py-3 text-base transition-colors duration-150"
+            className="pressable w-full bg-brand hover:bg-brand-hover disabled:opacity-60 text-white font-semibold rounded-xl py-3 text-base transition-colors duration-150"
           >
             {loading ? "Ingresando..." : "Ingresar"}
           </button>

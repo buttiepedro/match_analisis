@@ -21,6 +21,8 @@ type NavItem = {
   icon: React.ReactNode;
   /** Rutas que también deben marcar este ítem como activo. */
   alias?: string[];
+  /** Capacidad que habilita el ítem. Sin ella no aparece en el menú. */
+  permission?: string;
 };
 
 type NavGroup = { title: string; items: NavItem[] };
@@ -113,6 +115,13 @@ const IconBuilding = () => (
   </svg>
 );
 
+const IconCard = () => (
+  <svg {...svg}>
+    <rect width="20" height="14" x="2" y="5" rx="2" />
+    <path d="M2 10h20" />
+  </svg>
+);
+
 const IconMenu = () => (
   <svg {...svg} width="22" height="22">
     <path d="M3 6h18M3 12h18M3 18h18" />
@@ -149,6 +158,8 @@ const PLANTEL: NavItem = { label: "Plantel", path: "/squad", icon: <IconUsers />
 const ASISTENCIA: NavItem = { label: "Asistencia", path: "/trainings", icon: <IconClipboard /> };
 const MEDICIONES: NavItem = { label: "Mediciones", path: "/mediciones", icon: <IconActivity />, alias: ["/performance"] };
 const CONFIG: NavItem = { label: "Configuración", path: "/config", icon: <IconSettings /> };
+const SOCIOS: NavItem = { label: "Socios", path: "/socios", icon: <IconCard />, permission: "socios.ver_todas" };
+const MI_CUOTA: NavItem = { label: "Mi cuota", path: "/mi-club", icon: <IconCard /> };
 
 /** Mismo menú para director y analista: ninguno de los dos configura el club. */
 const CUERPO_TECNICO: NavGroup[] = [
@@ -159,10 +170,17 @@ const CUERPO_TECNICO: NavGroup[] = [
 
 const NAV_BY_ROLE: Record<string, NavGroup[]> = {
   superadmin: [{ title: "Administración", items: [{ label: "Clubes", path: "/clubs", icon: <IconBuilding /> }] }],
-  club_admin: [...CUERPO_TECNICO, { title: "Club", items: [CONFIG] }],
+  club_admin: [...CUERPO_TECNICO, { title: "Club", items: [SOCIOS, CONFIG] }],
   match_director: CUERPO_TECNICO,
   analyst: CUERPO_TECNICO,
-  player: [{ title: "Mi cuenta", items: [{ label: "Mi ficha", path: "/mi-ficha", icon: <IconUser /> }] }],
+  // Un socio importado del padrón entra con `player` en el enum viejo. Ve su
+  // cuota; la ficha deportiva sólo si además es jugador, y la pantalla lo resuelve.
+  player: [
+    {
+      title: "Mi cuenta",
+      items: [MI_CUOTA, { label: "Mi ficha", path: "/mi-ficha", icon: <IconUser /> }],
+    },
+  ],
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -186,7 +204,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     () => localStorage.getItem(COLLAPSED_KEY) === "1"
   );
 
-  const groups = user ? (NAV_BY_ROLE[user.role] ?? []) : [];
+  // El menú se filtra por capacidad, no sólo por rol: con permisos por
+  // capacidades, dos usuarios con el mismo `role` pueden tener menús distintos.
+  const granted = new Set(user?.permissions ?? []);
+  const groups = (user ? NAV_BY_ROLE[user.role] ?? [] : [])
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((i) => !i.permission || granted.has(i.permission)),
+    }))
+    .filter((g) => g.items.length > 0);
 
   // Navegar cierra el cajón: si quedara abierto taparía la pantalla recién abierta.
   useEffect(() => setDrawerOpen(false), [location.pathname]);

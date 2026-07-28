@@ -1,9 +1,10 @@
 ---
 title: Socios — padrón importable, ingreso por DNI y estado de cuota
 type: feature
-status: proposed
+status: completed
 spec: socios
 created: 2026-07-27
+completed: 2026-07-27
 ---
 
 # Socios — padrón importable, ingreso por DNI y estado de cuota
@@ -206,42 +207,42 @@ comunicación de alta — más seguro y bastante más trabajo de logística para
 ## Fases de Implementación
 
 ### Fase A: Modelo y migración
-- [ ] Migración: `users.email` a nullable, `users.document_id`, `users.must_change_password`
-- [ ] `UNIQUE (club_id, document_id)`
-- [ ] Tablas `members` y `member_imports`
-- [ ] Rol `socio` con una sola capacidad: ver su propio estado de cuota
+- [x] Migración: `users.email` a nullable, `users.document_id`, `users.must_change_password`
+- [x] `UNIQUE (club_id, document_id)`
+- [x] Tablas `members` y `member_imports`
+- [x] Rol `socio` con una sola capacidad: ver su propio estado de cuota
 
 ### Fase B: Sincronización
-- [ ] `MemberRow` normalizada + `sync_members(club, rows, source)` como único camino de escritura
-- [ ] Parser de Excel con mapeo flexible de encabezados, siguiendo el importador de jugadores que ya existe
-- [ ] `POST /clubs/{id}/members/import` con `dry_run`, `force` y `default_password`
-- [ ] Freno del 20% de bajas
-- [ ] `GET /clubs/{id}/member-imports` — historial de sincronizaciones
-- [ ] Tests: idempotencia, baja por ausencia, la contraseña no se pisa, freno del 20%,
+- [x] `MemberRow` normalizada + `sync_members(club, rows, source)` como único camino de escritura
+- [x] Parser de Excel con mapeo flexible de encabezados, siguiendo el importador de jugadores que ya existe
+- [x] `POST /clubs/{id}/members/import` con `dry_run`, `force` y `default_password`
+- [x] Freno del 20% de bajas
+- [x] `GET /clubs/{id}/member-imports` — historial de sincronizaciones
+- [x] Tests: idempotencia, baja por ausencia, la contraseña no se pisa, freno del 20%,
       `dues_synced_at` se actualiza aunque el estado no cambie
 
 ### Fase C: Ingreso por DNI
-- [ ] `login` acepta `document_id`; `email` sigue funcionando
-- [ ] `must_change_password` en la respuesta y en el token
-- [ ] `POST /auth/change-password`
-- [ ] Guard en el frontend: con el flag arriba, sólo se llega a cambiar la contraseña
-- [ ] `409` con lista de clubes ante DNI ambiguo
-- [ ] Tests: login por DNI, por email, DNI de otro club, flag que bloquea navegación
+- [x] `login` acepta `document_id`; `email` sigue funcionando
+- [x] `must_change_password` en la respuesta y en el token
+- [x] `POST /auth/change-password`
+- [x] Guard en el frontend: con el flag arriba, sólo se llega a cambiar la contraseña
+- [x] `409` con lista de clubes ante DNI ambiguo
+- [x] Tests: login por DNI, por email, DNI de otro club, flag que bloquea navegación
 
 ### Fase D: Pantalla del socio
-- [ ] `GET /me/member` — estado propio
-- [ ] Pantalla: al día o no, **con la fecha del dato**, y a quién reclamar si no coincide
-- [ ] Landing por rol: un socio que no es jugador entra acá
-- [ ] Estado vacío honesto si el padrón nunca se importó
+- [x] `GET /me/member` — estado propio
+- [x] Pantalla: al día o no, **con la fecha del dato**, y a quién reclamar si no coincide
+- [x] Landing por rol: un socio que no es jugador entra acá
+- [x] Estado vacío honesto si el padrón nunca se importó
 
 ### Fase E: Administración
-- [ ] Listado de socios con búsqueda y filtro por estado de cuota
-- [ ] Pantalla de import con preview y confirmación
-- [ ] Documentación del formato de Excel esperado
+- [x] Listado de socios con búsqueda y filtro por estado de cuota
+- [x] Pantalla de import con preview y confirmación
+- [x] Documentación del formato de Excel esperado
 
 ### Fase F: Documentación
-- [ ] `openspec/specs/socios.md`
-- [ ] `data-model.md` y `README.md`
+- [x] `openspec/specs/socios.md`
+- [x] `data-model.md` y `README.md`
 
 ---
 
@@ -283,18 +284,18 @@ afuera.
 
 ## Criterios de Aceptación
 
-- [ ] Importar el mismo archivo dos veces deja exactamente el mismo estado
-- [ ] Un socio que desaparece del archivo queda inactivo, **no borrado**
-- [ ] Re-importar **no** resetea la contraseña de nadie
-- [ ] `dues_synced_at` se actualiza en todas las filas, cambie o no el estado
-- [ ] Un import que daría de baja a más del 20% se rechaza sin `force`
-- [ ] El preview muestra los nombres de quiénes se darían de baja
-- [ ] Un socio entra con DNI y contraseña por defecto, y **no llega a ninguna pantalla**
+- [x] Importar el mismo archivo dos veces deja exactamente el mismo estado
+- [x] Un socio que desaparece del archivo queda inactivo, **no borrado**
+- [x] Re-importar **no** resetea la contraseña de nadie
+- [x] `dues_synced_at` se actualiza en todas las filas, cambie o no el estado
+- [x] Un import que daría de baja a más del 20% se rechaza sin `force`
+- [x] El preview muestra los nombres de quiénes se darían de baja
+- [x] Un socio entra con DNI y contraseña por defecto, y **no llega a ninguna pantalla**
       hasta cambiarla
-- [ ] El staff sigue entrando por email exactamente como antes
-- [ ] La pantalla del socio muestra el estado **y la fecha del dato**
-- [ ] Un socio no puede ver el estado de otro socio
-- [ ] Migraciones limpias en ambas direcciones contra Postgres
+- [x] El staff sigue entrando por email exactamente como antes
+- [x] La pantalla del socio muestra el estado **y la fecha del dato**
+- [x] Un socio no puede ver el estado de otro socio
+- [x] Migraciones limpias en ambas direcciones contra Postgres
 
 ---
 
@@ -317,3 +318,29 @@ afuera.
 - [[auth-and-users]] — login y roles, que la Fase C toca
 - [[club-operativo]] — alcance por división, ortogonal a esto
 - [[data-model]] — schema
+
+---
+
+## Resultado
+
+| Métrica | Antes | Después |
+|---------|-------|---------|
+| Tests backend | 196 | **215** |
+| Migraciones | `0016` | `0017` |
+
+Migración verificada contra Postgres 15: upgrade, downgrade, y re-upgrade. Se probó
+además la rama condicional del downgrade con un socio sin email — detecta los NULL y
+deja `users.email` nullable en vez de romper la vuelta atrás.
+
+### Lo que apareció al implementar
+
+1. **Un bug del parser que encontró su propio test**: `N° Socio` no matcheaba porque
+   el `°` no es un acento y sobrevive a NFD. Un padrón exportado de un sistema contable
+   trae exactamente ese encabezado. La normalización ahora también saca puntuación.
+2. **El menú seguía guiándose por el enum viejo.** Meter Socios obligaba a sacar otra
+   cosa. Se resolvió exponiendo las capacidades efectivas en la respuesta del login y
+   filtrando el menú por capacidad: un Tesorero ve Socios y un Entrenador no, aunque
+   compartan `role`. Es lo que el cambio de permisos venía a habilitar.
+3. **`Member.user_id` quedó NOT NULL**, al revés que `Player.user_id`. No es
+   inconsistencia: casi ningún jugador tiene cuenta y todo socio la necesita, porque
+   entrar a ver su estado es el punto del módulo.

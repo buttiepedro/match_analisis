@@ -14,13 +14,20 @@ interface User {
   email: string;
   full_name: string;
   role: "superadmin" | "club_admin" | "match_director" | "analyst" | "player";
+  document_id?: string | null;
+  must_change_password?: boolean;
+  /** Capacidades efectivas. El menú se arma con esto, no con `role`. */
+  permissions?: string[];
   club_id: string | null;
 }
 
 interface AuthState {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  /** Identificador: email para el staff, DNI para el socio. */
+  login: (identifier: string, password: string, clubSlug?: string) => Promise<void>;
+  /** Baja el flag `must_change_password` sin obligar a volver a loguearse. */
+  markPasswordChanged: () => void;
   logout: () => Promise<void>;
 }
 
@@ -29,11 +36,26 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       token: null,
-      login: async (email, password) => {
-        const { data } = await api.post("/auth/login", { email, password });
+      login: async (identifier, password, clubSlug) => {
+        // El socio entra con su DNI y el staff con su email. Distinguirlos por la
+        // forma del texto evita preguntarle al usuario qué tipo de dato está por
+        // escribir, que es una pregunta que no debería tener que contestar.
+        const isEmail = identifier.includes("@");
+        const { data } = await api.post("/auth/login", {
+          ...(isEmail ? { email: identifier } : { document_id: identifier.trim() }),
+          password,
+          ...(clubSlug ? { club_slug: clubSlug } : {}),
+        });
         setTokens(data.access_token, data.refresh_token);
-        set({ token: data.access_token, user: data.user });
+        set({
+          token: data.access_token,
+          user: { ...data.user, must_change_password: data.must_change_password },
+        });
       },
+      markPasswordChanged: () =>
+        set((state) => ({
+          user: state.user ? { ...state.user, must_change_password: false } : null,
+        })),
       logout: async () => {
         const refreshToken = getRefreshToken();
         if (refreshToken) {

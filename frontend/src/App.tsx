@@ -23,8 +23,24 @@ const TrainingAttendance = lazy(() => import("./pages/TrainingAttendance"));
 const Hoy = lazy(() => import("./pages/Hoy"));
 const Calendar = lazy(() => import("./pages/Calendar"));
 const PlayerPortal = lazy(() => import("./pages/PlayerPortal"));
+const MemberPortal = lazy(() => import("./pages/MemberPortal"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const Members = lazy(() => import("./pages/Members"));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const token = useAuthStore((s) => s.token);
+  const mustChange = useAuthStore((s) => s.user?.must_change_password);
+
+  if (!token) return <Navigate to="/login" replace />;
+  // Con la contraseña por defecto sin cambiar no se llega a ninguna pantalla.
+  // Es lo que acota la ventana entre el import del padrón y el primer ingreso:
+  // hasta acá, esa contraseña es la misma para todos los socios de esa tanda.
+  if (mustChange) return <Navigate to="/cambiar-password" replace />;
+  return <>{children}</>;
+}
+
+/** Exige sesión pero **no** el cambio de contraseña: si no, sería un bucle. */
+function AuthedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
   return token ? <>{children}</> : <Navigate to="/login" replace />;
 }
@@ -45,8 +61,12 @@ function RouteFallback() {
 /** Landing por rol: el jugador no tiene nada que hacer en las pantallas de club. */
 function Home() {
   const role = useAuthStore((s) => s.user?.role);
+  const clubId = useAuthStore((s) => s.user?.club_id);
   if (role === "superadmin") return <Navigate to="/clubs" replace />;
-  if (role === "player") return <Navigate to="/mi-ficha" replace />;
+  // Un socio importado del padrón entra con rol `player` en el enum viejo, pero
+  // su ficha es la de socio. `/mi-club` resuelve cuál mostrar.
+  if (role === "player") return <Navigate to="/mi-club" replace />;
+  if (!clubId) return <Navigate to="/login" replace />;
   return <Navigate to="/hoy" replace />;
 }
 
@@ -56,6 +76,11 @@ export default function App() {
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          {/* Fuera de PrivateRoute: es la única pantalla alcanzable con el flag arriba. */}
+          <Route
+            path="/cambiar-password"
+            element={<AuthedRoute><ChangePassword /></AuthedRoute>}
+          />
 
           <Route path="/clubs"        element={<LayoutRoute><Clubs /></LayoutRoute>} />
           <Route path="/hoy"          element={<LayoutRoute><Hoy /></LayoutRoute>} />
@@ -72,6 +97,8 @@ export default function App() {
           <Route path="/trainings/:id" element={<LayoutRoute><TrainingAttendance /></LayoutRoute>} />
           <Route path="/calendario"    element={<LayoutRoute><Calendar /></LayoutRoute>} />
           <Route path="/mi-ficha"      element={<LayoutRoute><PlayerPortal /></LayoutRoute>} />
+          <Route path="/mi-club"       element={<LayoutRoute><MemberPortal /></LayoutRoute>} />
+          <Route path="/socios"        element={<LayoutRoute><Members /></LayoutRoute>} />
 
           {/* Session views — no sidebar */}
           <Route path="/sessions/:id"        element={<PrivateRoute><Session /></PrivateRoute>} />

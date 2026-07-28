@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, user_permissions
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -34,6 +34,12 @@ router = APIRouter(prefix="/auth")
 
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _user_response(user: User) -> UserResponse:
+    payload = UserResponse.model_validate(user)
+    payload.permissions = sorted(user_permissions(user))
+    return payload
 
 
 async def _resolve_login(body: LoginRequest, db: AsyncSession) -> User | None:
@@ -109,7 +115,7 @@ async def login(
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user=UserResponse.model_validate(user),
+        user=_user_response(user),
         must_change_password=user.must_change_password,
     )
 
@@ -168,7 +174,7 @@ async def logout(
 async def me(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    return UserResponse.model_validate(current_user)
+    return _user_response(current_user)
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

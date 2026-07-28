@@ -14,6 +14,9 @@ class UserResponse(BaseModel):
     role: str
     club_id: Optional[uuid.UUID]
     is_active: bool
+    #: Capacidades efectivas, unión de todos sus roles. El frontend arma el menú
+    #: con esto: sin ellas seguiría guiándose por `role`, que ya no manda.
+    permissions: list[str] = []
 
 
 class UserCreate(BaseModel):
