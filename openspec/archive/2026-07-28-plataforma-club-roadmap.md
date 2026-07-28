@@ -1,7 +1,8 @@
 ---
 title: Plataforma del club — roadmap de permisos, socios, bolsa de trabajo y gimnasio
 type: roadmap
-status: proposed
+status: completed
+completed: 2026-07-28
 created: 2026-07-27
 ---
 
@@ -195,6 +196,12 @@ Flujo: un socio publica → queda `pendiente` → alguien con `bolsa.moderar` la
 Puede ir en cualquier momento después de 1 y 2. Es el candidato natural a postergar si
 hay que recortar.
 
+**Implementado**. Detalle en [[bolsa-trabajo]]. Dos decisiones que aparecieron al
+construirlo: `vencido` **no** es un estado guardado sino `publicado` con fecha pasada
+—un estado que hay que ir a escribir todos los días es un estado que algún día queda
+mal, y así el módulo no necesita un scheduler—, y **editar devuelve el aviso a
+`pendiente`**: si editar lo dejara publicado, moderar no serviría de nada.
+
 ---
 
 ## Orden y por qué
@@ -270,8 +277,44 @@ medias.
 
 Detalle completo en [[add-socios-padron]].
 
+---
+
+## Cierre (28/07)
+
+Los cinco cambios están implementados. Cada uno dejó su spec:
+
+| # | Cambio | Spec |
+|---|--------|------|
+| 1 | Permisos por capacidades | [[permisos]] |
+| 2 | Socios, padrón y cuota | [[socios]] |
+| 3 | Portal ampliado | [[club-operativo]] |
+| 4 | Plan de gimnasio | [[gimnasio]] |
+| 5 | Bolsa de trabajo | [[bolsa-trabajo]] |
+
+### Lo que este programa cambió de verdad
+
+El producto dejó de tener **un usuario** (gente del club trabajando sobre jugadores) y
+pasó a tener tres que no se pisan: el cuerpo técnico, el jugador y el socio. Eso no lo
+resolvió ninguna feature en particular, lo resolvió el cambio 1: con un enum de cinco
+roles, cada usuario nuevo era una quinta parte del producto abierta o cerrada de golpe.
+
+### Lo que queda abierto, y no es técnico
+
+Dos cosas que **no se resuelven escribiendo código** y hay que hablar con el club antes
+de poner esto en producción:
+
+1. **Los socios cadetes son menores.** Datos de tutor y consentimiento de imagen. Ya
+   figuraba como riesgo y sigue sin decidirse: es una decisión legal, no un default
+   técnico. Hoy el importador los cargaría como a cualquier otro socio.
+2. **El importador nunca vio un padrón real.** El parser se escribió contra encabezados
+   imaginados y después se endureció —normaliza acentos y puntuación porque `N° Socio`
+   sobrevive a NFD—, pero un export de verdad del sistema contable va a traer algo que
+   no previmos. Conviene correr un `dry_run` con el archivo real antes de la primera
+   importación en serio; para eso está.
+
 ## Relacionado
 
+- [[bolsa-trabajo]] — la bolsa, cambio 5
 - [[club-operativo]] — alcance por división, que este programa extiende a capacidades
 - [[gestion-semanal]] — asistencia y disponibilidad
 - [[auth-and-users]] — modelo de roles que el cambio 1 reemplaza

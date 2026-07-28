@@ -337,11 +337,21 @@ async def test_a_member_cannot_read_the_whole_padron(client, db, tesorero_ctx):
     assert res.status_code == 403
 
 
-async def test_the_socio_preset_only_grants_its_own_status(client, db, tesorero_ctx):
+async def test_the_socio_preset_never_grants_access_to_other_members(client, db, tesorero_ctx):
+    """
+    El socio ve **su** estado y nada del padrón ajeno.
+
+    El preset puede crecer con beneficios de ser socio —hoy tiene la bolsa de
+    trabajo—, pero nunca con capacidades sobre los datos de los demás. Si algún
+    día alguien le agrega `socios.ver_todas`, este test lo frena.
+    """
     role = await db.scalar(
         select(Role).where(Role.club_id == tesorero_ctx["club"].id, Role.name == SOCIO)
     )
-    assert {p.permission for p in role.permissions} == {"socios.ver_propia"}
+    granted = {p.permission for p in role.permissions}
+
+    assert "socios.ver_propia" in granted
+    assert granted.isdisjoint({"socios.ver_todas", "socios.importar"})
 
 
 async def test_the_treasurer_sees_the_padron_and_can_filter_debtors(client, tesorero_ctx):

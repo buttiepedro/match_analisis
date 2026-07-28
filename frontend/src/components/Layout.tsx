@@ -115,6 +115,13 @@ const IconBuilding = () => (
   </svg>
 );
 
+const IconBriefcase = () => (
+  <svg {...svg}>
+    <rect width="20" height="14" x="2" y="7" rx="2" />
+    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+  </svg>
+);
+
 const IconDumbbell = () => (
   <svg {...svg}>
     <path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12" />
@@ -166,6 +173,7 @@ const MEDICIONES: NavItem = { label: "Mediciones", path: "/mediciones", icon: <I
 const CONFIG: NavItem = { label: "Configuración", path: "/config", icon: <IconSettings /> };
 const SOCIOS: NavItem = { label: "Socios", path: "/socios", icon: <IconCard />, permission: "socios.ver_todas" };
 const GIMNASIO: NavItem = { label: "Gimnasio", path: "/gimnasio", icon: <IconDumbbell />, permission: "gimnasio.ver" };
+const BOLSA: NavItem = { label: "Bolsa de trabajo", path: "/bolsa", icon: <IconBriefcase />, permission: "bolsa.ver" };
 const MI_CUOTA: NavItem = { label: "Mi cuota", path: "/mi-club", icon: <IconCard /> };
 
 /** Mismo menú para director y analista: ninguno de los dos configura el club. */
@@ -177,7 +185,7 @@ const CUERPO_TECNICO: NavGroup[] = [
 
 const NAV_BY_ROLE: Record<string, NavGroup[]> = {
   superadmin: [{ title: "Administración", items: [{ label: "Clubes", path: "/clubs", icon: <IconBuilding /> }] }],
-  club_admin: [...CUERPO_TECNICO, { title: "Club", items: [SOCIOS, CONFIG] }],
+  club_admin: [...CUERPO_TECNICO, { title: "Club", items: [SOCIOS, BOLSA, CONFIG] }],
   match_director: CUERPO_TECNICO,
   analyst: CUERPO_TECNICO,
   // Un socio importado del padrón entra con `player` en el enum viejo. Ve su
@@ -187,6 +195,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       title: "Mi cuenta",
       items: [MI_CUOTA, { label: "Mi ficha", path: "/mi-ficha", icon: <IconUser /> }],
     },
+    { title: "Club", items: [BOLSA] },
   ],
 };
 
