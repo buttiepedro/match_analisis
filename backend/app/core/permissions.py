@@ -47,6 +47,12 @@ class Permission(str, enum.Enum):
     socios_ver_todas = "socios.ver_todas"
     socios_importar = "socios.importar"
 
+    # Gimnasio
+    #: Ver el plan propio. La tiene el jugador y nadie más la necesita.
+    gimnasio_ver_propio = "gimnasio.ver_propio"
+    gimnasio_ver = "gimnasio.ver"
+    gimnasio_editar = "gimnasio.editar"
+
     # Configuración del club
     club_divisiones = "club.divisiones"
     club_torneos = "club.torneos"
@@ -95,6 +101,7 @@ PRESET_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.partido_timer.value,
         Permission.partido_eventos.value,
         Permission.mediciones_cargar.value,
+        Permission.gimnasio_ver.value,
     },
     # analyst: registraba eventos y tomaba asistencia; nada más.
     ANALISTA: READ_ONLY
@@ -105,11 +112,17 @@ PRESET_PERMISSIONS: dict[str, frozenset[str]] = {
     },
     # player: ninguna capacidad sobre el club. No es un olvido — su acceso es a lo
     # propio, y eso lo resuelve `require_player_self`, que no es una capacidad.
-    JUGADOR: frozenset(),
+    JUGADOR: frozenset({Permission.gimnasio_ver_propio.value}),
     # Los cuatro siguientes son nuevos: se siembran para que el club los complete
     # y **no se le asignan a nadie**. Adivinar quién es tesorero sería peor que
     # dejarlo sin asignar.
-    PREPARADOR_FISICO: READ_ONLY | {Permission.mediciones_cargar.value},
+    # El PF escribe los planes: es su herramienta principal.
+    PREPARADOR_FISICO: READ_ONLY
+    | {
+        Permission.mediciones_cargar.value,
+        Permission.gimnasio_ver.value,
+        Permission.gimnasio_editar.value,
+    },
     NUTRICIONISTA: READ_ONLY | {Permission.mediciones_cargar.value},
     # Tesorero: ve el padrón entero y sincroniza contra el sistema contable.
     TESORERO: frozenset(

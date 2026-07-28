@@ -6,6 +6,7 @@ from app.models.role import Role, RolePermission, user_roles
 from app.models.tournament import Tournament
 from app.models.opponent import Opponent
 from app.models.member import Member, MemberImport
+from app.models.gym import GymPlan, GymDay, GymExercise, GymLog, LoadType
 from app.models.session import Session, TimerState, SessionStatus, TimerStatus
 from app.models.event import Event, TeamSide
 from app.models.refresh_token import RefreshToken
@@ -44,6 +45,11 @@ __all__ = [
     "Opponent",
     "Member",
     "MemberImport",
+    "GymPlan",
+    "GymDay",
+    "GymExercise",
+    "GymLog",
+    "LoadType",
     "Session",
     "TimerState",
     "SessionStatus",

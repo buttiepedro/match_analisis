@@ -44,7 +44,42 @@ interface AttendanceDetail {
   records: AttendanceRecord[];
 }
 
-type Tab = "resumen" | "tests" | "fisico";
+type Tab = "resumen" | "tests" | "fisico" | "gimnasio";
+
+const DAY_NAMES = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+interface GymExercise {
+  id: string;
+  name: string;
+  sets: number | null;
+  reps: string | null;
+  load_type: string;
+  load_value: number | null;
+  load_test_label: string | null;
+  resolved_load_kg: number | null;
+  unresolved_reason: string | null;
+  notes: string | null;
+}
+
+interface GymDay {
+  id: string;
+  week: number;
+  day: number;
+  name: string;
+  exercises: GymExercise[];
+}
+
+interface GymPlan {
+  id: string;
+  name: string;
+  weeks: number;
+  days: GymDay[];
+}
+
+interface MyGymPlan {
+  plan: GymPlan | null;
+  completed_day_ids: string[];
+}
 
 /** En tiempos bajar es mejorar; en cargas y saltos, subir. */
 function lowerIsBetter(testType: string): boolean {
@@ -195,6 +230,143 @@ function FisicoTab({ measurements }: { measurements: Measurement[] }) {
   );
 }
 
+
+// ── Gimnasio ──────────────────────────────────────────────────────────────────
+
+function GimnasioTab({
+  data,
+  onLogged,
+}: {
+  data: MyGymPlan | null;
+  onLogged: () => void;
+}) {
+  const [week, setWeek] = useState(1);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  if (!data?.plan) {
+    return (
+      <p className="text-ink-muted text-sm bg-surface rounded-xl px-4 py-6 text-center">
+        Tu división todavía no tiene un plan de gimnasio cargado.
+      </p>
+    );
+  }
+
+  const { plan, completed_day_ids } = data;
+  const completed = new Set(completed_day_ids);
+  const days = plan.days.filter((d) => d.week === week).sort((a, b) => a.day - b.day);
+
+  const markDone = async (dayId: string) => {
+    setSaving(dayId);
+    try {
+      await api.post("/me/gym-logs", { day_id: dayId });
+      onLogged();
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-semibold text-ink">{plan.name}</p>
+
+      {plan.weeks > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+          {Array.from({ length: plan.weeks }, (_, i) => i + 1).map((w) => (
+            <button
+              key={w}
+              onClick={() => setWeek(w)}
+              className={`pressable shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-150 ${
+                week === w ? "bg-brand text-white" : "bg-surface text-ink-muted"
+              }`}
+            >
+              Sem {w}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {days.length === 0 ? (
+        <p className="text-ink-muted text-sm bg-surface rounded-xl px-4 py-6 text-center">
+          No hay sesiones cargadas para esta semana.
+        </p>
+      ) : (
+        days.map((day) => {
+          const done = completed.has(day.id);
+          return (
+            <section key={day.id} className="bg-surface rounded-xl overflow-hidden">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-line">
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-ink truncate">{day.name}</span>
+                  <span className="block text-[11px] text-ink-faint">
+                    {DAY_NAMES[day.day] ?? `Día ${day.day}`}
+                  </span>
+                </span>
+                <button
+                  onClick={() => !done && markDone(day.id)}
+                  disabled={done || saving === day.id}
+                  className={`pressable text-[11px] font-semibold px-3 py-1.5 rounded-lg shrink-0 transition-colors duration-150 ${
+                    done
+                      ? "bg-brand-soft text-brand"
+                      : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
+                  }`}
+                >
+                  {done ? "Hecha" : saving === day.id ? "..." : "Marcar hecha"}
+                </button>
+              </div>
+
+              <ul className="divide-y divide-line">
+                {day.exercises.map((e) => (
+                  <li key={e.id} className="px-4 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm text-ink truncate">{e.name}</span>
+                        <span className="block text-[11px] text-ink-faint">
+                          {[e.sets && `${e.sets} series`, e.reps && `${e.reps} reps`]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                        </span>
+                      </span>
+                      <span className="text-right shrink-0">
+                        {e.resolved_load_kg != null ? (
+                          <>
+                            <span className="block text-sm font-bold text-ink tabular-nums">
+                              {e.resolved_load_kg} kg
+                            </span>
+                            {e.load_type === "porcentaje_test" && (
+                              <span className="block text-[10px] text-ink-faint">
+                                {e.load_value}% de tu {e.load_test_label}
+                              </span>
+                            )}
+                          </>
+                        ) : e.unresolved_reason ? (
+                          // Sin el test no se inventa un kilaje: el jugador lo levantaría.
+                          <span className="block text-[11px] text-amber-700 max-w-[8rem]">
+                            {e.unresolved_reason}
+                          </span>
+                        ) : (
+                          <span className="block text-[11px] text-ink-faint">Sin carga</span>
+                        )}
+                      </span>
+                    </div>
+                    {e.notes && (
+                      <p className="text-[11px] text-ink-muted mt-1">{e.notes}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })
+      )}
+
+      <p className="text-[11px] text-ink-faint text-center">
+        Los kilos salen de tus propios tests. Si te falta alguno, pedíselo al
+        preparador físico.
+      </p>
+    </div>
+  );
+}
+
 /**
  * Portal del jugador: sólo su ficha, sin nada del club.
  *
@@ -208,25 +380,32 @@ export default function PlayerPortal() {
   const [season, setSeason] = useState<SeasonStats | null>(null);
   const [tests, setTests] = useState<PhysicalTest[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [gym, setGym] = useState<MyGymPlan | null>(null);
   const [tab, setTab] = useState<Tab>("resumen");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const reloadGym = () => {
+    api.get<MyGymPlan>("/me/gym-plan").then(({ data }) => setGym(data)).catch(() => {});
+  };
 
   useEffect(() => {
     api
       .get<Player>("/me/player")
       .then(async ({ data }) => {
         setPlayer(data);
-        const [a, s, t, m] = await Promise.all([
+        const [a, s, t, m, g] = await Promise.all([
           api.get<AttendanceDetail>(`/players/${data.id}/attendance`).catch(() => null),
           api.get<SeasonStats>(`/players/${data.id}/season-stats`).catch(() => null),
           api.get<PhysicalTest[]>(`/players/${data.id}/tests`).catch(() => null),
           api.get<Measurement[]>(`/players/${data.id}/measurements`).catch(() => null),
+          api.get<MyGymPlan>("/me/gym-plan").catch(() => null),
         ]);
         setAttendance(a?.data ?? null);
         setSeason(s?.data ?? null);
         setTests(t?.data ?? []);
         setMeasurements(m?.data ?? []);
+        setGym(g?.data ?? null);
       })
       .catch((err) => setError(parseApiError(err, "No se pudo cargar tu ficha")))
       .finally(() => setLoading(false));
@@ -274,6 +453,7 @@ export default function PlayerPortal() {
           ["resumen", "Resumen"],
           ["tests", "Tests"],
           ["fisico", "Físico"],
+          ["gimnasio", "Gimnasio"],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -367,6 +547,7 @@ export default function PlayerPortal() {
 
       {tab === "tests" && <TestsTab tests={tests} />}
       {tab === "fisico" && <FisicoTab measurements={measurements} />}
+      {tab === "gimnasio" && <GimnasioTab data={gym} onLogged={reloadGym} />}
 
       <p className="text-[11px] text-ink-faint mt-6 text-center">
         {user?.full_name} · para corregir algo, hablá con el club

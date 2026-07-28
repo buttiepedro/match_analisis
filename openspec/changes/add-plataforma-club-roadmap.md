@@ -147,7 +147,7 @@ Una nota de criterio que quedó en el código: en el peso, **bajar no es "mejor"
 
 ---
 
-### 4. Plan de gimnasio
+### 4. Plan de gimnasio — ✅ hecho
 
 ```
 gym_plans      club_id, nombre, división?, semanas, creado_por
@@ -166,6 +166,12 @@ jugador por jugador y nadie lo hace dos veces.
 
 `gym_logs` da **adherencia al gimnasio**, que es a la sala de pesas lo que la
 asistencia es al entrenamiento — y se cruza igual contra minutos jugados.
+
+**Implementado**. Detalle en [[gimnasio]]. Dos decisiones que aparecieron al
+construirlo: la carga resuelta se redondea a 2.5 kg —el disco más chico de un
+gimnasio— y cuando falta el test del jugador **no se inventa un kilaje**, se explica
+cuál le falta. Un número inventado es peor que un aviso, porque el jugador lo
+levanta.
 
 ---
 

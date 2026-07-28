@@ -10,6 +10,7 @@ from app.api.v1.clubs import router as clubs_router
 from app.api.v1.competition import router as competition_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.divisions import router as divisions_router
+from app.api.v1.gym import router as gym_router
 from app.api.v1.health import router as health_router
 from app.api.v1.import_ import router as import_router
 from app.api.v1.injuries import router as injuries_router
@@ -116,3 +117,4 @@ app.include_router(dashboard_router, tags=["dashboard"])
 app.include_router(competition_router, tags=["competition"])
 app.include_router(roles_router, tags=["roles"])
 app.include_router(members_router, tags=["members"])
+app.include_router(gym_router, tags=["gym"])

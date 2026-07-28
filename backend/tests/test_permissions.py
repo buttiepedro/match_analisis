@@ -189,10 +189,15 @@ async def test_presets_belong_to_their_club(client, db, perm_ctx):
 
 async def test_the_player_preset_has_no_club_permissions(client, db, perm_ctx):
     """
-    No es un olvido: el acceso del jugador es a lo propio, y eso lo resuelve
-    `require_player_self`, que no es una capacidad sobre el club.
+    El jugador no tiene **ninguna capacidad sobre el club**.
+
+    Lo único que puede tener son capacidades sobre lo propio (`*.ver_propio`),
+    que no dan acceso a datos de nadie más: el filtro por jugador lo hace
+    `require_player_self`. Si algún día un preset Jugador gana una capacidad de
+    club, este test lo frena.
     """
-    assert PRESET_PERMISSIONS[JUGADOR] == frozenset()
+    del_club = {p for p in PRESET_PERMISSIONS[JUGADOR] if not p.endswith(("_propio", "_propia"))}
+    assert del_club == set(), f"El jugador ganó capacidades de club: {sorted(del_club)}"
 
 
 async def test_the_admin_preset_covers_every_permission(client):
