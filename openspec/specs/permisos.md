@@ -86,6 +86,44 @@ donde no debía.
 - **La UI no ofrece padres inválidos** (él mismo ni su descendencia), aunque el
   backend igual los rechace.
 
+## Una capacidad nueva llega a los clubes que ya existen
+
+Sembrar roles es **idempotente y no toca un rol existente**, para no pisarle al
+club una capacidad que sacó a mano. El efecto colateral: los roles quedan
+congelados en el catálogo de capacidades que existía el día que se sembraron.
+
+Eso se llevó puestos **tres módulos**. Socios, gimnasio y bolsa de trabajo se
+desplegaron y no los vio nadie: sus capacidades no entraban en ningún rol, y el
+menú filtra por capacidad. Sin un solo error en ningún log — el código estaba
+ahí, el permiso no.
+
+La diferencia entre *"el club se la sacó"* y *"todavía no existía"* no está en la
+base: las dos se ven como un rol sin esa capacidad. Así que se guarda.
+
+```
+known_permissions  permission, first_seen_at
+```
+
+Al arrancar, `grant_newly_added_permissions` calcula `ALL_PERMISSIONS − conocidas`
+y reparte cada una entre los presets que la tienen por defecto — el mismo grant
+que le habría tocado si hubiera existido desde el principio. Lo ya conocido no se
+toca nunca más.
+
+Sólo se tocan roles **preset con nombre reconocido**: uno renombrado no se puede
+mapear, y uno custom es del club.
+
+La migración `0021` marca como visto **el catálogo completo del momento en que se
+aplica**, así que no cambia un solo permiso de ningún rol. El mecanismo empieza a
+actuar recién con lo que se agregue después.
+
+> Se evaluó tomar la línea de base de la propia base —las capacidades presentes
+> en algún rol— para que la migración además arreglara sola el agujero histórico.
+> Se descartó: una capacidad que hoy no está en **ningún** rol se vería como
+> nueva, y el arranque se la daría a los presets, pisando una configuración que el
+> club puede haber dejado así a propósito. Rellenar automáticamente vale menos que
+> no tocar lo que alguien ya decidió. El agujero se arregla una vez, a mano, desde
+> la pantalla de roles.
+
 ### Los presets no vienen encadenados
 
 Se siembran sin padre, igual que antes. Poner "Jugador hereda de Socio" en la

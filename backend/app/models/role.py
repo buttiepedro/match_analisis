@@ -16,6 +16,32 @@ user_roles = Table(
 )
 
 
+class KnownPermission(Base):
+    """
+    Capacidades que esta instalación **ya vio alguna vez**.
+
+    Existe para distinguir dos cosas que en la base se ven igual: un rol que no
+    tiene una capacidad porque el club se la sacó, y uno que no la tiene porque
+    todavía no existía cuando se sembró el rol.
+
+    Lo segundo no es una decisión de nadie: es un agujero. Ya pasó tres veces
+    —socios, gimnasio y bolsa de trabajo se desplegaron y **nadie las vio**,
+    porque los roles de los clubes existentes se habían sembrado antes de que
+    esas capacidades existieran, y sembrar es idempotente a propósito—.
+
+    Con este registro, al arrancar se detecta lo que es genuinamente nuevo y se
+    reparte según el preset. Lo que la instalación ya conoce no se toca nunca
+    más: eso sí es decisión del club.
+    """
+
+    __tablename__ = "known_permissions"
+
+    permission: Mapped[str] = mapped_column(String(50), primary_key=True)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class RolePermission(Base):
     """
     Una capacidad concedida a un rol. El valor es un `Permission`.

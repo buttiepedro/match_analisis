@@ -71,12 +71,25 @@ function ImportModal({
   onClose: () => void;
   onDone: (result: ImportResult, divId: string) => void;
 }) {
-  const { importPlayersXlsx, fetchAllPlayers } = useSquadStore();
+  const { importPlayersXlsx, exportPlayersXlsx, fetchAllPlayers } = useSquadStore();
   const user = useAuthStore((s) => s.user);
   const [divisionId, setDivisionId] = useState(defaultDivisionId || divisions[0]?.id || "");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
+
+  const descargar = async () => {
+    setDownloading(true);
+    setError("");
+    try {
+      await exportPlayersXlsx();
+    } catch {
+      setError("No se pudo descargar el plantel");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const submit = async () => {
     if (!file || !divisionId) return;
@@ -101,10 +114,31 @@ function ImportModal({
           <button onClick={onClose} className="text-ink-muted hover:text-ink"><IconX /></button>
         </div>
 
+        <div className="bg-surface-strong rounded-xl p-3 space-y-2">
+          <p className="text-xs text-ink-soft">
+            <strong className="font-semibold text-ink">Editar el plantel en Excel.</strong>{" "}
+            Descargá la planilla, corregí lo que haga falta y volvé a subirla acá. Trae
+            todas las divisiones y las filas vuelven a su lugar.
+          </p>
+          <button
+            onClick={descargar}
+            disabled={downloading}
+            className="pressable w-full bg-surface hover:bg-surface-hover disabled:opacity-50 text-ink text-sm font-semibold py-2 rounded-lg transition-colors duration-150"
+          >
+            {downloading ? "Preparando..." : "Descargar plantel actual"}
+          </button>
+          <p className="text-[11px] text-ink-faint">
+            No toques las columnas <strong>ID</strong> ni <strong>División</strong>: con
+            ellas cada fila vuelve al jugador correcto, incluso si le corregís el DNI.
+          </p>
+        </div>
+
         <p className="text-xs text-ink-muted">
-          Acepta archivos <strong>.xlsx</strong> o <strong>.xls</strong>. Columnas reconocidas:
-          Documento, Apellido, Nombre, Fecha Nac., Sexo, Puesto, Peso, Estatura, O.Social, Email, Celular, Tel.Emergencia.
-          Si el jugador ya existe por DNI, se actualiza; si no, se crea.
+          También acepta una planilla propia, <strong>.xlsx</strong> o <strong>.xls</strong>.
+          Columnas reconocidas: Documento, Apellido, Nombre, Fecha Nac., Sexo, Puesto, Peso,
+          Estatura, O.Social, Email, Celular, Tel.Emergencia. Sin columna ID, los jugadores
+          se buscan por DNI: los que ya existen se actualizan y el resto se crea en la
+          división elegida.
         </p>
 
         <div>

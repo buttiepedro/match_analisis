@@ -7,6 +7,11 @@ venv/
 env/
 .pytest_cache/
 backend/tests/test.db
+# SQLite deja estos al lado mientras corre la suite; con la suite en curso
+# aparecen como archivos nuevos y se cuelan en un `git add -A`.
+backend/tests/test.db-journal
+backend/tests/test.db-wal
+backend/tests/test.db-shm
 
 # Environment
 .env

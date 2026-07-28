@@ -63,6 +63,37 @@ el `°` no es un acento —sobrevive a NFD—, así que sin sacarlo la columna n
 `Al día` acepta lo que escriben los sistemas contables: `SI`/`NO`, `1`/`0`,
 `AL DIA`/`DEUDOR`, `TRUE`/`FALSE`.
 
+## Alta suelta y asociación con un usuario
+
+El padrón es la fuente de verdad, pero no puede ser la **única** puerta: un club
+que todavía no importó nada no tiene un solo socio, así que no hay forma de ver
+ni cómo se ve la pantalla. Y hay un caso permanente: el administrador del club
+también es socio, y su usuario ya existe.
+
+`POST /clubs/{id}/members` da de alta uno, resolviendo la cuenta en tres pasos:
+
+1. Con `user_id`, asocia **ese** usuario.
+2. Sin él, busca un usuario del club con ese DNI y lo asocia. Asociar antes que
+   crear evita el duplicado silencioso: dos cuentas para la misma persona, y la
+   buena termina siendo la que no usa.
+3. Si no hay ninguno, crea la cuenta con contraseña por defecto y cambio
+   obligatorio, igual que la importación.
+
+**El DNI es obligatorio, y no por formalismo.** La sincronización matchea por
+DNI: es lo único que hace que este socio sea *el mismo* que va a venir en el
+próximo export del contable. Sin él, la primera importación lo daría de baja por
+ausente y crearía otro al lado con la misma persona adentro. Hay un test que
+corre justamente esa secuencia.
+
+`GET /clubs/{id}/linkable-users` lista los usuarios del club que todavía no son
+socios, para que la pantalla ofrezca asociar en vez de invitar a crear.
+
+`PATCH /clubs/{id}/members/{id}` corrige a mano — sirve para el rato entre que
+alguien paga y llega el próximo export. Lo que se toque ahí **lo pisa la próxima
+sincronización**: el contable sigue siendo la fuente de verdad. Marcar a alguien
+al día mueve también `dues_synced_at`, o la pantalla mentiría sobre la antigüedad
+del dato.
+
 ## Ingreso
 
 `POST /auth/login` acepta `email` **o** `document_id`. El staff sigue entrando por

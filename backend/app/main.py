@@ -26,6 +26,7 @@ from app.api.v1.tournaments import router as tournaments_router
 from app.api.v1.trainings import router as trainings_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
+from app.core.roles import grant_newly_added_permissions
 from app.core.security import get_password_hash
 from app.models import User, UserRole
 
@@ -71,10 +72,29 @@ async def seed_superadmin() -> None:
             print(f"[seed] Superadmin created: {settings.SUPERADMIN_EMAIL}")
 
 
+async def grant_new_permissions() -> None:
+    """
+    Le da a los presets las capacidades que aparecieron desde el último arranque.
+
+    Sin esto, un módulo nuevo se despliega y no lo ve nadie: sus capacidades no
+    entran en ningún rol de un club que ya existía, y el menú filtra por
+    capacidad. Pasó con socios, con gimnasio y con la bolsa de trabajo.
+    """
+    async with AsyncSessionLocal() as session:
+        nuevas = await grant_newly_added_permissions(session)
+        if nuevas:
+            print(
+                f"[seed] Capacidades nuevas repartidas entre los presets: "
+                f"{', '.join(nuevas)}",
+                flush=True,
+            )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _configure_s3_cors()
     await seed_superadmin()
+    await grant_new_permissions()
     yield
 
 

@@ -13,6 +13,13 @@ interface Member {
   dues_synced_at: string;
 }
 
+interface LinkableUser {
+  id: string;
+  full_name: string;
+  email: string | null;
+  document_id: string | null;
+}
+
 interface ImportResult {
   dry_run: boolean;
   created: string[];
@@ -44,6 +51,53 @@ export default function Members() {
   const [done, setDone] = useState<ImportResult | null>(null);
   /** Se habilita sólo cuando el backend frenó por bajas masivas. */
   const [needsForce, setNeedsForce] = useState(false);
+
+  // ── Alta suelta ─────────────────────────────────────────────────────────
+  const [adding, setAdding] = useState(false);
+  const [linkable, setLinkable] = useState<LinkableUser[]>([]);
+  const [form, setForm] = useState({
+    user_id: "",
+    document_id: "",
+    full_name: "",
+    member_number: "",
+    default_password: "",
+    dues_up_to_date: false,
+  });
+
+  const openAdd = () => {
+    setAdding(true);
+    setError("");
+    api
+      .get<LinkableUser[]>(`/clubs/${clubId}/linkable-users`)
+      .then(({ data }) => setLinkable(data))
+      .catch(() => setLinkable([]));
+  };
+
+  const createMember = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api.post(`/clubs/${clubId}/members`, {
+        ...form,
+        user_id: form.user_id || null,
+        full_name: form.full_name || null,
+        member_number: form.member_number || null,
+        default_password: form.default_password || null,
+      });
+      setAdding(false);
+      setForm({
+        user_id: "", document_id: "", full_name: "",
+        member_number: "", default_password: "", dues_up_to_date: false,
+      });
+      load();
+    } catch (err) {
+      setError(parseApiError(err, "No se pudo dar de alta al socio"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const elegido = linkable.find((u) => u.id === form.user_id);
 
   const load = () => {
     if (!clubId) return;
@@ -119,6 +173,117 @@ export default function Members() {
         El estado de cuota lo informa el sistema contable del club. La app lo
         espeja: no calcula deuda ni procesa pagos.
       </p>
+
+      {/* Alta suelta */}
+      <section className="bg-surface rounded-xl p-4 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-ink">Dar de alta un socio</p>
+          {!adding && (
+            <button
+              onClick={openAdd}
+              className="pressable text-xs font-semibold text-brand hover:text-brand-hover"
+            >
+              + Nuevo
+            </button>
+          )}
+        </div>
+
+        {adding && (
+          <div className="mt-3 space-y-2">
+            <div>
+              <label className="text-[11px] text-ink-muted block mb-1">
+                Usuario del club (opcional)
+              </label>
+              <select
+                value={form.user_id}
+                onChange={(e) => {
+                  const u = linkable.find((x) => x.id === e.target.value);
+                  setForm((f) => ({
+                    ...f,
+                    user_id: e.target.value,
+                    // Se precargan para no obligar a reescribir lo que ya sabemos.
+                    full_name: u?.full_name ?? f.full_name,
+                    document_id: u?.document_id ?? f.document_id,
+                  }));
+                }}
+                className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
+              >
+                <option value="">— Crear una cuenta nueva —</option>
+                {linkable.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name}{u.email ? ` · ${u.email}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-ink-faint mt-1">
+                Si la persona ya entra a la app —por ejemplo vos—, elegila acá en vez
+                de crearle una segunda cuenta.
+              </p>
+            </div>
+
+            <input
+              placeholder="DNI"
+              value={form.document_id}
+              onChange={(e) => setForm((f) => ({ ...f, document_id: e.target.value }))}
+              className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
+            />
+            <p className="text-[11px] text-ink-faint">
+              Obligatorio: la sincronización semanal del padrón busca por DNI. Sin él,
+              la próxima importación daría a este socio de baja por ausente y crearía
+              otro al lado.
+            </p>
+
+            <input
+              placeholder="Nombre y apellido"
+              value={form.full_name}
+              onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+              className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
+            />
+            <input
+              placeholder="N° de socio (opcional)"
+              value={form.member_number}
+              onChange={(e) => setForm((f) => ({ ...f, member_number: e.target.value }))}
+              className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
+            />
+
+            {!form.user_id && (
+              <input
+                type="password"
+                placeholder="Contraseña inicial de su cuenta"
+                value={form.default_password}
+                onChange={(e) => setForm((f) => ({ ...f, default_password: e.target.value }))}
+                className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
+              />
+            )}
+
+            <label className="flex items-center gap-2 text-sm text-ink-soft">
+              <input
+                type="checkbox"
+                checked={form.dues_up_to_date}
+                onChange={(e) => setForm((f) => ({ ...f, dues_up_to_date: e.target.checked }))}
+                className="accent-brand"
+              />
+              Está al día con la cuota
+            </label>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={createMember}
+                disabled={busy || !form.document_id.trim() || (!form.user_id && !form.full_name.trim())}
+                className="pressable text-sm bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-150"
+              >
+                {busy ? "Guardando..." : elegido ? `Hacer socio a ${elegido.full_name}` : "Dar de alta"}
+              </button>
+              <button
+                onClick={() => setAdding(false)}
+                className="pressable text-sm text-ink-muted hover:text-ink px-4 py-2 rounded-lg"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Import */}
       <section className="bg-surface rounded-xl p-4 mb-5">

@@ -7,7 +7,7 @@ ni registra pagos.
 import io
 import unicodedata
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -18,12 +18,17 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require
 from app.core.members import MassDeactivation, MemberRow, sync_members
-from app.core.permissions import Permission
-from app.models import Member, MemberImport, User
+from app.core.permissions import SOCIO, Permission
+from app.core.roles import seed_club_roles
+from app.core.security import get_password_hash
+from app.models import Member, MemberImport, User, UserRole, user_roles
 from app.schemas.member import (
+    LinkableUser,
+    MemberCreate,
     MemberImportResult,
     MemberImportLogEntry,
     MemberResponse,
+    MemberUpdate,
     MyMembershipResponse,
 )
 
@@ -340,3 +345,223 @@ async def my_membership(
         dues_synced_at=member.dues_synced_at,
         is_active=member.is_active,
     )
+
+
+# ── Alta manual y asociación con un usuario ───────────────────────────────────
+#
+# El padrón es la fuente de verdad, pero no puede ser la **única** puerta. Un
+# club que todavía no importó nada no tiene un solo socio, así que no hay forma
+# de ver siquiera cómo se ve la pantalla. Y hay un caso permanente: el
+# administrador del club también es socio, y su usuario ya existe.
+
+
+def _to_member_response(member: Member, document_id: Optional[str]) -> MemberResponse:
+    return MemberResponse(
+        id=member.id,
+        full_name=member.full_name,
+        document_id=document_id,
+        category=member.category,
+        member_number=member.member_number,
+        dues_up_to_date=member.dues_up_to_date,
+        dues_synced_at=member.dues_synced_at,
+    )
+
+
+@router.get("/clubs/{club_id}/linkable-users", response_model=list[LinkableUser])
+async def linkable_users(
+    club_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require(Permission.socios_importar))],
+):
+    """Usuarios del club que todavía no son socios, para poder asociarlos."""
+    club = await get_club_or_404(club_id, db)
+    assert_club_access(club, current_user)
+
+    ya_socios = select(Member.user_id).where(Member.club_id == club.id)
+    users = (
+        await db.execute(
+            select(User)
+            .where(
+                User.club_id == club.id,
+                User.is_active.is_(True),
+                User.id.not_in(ya_socios),
+            )
+            .order_by(User.full_name)
+        )
+    ).scalars().all()
+
+    return [LinkableUser.model_validate(u) for u in users]
+
+
+@router.post(
+    "/clubs/{club_id}/members",
+    response_model=MemberResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_member(
+    club_id: uuid.UUID,
+    body: MemberCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require(Permission.socios_importar))],
+):
+    """
+    Da de alta un socio y lo asocia a un usuario.
+
+    Tres caminos, y el orden importa:
+
+    1. Con `user_id`, se asocia **ese** usuario. Es el administrador que además
+       es socio.
+    2. Sin `user_id`, se busca un usuario del club con ese DNI y se asocia.
+       Asociar antes que crear evita el duplicado silencioso: dos cuentas para la
+       misma persona, y la buena termina siendo la que no usa.
+    3. Si no existe ninguno, se crea la cuenta con contraseña por defecto y
+       cambio obligatorio en el primer ingreso, igual que en la importación.
+
+    El DNI es obligatorio, y no por formalismo: la sincronización semanal matchea
+    por DNI. Es lo único que hace que este socio sea **el mismo** que va a venir
+    en el próximo export del contable — sin él, la primera importación lo daría
+    de baja por ausente y crearía otro al lado.
+    """
+    club = await get_club_or_404(club_id, db)
+    assert_club_access(club, current_user)
+
+    document_id = "".join(ch for ch in (body.document_id or "") if ch.isdigit())
+    if not document_id:
+        raise HTTPException(status_code=400, detail="El DNI es obligatorio")
+
+    account: Optional[User] = None
+
+    if body.user_id:
+        account = await db.scalar(
+            select(User).where(User.id == body.user_id, User.club_id == club.id)
+        )
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Ese usuario no es de este club",
+            )
+        if account.document_id and account.document_id != document_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"El usuario ya tiene el DNI {account.document_id}. "
+                    "Corregí uno de los dos antes de asociarlo."
+                ),
+            )
+    else:
+        account = await db.scalar(
+            select(User).where(User.club_id == club.id, User.document_id == document_id)
+        )
+
+    if account:
+        ya = await db.scalar(select(Member).where(Member.user_id == account.id))
+        if ya:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"{ya.full_name} ya está cargado como socio",
+            )
+
+    full_name = (body.full_name or (account.full_name if account else "")).strip()
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Falta el nombre")
+
+    roles = await seed_club_roles(club.id, db)
+    socio_role = roles.get(SOCIO)
+
+    if account is None:
+        if not body.default_password:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "No hay ningún usuario con ese DNI. Mandá una contraseña por "
+                    "defecto para crearle la cuenta."
+                ),
+            )
+        account = User(
+            id=uuid.uuid4(),
+            club_id=club.id,
+            email=None,
+            document_id=document_id,
+            password_hash=get_password_hash(body.default_password),
+            must_change_password=True,
+            full_name=full_name,
+            role=UserRole.player,  # placeholder del enum viejo; manda el rol Socio
+        )
+        db.add(account)
+        await db.flush()
+    elif not account.document_id:
+        # Un usuario que entra con email no tiene DNI cargado. Se le pone, o el
+        # padrón no lo va a reconocer y lo va a duplicar.
+        account.document_id = document_id
+
+    if socio_role:
+        tiene = await db.scalar(
+            select(user_roles.c.role_id).where(
+                user_roles.c.user_id == account.id,
+                user_roles.c.role_id == socio_role.id,
+            )
+        )
+        if not tiene:
+            await db.execute(
+                user_roles.insert().values(user_id=account.id, role_id=socio_role.id)
+            )
+
+    member = Member(
+        id=uuid.uuid4(),
+        club_id=club.id,
+        user_id=account.id,
+        full_name=full_name,
+        category=body.category,
+        member_number=body.member_number,
+        dues_up_to_date=body.dues_up_to_date,
+        dues_synced_at=datetime.now(timezone.utc),
+        is_active=True,
+    )
+    db.add(member)
+    await db.commit()
+    await db.refresh(member)
+
+    return _to_member_response(member, document_id)
+
+
+@router.patch("/clubs/{club_id}/members/{member_id}", response_model=MemberResponse)
+async def update_member(
+    club_id: uuid.UUID,
+    member_id: uuid.UUID,
+    body: MemberUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require(Permission.socios_importar))],
+):
+    """
+    Corrige un socio a mano.
+
+    Lo que se toque acá lo **pisa la próxima sincronización** si el padrón dice
+    otra cosa: el sistema contable sigue siendo la fuente de verdad del estado de
+    cuota. Sirve para el rato entre que alguien paga y llega el próximo export.
+    """
+    club = await get_club_or_404(club_id, db)
+    assert_club_access(club, current_user)
+
+    member = await db.scalar(
+        select(Member)
+        .where(Member.id == member_id, Member.club_id == club.id)
+        .options(selectinload(Member.user))
+    )
+    if not member:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Socio no encontrado")
+
+    if body.category is not None:
+        member.category = body.category
+    if body.member_number is not None:
+        member.member_number = body.member_number
+    if body.dues_up_to_date is not None:
+        member.dues_up_to_date = body.dues_up_to_date
+        # El socio ve "según el último dato del club, <fecha>". Cambiar el estado
+        # sin mover la fecha haría que la pantalla mienta sobre su antigüedad.
+        member.dues_synced_at = datetime.now(timezone.utc)
+    if body.is_active is not None:
+        member.is_active = body.is_active
+
+    await db.commit()
+    await db.refresh(member)
+    return _to_member_response(member, member.user.document_id)

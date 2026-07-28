@@ -9,7 +9,7 @@ from typing import Annotated, Literal, Optional
 import openpyxl
 import pdfplumber
 import xlrd
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -394,6 +394,13 @@ def _map_position(raw: str) -> Optional[str]:
 
 # Column aliases → internal key
 _COL_ALIASES: dict[str, str] = {
+    # Las dos que agrega la exportación: identifican la fila, no describen al
+    # jugador. Ver EXPORT_COLUMNS al final del módulo.
+    "id": "id",
+    "division": "division",
+    "división": "division",
+    "categoria": "division",
+    "categoría": "division",
     "documento": "dni",
     "doc": "dni",
     "dni": "dni",
@@ -544,19 +551,48 @@ from app.models import Division  # noqa: E402 — avoids circular at module top
 @router.post("/players-xlsx")
 async def import_players_xlsx(
     file: Annotated[UploadFile, File(...)],
-    division_id: Annotated[uuid.UUID, Form(...)],
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require(Permission.plantel_importar))],
+    division_id: Annotated[Optional[uuid.UUID], Form()] = None,
 ):
+    """
+    Carga o actualiza jugadores desde una planilla.
+
+    Acepta las dos formas de trabajar:
+
+    - **Una división**: se manda `division_id` y todas las filas van ahí. Es la
+      lista que le pasan al club a principio de año.
+    - **El club entero**: la planilla trae una columna `División` por fila. Es lo
+      que devuelve la exportación, para editar todo junto y volver a subirlo.
+
+    Si están las dos, manda la de la fila: es más específica, y permite mover a
+    alguien de división cambiando una celda.
+    """
     fname = (file.filename or "").lower()
     if not (fname.endswith(".xlsx") or fname.endswith(".xls")):
         raise HTTPException(status_code=400, detail="Solo se aceptan archivos .xlsx o .xls")
 
-    division = await db.scalar(select(Division).where(Division.id == division_id))
-    if not division:
-        raise HTTPException(status_code=404, detail="División no encontrada")
-    if current_user.role != UserRole.superadmin and current_user.club_id != division.club_id:
-        raise HTTPException(status_code=403, detail="Acceso denegado")
+    division = None
+    if division_id:
+        division = await db.scalar(select(Division).where(Division.id == division_id))
+        if not division:
+            raise HTTPException(status_code=404, detail="División no encontrada")
+        if current_user.role != UserRole.superadmin and current_user.club_id != division.club_id:
+            raise HTTPException(status_code=403, detail="Acceso denegado")
+
+    club_id = division.club_id if division else current_user.club_id
+    if not club_id:
+        raise HTTPException(status_code=400, detail="Indicá una división")
+
+    # Divisiones del club por nombre normalizado, para resolver la columna
+    # `División` de cada fila. "M17" y "m 17" tienen que caer en la misma.
+    club_divisions = (
+        await db.execute(
+            select(Division).where(Division.club_id == club_id, Division.is_active.is_(True))
+        )
+    ).scalars().all()
+    division_por_nombre = {_normalize_str(d.name): d for d in club_divisions}
+    division_ids = [d.id for d in club_divisions]
 
     content = await file.read()
     try:
@@ -601,18 +637,52 @@ async def import_players_xlsx(
         weight = _parse_weight(rec.get("weight_kg"))
         height = _parse_height(rec.get("height_cm"))
 
-        # Try to find existing player by DNI within the club's divisions
+        # A qué división va esta fila. La de la planilla gana sobre la del form.
+        destino = division
+        div_raw = str(rec.get("division") or "").strip()
+        if div_raw:
+            destino = division_por_nombre.get(_normalize_str(div_raw))
+            if not destino:
+                errors.append({"row": row_num, "reason": f"No existe la división '{div_raw}'"})
+                skipped += 1
+                continue
+        if not destino:
+            errors.append({"row": row_num, "reason": "Sin división: falta la columna o el campo"})
+            skipped += 1
+            continue
+
+        # El ID manda sobre el DNI.
+        #
+        # Es lo que hace seguro exportar, editar y volver a subir: sin él, un
+        # jugador sin DNI se duplica en cada vuelta, y corregirle un DNI mal
+        # cargado crea uno nuevo en lugar de arreglar el que ya estaba — que es
+        # justo lo que uno abre la planilla para hacer.
         existing: Optional[Player] = None
-        if dni:
-            # Search all divisions of the same club
-            from app.models import Division as DivModel
-            club_divisions = (await db.execute(
-                select(DivModel.id).where(DivModel.club_id == division.club_id, DivModel.is_active.is_(True))
-            )).scalars().all()
+        id_raw = str(rec.get("id") or "").strip()
+        if id_raw:
+            try:
+                existing = await db.scalar(
+                    select(Player).where(
+                        Player.id == uuid.UUID(id_raw),
+                        Player.division_id.in_(division_ids),
+                    )
+                )
+            except ValueError:
+                errors.append({"row": row_num, "reason": f"ID inválido: '{id_raw}'"})
+                skipped += 1
+                continue
+            if not existing:
+                # Un ID que no existe casi siempre es una planilla de otro club, o
+                # una fila copiada a mano. Crear un jugador suelto sería peor.
+                errors.append({"row": row_num, "reason": "El ID no corresponde a este club"})
+                skipped += 1
+                continue
+
+        if existing is None and dni:
             existing = await db.scalar(
                 select(Player).where(
                     Player.dni == dni,
-                    Player.division_id.in_(club_divisions),
+                    Player.division_id.in_(division_ids),
                     Player.is_active.is_(True),
                 )
             )
@@ -620,6 +690,10 @@ async def import_players_xlsx(
         if existing:
             # Update existing player
             existing.name = name
+            # Corregir el DNI es de los motivos principales para abrir la
+            # planilla, y con el match por ID ya no hay riesgo de perder la fila.
+            if dni:
+                existing.dni = dni
             if position:
                 existing.position = position
             if dob:
@@ -635,13 +709,13 @@ async def import_players_xlsx(
             if obra:
                 existing.obra_social = obra
             # Move to target division if different
-            if existing.division_id != division_id:
-                existing.division_id = division_id
+            if existing.division_id != destino.id:
+                existing.division_id = destino.id
             updated += 1
         else:
             player = Player(
                 id=uuid.uuid4(),
-                division_id=division_id,
+                division_id=destino.id,
                 name=name,
                 position=position,
                 dni=dni,
@@ -655,16 +729,36 @@ async def import_players_xlsx(
             db.add(player)
             created += 1
 
-        # If weight or height present, create a measurement for today
+        # Peso y estatura del día, si vienen.
         if weight or height:
             from app.models.player import PlayerMeasurement
-            db.add(PlayerMeasurement(
-                player_id=existing.id if existing else player.id,  # type: ignore[possibly-unbound]
-                measured_at=date.today(),
-                weight_kg=weight,
-                height_cm=height,
-                recorded_by=current_user.id,
-            ))
+
+            player_id = existing.id if existing else player.id  # type: ignore[possibly-unbound]
+            # Se pisa la medición de hoy en vez de agregar otra. Subir dos veces
+            # la misma planilla —lo normal cuando se corrige una fila y se vuelve
+            # a cargar— dejaba dos mediciones idénticas del mismo día, y la
+            # evolución de peso pasaba a tener escalones que nadie midió.
+            hoy = await db.scalar(
+                select(PlayerMeasurement).where(
+                    PlayerMeasurement.player_id == player_id,
+                    PlayerMeasurement.measured_at == date.today(),
+                )
+            ) if existing else None
+
+            if hoy:
+                if weight:
+                    hoy.weight_kg = weight
+                if height:
+                    hoy.height_cm = height
+                hoy.recorded_by = current_user.id
+            else:
+                db.add(PlayerMeasurement(
+                    player_id=player_id,
+                    measured_at=date.today(),
+                    weight_kg=weight,
+                    height_cm=height,
+                    recorded_by=current_user.id,
+                ))
 
     try:
         await db.commit()
@@ -679,3 +773,156 @@ async def import_players_xlsx(
         "errors": errors,
         "total_rows": len(records),
     }
+
+
+# ─── Exportar el plantel ──────────────────────────────────────────────────────
+#
+# El flujo que habilita: exportar, corregir treinta filas en Excel, volver a
+# subir. Editar treinta jugadores de a uno en el celular no lo hace nadie.
+#
+# Para que la vuelta funcione, la planilla trae dos columnas que no son datos del
+# jugador sino de identidad de la fila:
+#
+# - **ID**: el identificador interno. El importador lo mira **primero**. Sin él
+#   el match es por DNI, y entonces un jugador sin DNI se duplica al volver, y
+#   —peor— corregirle un DNI mal cargado crea un jugador nuevo en vez de
+#   arreglar el que ya estaba, que es exactamente lo que uno va a querer hacer
+#   con una planilla en la mano.
+# - **División**: para poder exportar el club entero en un archivo y que cada
+#   fila vuelva a la división que le corresponde. Cambiarla en la planilla mueve
+#   al jugador, que es una forma cómoda de armar la pretemporada.
+#
+# El orden de las columnas es el de lectura de una planilla, no el del modelo:
+# primero se busca a la persona, después se le corrigen los datos.
+
+#: Encabezados de la exportación, en orden. Las claves son los nombres internos.
+EXPORT_COLUMNS: list[tuple[str, str]] = [
+    ("ID", "id"),
+    ("DNI", "dni"),
+    ("Apellido", "last_name"),
+    ("Nombre", "first_name"),
+    ("División", "division"),
+    ("Puesto", "position"),
+    ("Fecha nac.", "date_of_birth"),
+    ("Sexo", "sex"),
+    ("Email", "email"),
+    ("Celular", "phone"),
+    ("Tel. emergencia", "emergency_phone"),
+    ("O.Social", "obra_social"),
+]
+
+
+def _split_name(name: str) -> tuple[str, str]:
+    """
+    Parte "Perez Juan" en apellido y nombre.
+
+    Los jugadores se guardan con el nombre completo en un campo, pero la planilla
+    los muestra en dos porque así vienen las listas de los clubes y así se
+    ordenan. La primera palabra es el apellido: es como los arma el importador
+    (`f"{apellido} {nombre}"`), así que la ida y la vuelta cierran.
+    """
+    partes = (name or "").strip().split()
+    if not partes:
+        return "", ""
+    if len(partes) == 1:
+        return partes[0], ""
+    return partes[0], " ".join(partes[1:])
+
+
+@router.get("/players-xlsx")
+async def export_players_xlsx(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_ver))],
+    club_id: Annotated[Optional[uuid.UUID], Query()] = None,
+    division_id: Annotated[Optional[uuid.UUID], Query()] = None,
+):
+    """
+    Descarga el plantel como .xlsx, listo para editar y volver a subir.
+
+    Sin parámetros exporta el club del usuario entero. Con `division_id`, sólo esa
+    división.
+    """
+    from fastapi import Response
+
+    from app.core.deps import get_division_or_404, scoped_division_ids
+
+    if division_id:
+        # Valida club y alcance por división de una.
+        division = await get_division_or_404(division_id, db, current_user)
+        divisiones = [division]
+        nombre_archivo = f"plantel-{division.name}"
+    else:
+        target_club = club_id or current_user.club_id
+        if not target_club:
+            raise HTTPException(status_code=400, detail="Indicá un club o una división")
+        if current_user.role != UserRole.superadmin and current_user.club_id != target_club:
+            raise HTTPException(status_code=403, detail="Acceso denegado")
+
+        query = select(Division).where(
+            Division.club_id == target_club, Division.is_active.is_(True)
+        )
+        # Un entrenador con divisiones asignadas exporta las suyas, no el club
+        # entero: el alcance por división vale igual acá que en la pantalla.
+        permitidas = scoped_division_ids(current_user)
+        if permitidas is not None:
+            query = query.where(Division.id.in_(permitidas))
+        divisiones = list((await db.execute(query.order_by(Division.name))).scalars().all())
+        nombre_archivo = "plantel"
+
+    if not divisiones:
+        raise HTTPException(status_code=404, detail="No hay divisiones a las que llegues")
+
+    nombres = {d.id: d.name for d in divisiones}
+    players = (
+        await db.execute(
+            select(Player)
+            .where(Player.division_id.in_(list(nombres)), Player.is_active.is_(True))
+            .order_by(Player.division_id, Player.name)
+        )
+    ).scalars().all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantel"
+    ws.append([encabezado for encabezado, _ in EXPORT_COLUMNS])
+
+    for player in players:
+        apellido, nombre = _split_name(player.name)
+        ws.append([
+            str(player.id),
+            player.dni or "",
+            apellido,
+            nombre,
+            nombres.get(player.division_id, ""),
+            player.position or "",
+            player.date_of_birth.isoformat() if player.date_of_birth else "",
+            player.sex or "",
+            player.email or "",
+            player.phone or "",
+            player.emergency_phone or "",
+            player.obra_social or "",
+        ])
+
+    # Anchos a ojo: una planilla que abre con todas las columnas en 8 caracteres
+    # obliga a acomodarla antes de poder leerla.
+    for columna, ancho in zip("ABCDEFGHIJKL", (38, 12, 18, 18, 14, 16, 12, 6, 26, 16, 16, 20)):
+        ws.column_dimensions[columna].width = ancho
+    ws.freeze_panes = "A2"
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+
+    # `Response` y no `StreamingResponse`: el archivo ya está entero en memoria,
+    # así que no hay nada que ir mandando de a pedazos. Streamearlo además retrasa
+    # el cierre de la sesión de base hasta que el cuerpo termina de salir, y una
+    # conexión abierta de más por cada descarga no se paga por nada.
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{nombre_archivo}.xlsx"',
+            # Sin esto el navegador no ve el nombre del archivo en una respuesta
+            # que atraviesa CORS.
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        },
+    )

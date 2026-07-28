@@ -9,9 +9,17 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.core.permissions import LEGACY_ROLE_TO_PRESET, PRESET_PERMISSIONS
-from app.models import Role, RolePermission, User, UserRole, user_roles
+from app.core.permissions import ALL_PERMISSIONS, LEGACY_ROLE_TO_PRESET, PRESET_PERMISSIONS
+from app.models import (
+    KnownPermission,
+    Role,
+    RolePermission,
+    User,
+    UserRole,
+    user_roles,
+)
 
 #: Tope de la cadena de herencia. No hay un motivo técnico: cinco niveles ya son
 #: más de lo que alguien puede seguir de cabeza, y una cadena más larga es casi
@@ -21,6 +29,27 @@ MAX_INHERITANCE_DEPTH = 5
 
 class RoleTreeError(ValueError):
     """La jerarquía pedida no se puede aplicar. El mensaje va tal cual al usuario."""
+
+
+def _roles_with_permissions(*where):
+    """
+    Roles con sus capacidades **garantizadamente cargadas y frescas**.
+
+    `Role.permissions` está declarada `lazy="selectin"`, pero eso sólo aplica al
+    cargar la entidad por primera vez. Una colección que quedó **expirada** por un
+    `commit()` previo se recarga con la estrategia perezosa, y una carga perezosa
+    en medio de código sync —como el bucle que recorre estas colecciones— revienta
+    con `MissingGreenlet`.
+
+    `selectinload` explícito más `populate_existing` sacan la duda: la colección se
+    trae en la misma consulta, esté el objeto en el identity map o no.
+    """
+    return (
+        select(Role)
+        .where(*where)
+        .options(selectinload(Role.permissions))
+        .execution_options(populate_existing=True)
+    )
 
 
 def assert_valid_parent(
@@ -71,9 +100,7 @@ async def resolve_club_role_tree(club_id: uuid.UUID, db: AsyncSession) -> None:
     imposible que quede uno desincronizado por un caso de borde del recorrido.
     Un permiso mal resuelto no se ve hasta que alguien entra a donde no debía.
     """
-    roles = (
-        await db.execute(select(Role).where(Role.club_id == club_id))
-    ).scalars().all()
+    roles = (await db.execute(_roles_with_permissions(Role.club_id == club_id))).scalars().all()
 
     own = {r.id: r.own_permission_values for r in roles}
     parents = {r.id: r.parent_role_id for r in roles}
@@ -142,6 +169,65 @@ async def seed_club_roles(club_id: uuid.UUID, db: AsyncSession) -> dict[str, Rol
 
     await db.flush()
     return existing
+
+
+async def grant_newly_added_permissions(db: AsyncSession) -> list[str]:
+    """
+    Reparte entre los presets las capacidades que **aparecieron desde la última
+    vez** que arrancó la app. Devuelve cuáles fueron, para el log.
+
+    El agujero que tapa: `seed_club_roles` es idempotente y no toca un rol que ya
+    existe, a propósito, para no pisarle al club una capacidad que sacó a mano.
+    Pero eso también congela los roles en el juego de capacidades que existía el
+    día que se sembraron. Cuando después se agrega un módulo nuevo, el código se
+    despliega y **nadie lo ve**: el permiso no está en ningún rol y el menú, que
+    filtra por capacidad, no muestra la pantalla.
+
+    Ya pasó tres veces seguidas —socios, gimnasio y bolsa de trabajo— sin dar un
+    solo error.
+
+    La diferencia entre "el club se la sacó" y "todavía no existía" no está en la
+    base, así que se guarda: `known_permissions` registra lo que esta instalación
+    ya vio. Lo conocido no se toca nunca más; lo nuevo se reparte según el preset,
+    que es el default que le habría tocado si hubiera existido desde el principio.
+    """
+    known = set(
+        (await db.execute(select(KnownPermission.permission))).scalars().all()
+    )
+    nuevas = ALL_PERMISSIONS - known
+    if not nuevas:
+        return []
+
+    roles = (
+        await db.execute(_roles_with_permissions(Role.is_preset.is_(True)))
+    ).scalars().all()
+
+    clubes_tocados: set[uuid.UUID] = set()
+    for role in roles:
+        preset = PRESET_PERMISSIONS.get(role.name)
+        if not preset:
+            # Un preset renombrado por el club. No hay forma de saber a qué
+            # correspondía, así que no se le inventa nada.
+            continue
+
+        faltantes = (nuevas & set(preset)) - role.own_permission_values
+        for permission in sorted(faltantes):
+            role.permissions.append(
+                RolePermission(role_id=role.id, permission=permission, inherited=False)
+            )
+        if faltantes:
+            clubes_tocados.add(role.club_id)
+
+    for permission in sorted(nuevas):
+        db.add(KnownPermission(permission=permission))
+
+    await db.flush()
+    # Si algún rol tocado tiene hijos, lo heredado quedó viejo.
+    for club_id in clubes_tocados:
+        await resolve_club_role_tree(club_id, db)
+
+    await db.commit()
+    return sorted(nuevas)
 
 
 async def assign_preset_for_legacy_role(user: User, db: AsyncSession) -> None:

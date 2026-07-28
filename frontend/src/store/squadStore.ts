@@ -117,6 +117,8 @@ interface SquadState {
   batchMovePlayers: (playerIds: string[], toDivisionId: string) => Promise<void>;
   movePlayerOptimistic: (playerIds: string[], toDivisionId: string) => void;
   importPlayersXlsx: (file: File, divisionId: string) => Promise<ImportResult>;
+  /** Descarga el plantel como .xlsx. Sin división, el club entero. */
+  exportPlayersXlsx: (divisionId?: string) => Promise<void>;
 }
 
 export interface ImportResult {
@@ -229,11 +231,31 @@ export const useSquadStore = create<SquadState>((set, get) => ({
   importPlayersXlsx: async (file, divisionId) => {
     const form = new FormData();
     form.append("file", file);
-    form.append("division_id", divisionId);
+    // La planilla exportada trae una columna División por fila y manda sobre
+    // ésta, así que subir el club entero sigue funcionando aunque acá vaya una.
+    if (divisionId) form.append("division_id", divisionId);
     const { data } = await api.post("/import/players-xlsx", form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return data as ImportResult;
+  },
+
+  exportPlayersXlsx: async (divisionId) => {
+    const { data } = await api.get("/import/players-xlsx", {
+      params: divisionId ? { division_id: divisionId } : {},
+      responseType: "blob",
+    });
+
+    // Descarga por enlace temporal: no hay API de "guardar archivo" y abrir el
+    // blob en una pestaña dejaría el .xlsx sin nombre.
+    const url = URL.createObjectURL(data as Blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = divisionId ? "plantel-division.xlsx" : "plantel.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   },
 
   batchMovePlayers: async (playerIds, toDivisionId) => {
