@@ -377,3 +377,78 @@ async def test_a_player_cannot_enumerate_the_squad(client, db, perm_ctx):
     headers = perm_ctx["users"]["player"]["headers"]
     res = await client.get(f"/divisions/{perm_ctx['division'].id}/players", headers=headers)
     assert res.status_code == 403
+
+
+async def test_a_player_reads_their_own_tests_and_measurements_only(
+    client, db, perm_ctx, club_admin_ctx
+):
+    """
+    Lo que sostiene las solapas Tests y Físico del portal.
+
+    Esos dos endpoints quedaron con `get_current_user` a propósito: el jugador no
+    tiene ninguna capacidad, y su control es de acceso propio.
+    """
+    ids = []
+    for name in ("Propio Portal", "Ajeno Portal"):
+        res = await client.post(
+            f"/divisions/{perm_ctx['division'].id}/players",
+            json={"name": name},
+            headers=club_admin_ctx["headers"],
+        )
+        ids.append(res.json()["id"])
+
+    await client.post(
+        f"/players/{ids[0]}/tests",
+        json={"test_date": "2026-07-01", "test_type": "bronco", "value": 320.5},
+        headers=club_admin_ctx["headers"],
+    )
+    await client.post(
+        f"/players/{ids[0]}/measurements",
+        json={"measured_at": "2026-07-01", "weight_kg": 92.5, "height_cm": 185},
+        headers=club_admin_ctx["headers"],
+    )
+
+    await client.post(
+        f"/divisions/{perm_ctx['division'].id}/players/{ids[0]}/invite",
+        json={"email": "propio@example.com", "password": "secret123"},
+        headers=club_admin_ctx["headers"],
+    )
+    tokens = await login(client, "propio@example.com")
+    headers = auth_header(tokens["access_token"])
+
+    res = await client.get(f"/players/{ids[0]}/tests", headers=headers)
+    assert res.status_code == 200, res.text
+    assert len(res.json()) == 1
+
+    res = await client.get(f"/players/{ids[0]}/measurements", headers=headers)
+    assert res.status_code == 200, res.text
+    assert len(res.json()) == 1
+
+    for path in (f"/players/{ids[1]}/tests", f"/players/{ids[1]}/measurements"):
+        res = await client.get(path, headers=headers)
+        assert res.status_code == 403, f"{path} devolvió {res.status_code}"
+
+
+async def test_a_player_cannot_load_their_own_tests(client, db, perm_ctx, club_admin_ctx):
+    """Ver lo propio no es cargarlo: el jugador no se edita sus propias mediciones."""
+    res = await client.post(
+        f"/divisions/{perm_ctx['division'].id}/players",
+        json={"name": "Solo Lectura"},
+        headers=club_admin_ctx["headers"],
+    )
+    player_id = res.json()["id"]
+
+    await client.post(
+        f"/divisions/{perm_ctx['division'].id}/players/{player_id}/invite",
+        json={"email": "lectura@example.com", "password": "secret123"},
+        headers=club_admin_ctx["headers"],
+    )
+    tokens = await login(client, "lectura@example.com")
+    headers = auth_header(tokens["access_token"])
+
+    res = await client.post(
+        f"/players/{player_id}/tests",
+        json={"test_date": "2026-07-01", "test_type": "bronco", "value": 300},
+        headers=headers,
+    )
+    assert res.status_code == 403

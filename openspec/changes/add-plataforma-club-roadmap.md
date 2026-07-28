@@ -120,7 +120,7 @@ Trae además trabajo de autenticación que no estaba previsto: **ingreso por DNI
 
 ---
 
-### 3. Portal del jugador ampliado — *el más barato de todo el roadmap*
+### 3. Portal del jugador ampliado — ✅ hecho
 
 El portal ya existe y muestra asistencia y temporada. Falta lo que el jugador más
 quiere ver y **ya está en la base**:
@@ -132,6 +132,18 @@ El ranking contra los compañeros **queda afuera**: el club decidió que por aho
 
 Casi todo es UI sobre endpoints existentes. Va temprano porque es lo que hace que el
 jugador *entre* a la app, y sin eso los módulos siguientes no tienen público.
+
+**Implementado**: el portal pasó a tener tres solapas —Resumen, Tests y Físico—. Los
+tests salen agrupados por categoría con su evolución, y el físico muestra peso, % de
+grasa e IMC.
+
+Los gráficos son sparklines en SVG, sin librería: ECharts pesa 1.1 MB y el portal es
+la pantalla que un jugador abre en el celular, muchas veces con mala señal. Traerlo
+para dibujar seis puntos desharía el code splitting. El chunk del portal quedó en 9 kB.
+
+Una nota de criterio que quedó en el código: en el peso, **bajar no es "mejor"**
+—depende del puesto y del plan—, así que su línea no se pinta de verde o rojo. En
+% de grasa y en los tiempos, sí.
 
 ---
 
