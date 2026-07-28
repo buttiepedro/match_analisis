@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin
+from app.core.permissions import Permission
+from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require, require_club_admin
 from app.models import Division, Session, Tournament, User
 from app.schemas.tournament import TournamentCreate, TournamentResponse, TournamentUpdate
 
@@ -38,7 +39,7 @@ async def create_tournament(
     club_id: uuid.UUID,
     body: TournamentCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_torneos))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -69,7 +70,7 @@ async def create_tournament(
 async def list_tournaments(
     club_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.partido_ver))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -109,7 +110,7 @@ async def update_tournament(
     tournament_id: uuid.UUID,
     body: TournamentUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_torneos))],
 ):
     tournament = await _get_tournament_in_club(club_id, tournament_id, db, current_user)
 
@@ -145,7 +146,7 @@ async def delete_tournament(
     club_id: uuid.UUID,
     tournament_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_torneos))],
 ):
     """
     Baja lógica. Se rechaza si el torneo tiene partidos: son la estadística

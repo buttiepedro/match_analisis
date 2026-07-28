@@ -44,6 +44,12 @@ define el código, porque cada endpoint referencia una.
 **Jugador sin capacidades no es un olvido.** Su acceso es a lo propio y lo resuelve
 `require_player_self`, que no es una capacidad sobre el club.
 
+Eso **recortó** lo que un `player` podía: antes llegaba a cualquier endpoint con
+`get_current_user` y enumeraba divisiones, plantel, entrenamientos y lesiones del
+club entero. El portal nunca lo usó. Sus tres endpoints —`/me/player`,
+`/players/{id}/attendance` y `/players/{id}/season-stats`— son de acceso propio y
+siguen funcionando; hay un test que lo verifica.
+
 Los cuatro presets nuevos se siembran vacíos o mínimos y **no se le asignan a nadie**:
 adivinar quién es tesorero sería peor que dejarlo sin asignar.
 

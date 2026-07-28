@@ -13,11 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.permissions import Permission
 from app.core.deps import (
     assert_club_access,
     get_club_or_404,
     get_current_user,
     get_division_or_404,
+    require,
     require_club_admin,
 )
 from app.models import Event, Opponent, Session, SessionStatus, Tournament, User
@@ -66,7 +68,7 @@ def _score_from_events(events: list[Event], team: str) -> tuple[int, int]:
 async def list_opponents(
     club_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.partido_ver))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -85,7 +87,7 @@ async def create_opponent(
     club_id: uuid.UUID,
     body: OpponentCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_rivales))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -113,7 +115,7 @@ async def create_opponent(
 async def opponent_history(
     opponent_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.partido_ver))],
 ):
     """Historial completo contra un rival: lo que los strings sueltos no permitían."""
     opponent = await db.scalar(select(Opponent).where(Opponent.id == opponent_id))
@@ -198,7 +200,7 @@ async def opponent_history(
 async def tournament_standings(
     tournament_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.partido_ver))],
 ):
     """
     Tabla del torneo desde la perspectiva del club.

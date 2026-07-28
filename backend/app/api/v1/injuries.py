@@ -15,10 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.permissions import Permission
 from app.core.deps import (
     assert_division_access,
     get_current_user,
     get_division_or_404,
+    require,
     require_club_admin,
     require_player_self,
 )
@@ -111,7 +113,7 @@ async def create_injury(
     player_id: uuid.UUID,
     body: InjuryCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.medico_editar))],
 ):
     player = await _get_player_or_404(player_id, db, current_user)
 
@@ -140,7 +142,7 @@ async def update_injury(
     injury_id: uuid.UUID,
     body: InjuryUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.medico_editar))],
 ):
     injury = await db.scalar(select(PlayerInjury).where(PlayerInjury.id == injury_id))
     if not injury:
@@ -169,7 +171,7 @@ async def update_injury(
 async def delete_injury(
     injury_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.medico_editar))],
 ):
     injury = await db.scalar(select(PlayerInjury).where(PlayerInjury.id == injury_id))
     if not injury:
@@ -187,7 +189,7 @@ async def set_availability(
     player_id: uuid.UUID,
     body: AvailabilityUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.medico_editar))],
 ):
     """Suspensión y baja temporal se cargan a mano; lesionado sale de las lesiones."""
     player = await _get_player_or_404(player_id, db, current_user)
@@ -224,7 +226,7 @@ def _availability_row(player: Player) -> DivisionAvailabilityRow:
 async def suspension_candidates(
     division_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.medico_ver))],
     days: Annotated[int, Query(ge=1, le=365)] = 60,
 ):
     """
@@ -276,7 +278,7 @@ async def suspension_candidates(
 async def division_availability(
     division_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.medico_ver))],
     only_unavailable: Annotated[bool, Query()] = False,
 ):
     await _get_division_or_404(division_id, db, current_user)

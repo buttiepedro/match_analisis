@@ -49,10 +49,18 @@ async def perm_ctx(client, db, club_admin_ctx):
 # ── La garantía central ───────────────────────────────────────────────────────
 
 #: Matriz medida sobre el código **antes** del cambio. `True` = tenía acceso.
+#:
+#: Con **una excepción deliberada**, marcada abajo: el rol `player` perdió la
+#: lectura de datos del club. Antes alcanzaba cualquier endpoint con
+#: `get_current_user`, o sea que podía enumerar todas las divisiones, todo el
+#: plantel y todos los entrenamientos. El portal nunca usó nada de eso —sus tres
+#: endpoints son de acceso propio— así que era permiso de más, no una función.
 ACCESS_MATRIX = {
     # (método, plantilla de ruta): {rol: permitido}
     ("GET", "/clubs/{club}/divisions"): {
-        "club_admin": True, "match_director": True, "analyst": True, "player": True,
+        "club_admin": True, "match_director": True, "analyst": True,
+        # Cambio intencional: era True.
+        "player": False,
     },
     ("POST", "/clubs/{club}/divisions"): {
         "club_admin": True, "match_director": False, "analyst": False, "player": False,
@@ -304,3 +312,68 @@ async def test_a_role_from_another_club_cannot_be_assigned(client, db, perm_ctx,
         headers=club_admin_ctx["headers"],
     )
     assert res.status_code == 422
+
+
+# ── El único cambio de comportamiento intencional ─────────────────────────────
+
+async def test_the_player_portal_still_works_without_any_capability(client, db, perm_ctx, club_admin_ctx):
+    """
+    El jugador perdió la lectura del club, pero **no** perdió su portal.
+
+    Sus tres endpoints son de acceso propio y no piden capacidad. Si este test
+    falla, el recorte de la matriz rompió el portal y hay que revertirlo.
+    """
+    res = await client.post(
+        f"/divisions/{perm_ctx['division'].id}/players",
+        json={"name": "Portal Test"},
+        headers=club_admin_ctx["headers"],
+    )
+    player_id = res.json()["id"]
+
+    res = await client.post(
+        f"/divisions/{perm_ctx['division'].id}/players/{player_id}/invite",
+        json={"email": "portal@example.com", "password": "secret123"},
+        headers=club_admin_ctx["headers"],
+    )
+    assert res.status_code == 200, res.text
+
+    tokens = await login(client, "portal@example.com")
+    headers = auth_header(tokens["access_token"])
+
+    for path in (
+        "/me/player",
+        f"/players/{player_id}/attendance",
+        f"/players/{player_id}/season-stats",
+    ):
+        res = await client.get(path, headers=headers)
+        assert res.status_code == 200, f"{path} devolvió {res.status_code}: {res.text}"
+
+
+async def test_a_player_cannot_read_another_players_attendance(client, db, perm_ctx, club_admin_ctx):
+    """Validar sólo el club dejaba leer la asistencia de todos los compañeros."""
+    ids = []
+    for name in ("Uno Portal", "Dos Portal"):
+        res = await client.post(
+            f"/divisions/{perm_ctx['division'].id}/players",
+            json={"name": name},
+            headers=club_admin_ctx["headers"],
+        )
+        ids.append(res.json()["id"])
+
+    await client.post(
+        f"/divisions/{perm_ctx['division'].id}/players/{ids[0]}/invite",
+        json={"email": "uno@example.com", "password": "secret123"},
+        headers=club_admin_ctx["headers"],
+    )
+    tokens = await login(client, "uno@example.com")
+    headers = auth_header(tokens["access_token"])
+
+    assert (await client.get(f"/players/{ids[0]}/attendance", headers=headers)).status_code == 200
+    assert (await client.get(f"/players/{ids[1]}/attendance", headers=headers)).status_code == 403
+
+
+async def test_a_player_cannot_enumerate_the_squad(client, db, perm_ctx):
+    """El recorte: antes podía listar todo el plantel del club sin usarlo nunca."""
+    headers = perm_ctx["users"]["player"]["headers"]
+    res = await client.get(f"/divisions/{perm_ctx['division'].id}/players", headers=headers)
+    assert res.status_code == 403

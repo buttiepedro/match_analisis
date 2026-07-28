@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, get_division_or_404, require_club_admin
+from app.core.permissions import Permission
+from app.core.deps import get_current_user, get_division_or_404, require, require_club_admin
 from app.models import (
     Division,
     Event,
@@ -119,7 +120,7 @@ async def add_to_lineup(
     session_id: uuid.UUID,
     body: LineupEntryCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_lineup))],
 ):
     session, club_id = await _get_session_and_club(session_id, db, current_user)
 
@@ -152,7 +153,7 @@ async def update_lineup_entry(
     entry_id: uuid.UUID,
     body: LineupEntryUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_lineup))],
 ):
     await _get_session_and_check_access(session_id, db, current_user)
 
@@ -182,7 +183,7 @@ async def delete_lineup_entry(
     session_id: uuid.UUID,
     entry_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_lineup))],
 ):
     await _get_session_and_check_access(session_id, db, current_user)
 
@@ -201,7 +202,7 @@ async def replace_lineup(
     session_id: uuid.UUID,
     body: LineupBulkRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_lineup))],
 ):
     """
     Reemplaza el lineup de un equipo entero.
@@ -275,7 +276,7 @@ async def replace_lineup(
 async def suggested_lineup(
     session_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_lineup))],
     team: str = "user",
 ):
     """
@@ -337,7 +338,7 @@ async def suggested_lineup(
 async def get_lineup(
     session_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.partido_ver))],
 ):
     await _get_session_and_check_access(session_id, db, current_user)
 
@@ -357,7 +358,7 @@ async def replace_squad(
     session_id: uuid.UUID,
     body: SquadBulkRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_lineup))],
 ):
     session, club_id = await _get_session_and_club(session_id, db, current_user)
 
@@ -385,7 +386,7 @@ async def replace_squad(
 async def get_squad(
     session_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.partido_ver))],
 ):
     await _get_session_and_check_access(session_id, db, current_user)
 
@@ -415,7 +416,7 @@ async def get_squad(
 async def squad_message(
     session_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.partido_ver))],
 ):
     """
     Texto de la convocatoria, listo para pegar en el grupo.
@@ -451,7 +452,7 @@ async def substitute(
     session_id: uuid.UUID,
     body: SubstituteRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_lineup))],
 ):
     session = await _get_session_and_check_access(session_id, db, current_user)
 

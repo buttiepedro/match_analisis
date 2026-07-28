@@ -6,7 +6,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin
+from app.core.permissions import Permission
+from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require, require_club_admin
 from app.models import Division, Player, Tournament, User
 from app.schemas.division import DivisionCreate, DivisionResponse, DivisionUpdate
 
@@ -35,7 +36,7 @@ async def create_division(
     club_id: uuid.UUID,
     body: DivisionCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_divisiones))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -51,7 +52,7 @@ async def create_division(
 async def list_divisions(
     club_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_ver))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -70,7 +71,7 @@ async def update_division(
     division_id: uuid.UUID,
     body: DivisionUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_divisiones))],
 ):
     division = await _get_division_in_club(club_id, division_id, db, current_user)
 
@@ -92,7 +93,7 @@ async def delete_division(
     club_id: uuid.UUID,
     division_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_divisiones))],
 ):
     """
     Baja lógica. Se rechaza si todavía cuelgan jugadores o torneos: dejar una

@@ -22,9 +22,19 @@ socio. El tesorero también es padre de un jugador.
 
 Este cambio reemplaza el enum por **roles con capacidades**, muchos por usuario.
 
-> **No agrega ni saca ningún permiso.** Es un refactor: el día del deploy, cada
-> usuario puede exactamente lo que podía el día anterior. Todo lo nuevo llega después,
-> encima de esta base.
+> **No agrega ningún permiso.** Es un refactor: el día del deploy, cada usuario puede
+> lo que podía el día anterior, con **una** excepción deliberada que se detalla abajo.
+
+> **Un cambio de comportamiento, deliberado.** El rol `player` **pierde la lectura de
+> datos del club**. Antes alcanzaba cualquier endpoint con `get_current_user`: podía
+> enumerar todas las divisiones, todo el plantel, todos los entrenamientos y todas las
+> lesiones del club. El portal nunca usó nada de eso —sus tres endpoints son de acceso
+> propio— así que era permiso de más, no una función. Lo detectó el propio test de
+> equivalencia, que es exactamente para lo que está.
+>
+> Además se cerró un agujero relacionado: `GET /players/{id}/attendance` validaba sólo
+> el club, así que un jugador leía la asistencia de cualquier compañero cambiando el id.
+
 
 ---
 

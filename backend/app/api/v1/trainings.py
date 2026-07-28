@@ -15,7 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, get_division_or_404, require_timer_control
+from app.core.deps import (
+    assert_division_access,
+    get_current_user,
+    get_division_or_404,
+    require,
+    require_player_self,
+)
+from app.core.permissions import Permission
 from app.models import (
     Attendance,
     AttendanceStatus,
@@ -87,7 +94,7 @@ async def create_training(
     division_id: uuid.UUID,
     body: TrainingCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_timer_control)],
+    current_user: Annotated[User, Depends(require(Permission.entrenamiento_gestionar))],
 ):
     division = await _get_division_or_404(division_id, db, current_user)
 
@@ -112,7 +119,7 @@ async def create_training(
 async def list_trainings(
     division_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.asistencia_ver))],
     date_from: Annotated[Optional[date], Query(alias="from")] = None,
     date_to: Annotated[Optional[date], Query(alias="to")] = None,
 ):
@@ -160,7 +167,7 @@ async def list_trainings(
 async def get_training(
     training_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.asistencia_ver))],
 ):
     return await _get_training_or_404(training_id, db, current_user)
 
@@ -170,7 +177,7 @@ async def update_training(
     training_id: uuid.UUID,
     body: TrainingUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_timer_control)],
+    current_user: Annotated[User, Depends(require(Permission.entrenamiento_gestionar))],
 ):
     training = await _get_training_or_404(training_id, db, current_user)
 
@@ -190,7 +197,7 @@ async def update_training(
 async def delete_training(
     training_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_timer_control)],
+    current_user: Annotated[User, Depends(require(Permission.entrenamiento_gestionar))],
 ):
     training = await _get_training_or_404(training_id, db, current_user)
     await db.execute(delete(Attendance).where(Attendance.training_id == training.id))
@@ -206,7 +213,7 @@ async def delete_training(
 async def get_attendance(
     training_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.asistencia_ver))],
 ):
     """Devuelve **todo el plantel** de la división, con el estado ya cargado si lo hay."""
     training = await _get_training_or_404(training_id, db, current_user)
@@ -243,7 +250,7 @@ async def save_attendance(
     training_id: uuid.UUID,
     body: AttendanceBulkRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.asistencia_cargar))],
 ):
     """
     Upsert de la planilla completa. Reenviar el mismo cuerpo dos veces deja el
@@ -321,7 +328,7 @@ def _streak_of_absences(statuses: list[AttendanceStatus]) -> int:
 async def attendance_summary(
     division_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.asistencia_ver))],
     days: Annotated[int, Query(ge=1, le=730)] = 30,
 ):
     await _get_division_or_404(division_id, db, current_user)
@@ -437,8 +444,12 @@ async def player_attendance(
     )
     if not player:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jugador no encontrado")
-    if current_user.role != UserRole.superadmin and current_user.club_id != player.division.club_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    # Un `player` sólo llega a su propia asistencia. Validar sólo el club dejaba que
+    # cualquier jugador leyera la de todos sus compañeros con sólo cambiar el id.
+    await require_player_self(player_id, db, current_user)
+    if current_user.role != UserRole.player:
+        assert_division_access(player.division, current_user)
 
     rows = (
         await db.execute(

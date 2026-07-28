@@ -12,12 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.anthropometry import calculate_bmi, calculate_body_fat
 from app.core.database import get_db
+from app.core.permissions import Permission
 from app.core.deps import (
     assert_club_access,
     assert_division_access,
     get_club_or_404,
     get_current_user,
     get_division_or_404,
+    require,
     require_club_admin,
     require_player_self,
 )
@@ -65,7 +67,7 @@ async def create_measurement(
     player_id: uuid.UUID,
     body: MeasurementCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.mediciones_cargar))],
 ):
     player = await _get_player_with_access(player_id, current_user, db)
 
@@ -131,7 +133,7 @@ async def delete_measurement(
     player_id: uuid.UUID,
     measurement_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.mediciones_cargar))],
 ):
     await _get_player_with_access(player_id, current_user, db)
     m = await db.scalar(
@@ -158,7 +160,7 @@ async def create_physical_test(
     player_id: uuid.UUID,
     body: PhysicalTestCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.mediciones_cargar))],
 ):
     player = await _get_player_with_access(player_id, current_user, db)
     unit = TEST_TYPES[body.test_type]["unit"]
@@ -208,7 +210,7 @@ async def delete_physical_test(
     player_id: uuid.UUID,
     test_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.mediciones_cargar))],
 ):
     await _get_player_with_access(player_id, current_user, db)
     t = await db.scalar(
@@ -231,7 +233,7 @@ async def delete_physical_test(
 async def division_test_ranking(
     division_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.mediciones_ver))],
     test_type: str = Query(...),
     test_date: Optional[date] = Query(None),
 ):
@@ -290,7 +292,7 @@ async def division_test_ranking(
 async def batch_move_players(
     body: BatchMoveRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_mover))],
 ):
     if not body.player_ids:
         raise HTTPException(status_code=400, detail="player_ids no puede estar vacío")

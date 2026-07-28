@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_password_hash
-from app.core.deps import get_current_user, get_division_or_404, require_club_admin
+from app.core.permissions import Permission
+from app.core.deps import get_current_user, get_division_or_404, require, require_club_admin
 from app.models import Division, Event, MatchLineup, Player, User, UserRole
 from app.schemas.player import PlayerCreate, PlayerResponse, PlayerUpdate
 
@@ -41,7 +42,7 @@ async def create_player(
     division_id: uuid.UUID,
     body: PlayerCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_editar))],
 ):
     division = await get_division_or_404(division_id, db, current_user)
 
@@ -62,7 +63,7 @@ async def create_player(
 async def list_players(
     division_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_ver))],
 ):
     division = await get_division_or_404(division_id, db, current_user)
 
@@ -80,7 +81,7 @@ async def update_player(
     player_id: uuid.UUID,
     body: PlayerUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_editar))],
 ):
     division = await get_division_or_404(division_id, db, current_user)
 
@@ -126,7 +127,7 @@ async def delete_player(
     division_id: uuid.UUID,
     player_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_editar))],
 ):
     division = await get_division_or_404(division_id, db, current_user)
 
@@ -157,7 +158,7 @@ async def invite_player(
     player_id: uuid.UUID,
     body: PlayerInvite,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     """
     Crea el acceso al portal para un jugador.
@@ -212,7 +213,7 @@ async def absorb_player(
     player_id: uuid.UUID,
     body: AbsorbRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_editar))],
 ):
     division = await get_division_or_404(division_id, db, current_user)
 
@@ -268,7 +269,7 @@ async def upload_player_photo(
     player_id: uuid.UUID,
     file: Annotated[UploadFile, File(...)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_editar))],
 ):
     if file.content_type not in ("image/png", "image/jpeg", "image/webp"):
         raise HTTPException(status_code=400, detail="Solo se aceptan imágenes PNG, JPEG o WebP")
