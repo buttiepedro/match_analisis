@@ -2,6 +2,7 @@ from app.models.base import Base
 from app.models.club import Club
 from app.models.user import User, UserRole, user_divisions
 from app.models.division import Division
+from app.models.role import Role, RolePermission, user_roles
 from app.models.tournament import Tournament
 from app.models.opponent import Opponent
 from app.models.session import Session, TimerState, SessionStatus, TimerStatus
@@ -35,6 +36,9 @@ __all__ = [
     "UserRole",
     "user_divisions",
     "Division",
+    "Role",
+    "RolePermission",
+    "user_roles",
     "Tournament",
     "Opponent",
     "Session",

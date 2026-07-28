@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.permissions import ALL_PERMISSIONS, Permission
 from app.core.security import decode_token
 from app.models import Club, Division, Player, User, UserRole
 
@@ -44,10 +45,62 @@ async def require_superadmin(
     return current_user
 
 
+# ── Capacidades ────────────────────────────────────────────────────────────────
+
+def user_permissions(user: User) -> set[str]:
+    """
+    Capacidades efectivas: la **unión** de las de todos sus roles.
+
+    Un usuario con Entrenador y Tesorero puede lo de los dos. Es justamente lo que
+    el enum de un solo rol no podía expresar.
+    """
+    if user.role == UserRole.superadmin:
+        return set(ALL_PERMISSIONS)
+    return {p for role in user.roles for p in role.permission_values}
+
+
+def has_permission(user: User, *permissions: Permission) -> bool:
+    """True si tiene **alguna** de las capacidades pedidas."""
+    if user.role == UserRole.superadmin:
+        return True
+    granted = user_permissions(user)
+    return any(p.value in granted for p in permissions)
+
+
+def require(*permissions: Permission):
+    """
+    Dependencia de FastAPI que exige **alguna** de las capacidades.
+
+        current_user: Annotated[User, Depends(require(Permission.asistencia_cargar))]
+
+    Varias capacidades significan "o", no "y": un endpoint que sirve a dos roles
+    distintos por motivos distintos es lo normal; uno que exige dos capacidades a
+    la vez casi siempre son dos endpoints.
+    """
+
+    async def dependency(
+        current_user: Annotated[User, Depends(get_current_user)],
+    ) -> User:
+        if not has_permission(current_user, *permissions):
+            faltantes = ", ".join(p.value for p in permissions)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Te falta permiso: {faltantes}",
+            )
+        return current_user
+
+    return dependency
+
+
+# Las dos dependencias de abajo son de la etapa anterior y ahora resuelven por
+# capacidad. Se conservan mientras queden call sites sin migrar; cuando no queden,
+# se borran.
+
 async def require_club_admin(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    if current_user.role not in (UserRole.superadmin, UserRole.club_admin):
+    """Equivalente al viejo `club_admin`: quien administra la configuración del club."""
+    if not has_permission(current_user, Permission.club_divisiones):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Club admin required")
     return current_user
 
@@ -55,8 +108,10 @@ async def require_club_admin(
 async def require_timer_control(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    if current_user.role not in (UserRole.superadmin, UserRole.club_admin, UserRole.match_director):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Match director or higher required")
+    if not has_permission(current_user, Permission.partido_timer):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Match director or higher required"
+        )
     return current_user
 
 

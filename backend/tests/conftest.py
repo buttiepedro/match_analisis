@@ -22,6 +22,7 @@ import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
 from app.core.database import AsyncSessionLocal, engine  # noqa: E402
+from app.core.roles import assign_preset_for_legacy_role, seed_club_roles  # noqa: E402
 from app.core.security import get_password_hash  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base, Club, Division, Tournament, User, UserRole  # noqa: E402
@@ -73,6 +74,11 @@ async def make_user(
         club_id=club_id,
     )
     session.add(user)
+    await session.flush()
+    # Mismo camino que usa la app al crear un usuario: si la factory no sembrara
+    # el rol, los tests correrían contra un modelo de permisos que en producción
+    # no existe.
+    await assign_preset_for_legacy_role(user, session)
     await session.commit()
     return user
 
@@ -80,6 +86,8 @@ async def make_user(
 async def make_club(session, name: str = "Club Test", slug: str = "club-test") -> Club:
     club = Club(id=uuid.uuid4(), name=name, slug=slug)
     session.add(club)
+    await session.flush()
+    await seed_club_roles(club.id, session)
     await session.commit()
     return club
 

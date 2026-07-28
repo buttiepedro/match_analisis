@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin, require_superadmin
+from app.core.roles import assign_preset_for_legacy_role, seed_club_roles
 from app.core.security import get_password_hash
 from app.models import Club, Division, Player, User, UserRole, user_divisions
 from app.schemas.club import ClubCreate, ClubResponse
@@ -52,6 +53,12 @@ async def create_club(
         role=UserRole.club_admin,
     )
     db.add(admin)
+    await db.flush()
+
+    # Un club sin roles preset es un club donde nadie puede hacer nada.
+    await seed_club_roles(club.id, db)
+    await assign_preset_for_legacy_role(admin, db)
+
     await db.commit()
     await db.refresh(club)
     return club
@@ -102,6 +109,8 @@ async def create_user(
         role=UserRole(body.role),
     )
     db.add(user)
+    await db.flush()
+    await assign_preset_for_legacy_role(user, db)
     await db.commit()
     await db.refresh(user)
     return user

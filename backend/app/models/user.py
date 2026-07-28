@@ -43,3 +43,7 @@ class User(Base):
     club: Mapped[Optional["Club"]] = relationship(back_populates="users")
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(back_populates="user")
     divisions: Mapped[list["Division"]] = relationship(secondary=user_divisions, lazy="selectin")
+    #: Varios roles por usuario: sus capacidades se suman.
+    roles: Mapped[list["Role"]] = relationship(
+        secondary="user_roles", back_populates="users", lazy="selectin"
+    )
