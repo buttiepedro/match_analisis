@@ -1,0 +1,47 @@
+{
+	# Let's Encrypt avisa acá si un certificado está por vencer y no pudo renovarse.
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# ── La API ──────────────────────────────────────────────────────────────
+	#
+	# Todo lo del backend cuelga de /api y el prefijo se saca *acá*, así que el
+	# backend no se entera de que existe: sus rutas siguen siendo /auth, /clubs,
+	# /job-posts... y los tests que las usan siguen valiendo.
+	#
+	# Es una regla sola en vez de enumerar los 19 prefijos que sirve el backend.
+	# Enumerarlos significaría volver a editar este archivo cada vez que aparece
+	# un módulo nuevo, y olvidarse da un 404 que parece un bug del frontend.
+	#
+	# El WebSocket del cronómetro entra por acá también (/api/ws/session/...):
+	# reverse_proxy pasa el Upgrade sin configuración extra.
+	handle_path /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# ── El frontend ─────────────────────────────────────────────────────────
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	header {
+		# La app maneja DNIs, domicilios y contraseñas. HSTS evita que un primer
+		# request en http llegue a viajar en claro.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		# Delata la versión del servidor sin darle nada a nadie.
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 20mb
+			roll_keep 10
+		}
+	}
+}

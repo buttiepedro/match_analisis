@@ -1,0 +1,119 @@
+name: match-analisis
+
+# Producción. Se levanta con:
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# Diferencias que importan contra `docker-compose.yml` (desarrollo):
+#
+# - **Sólo Caddy publica puertos.** La base, el backend y el frontend no son
+#   alcanzables desde afuera del host; se hablan por la red de compose. El
+#   compose de desarrollo publica 5432, que en un VPS es Postgres en internet.
+# - **TLS automático** (Let's Encrypt) contra el dominio de APP_DOMAIN.
+# - **Backups** con retención, en un servicio propio.
+# - `restart: unless-stopped` en todo: un reboot del server levanta la app sola.
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?falta POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?falta POSTGRES_DB}
+      # Los backups salen del contenedor sin locale: sin esto, un socio que se
+      # llama "Muñiz" vuelve mal de un restore.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      ENVIRONMENT: production
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # urllib y no curl: la imagen es python:3.12-slim y no trae curl. Pega a
+      # /health/ready, que consulta la base — /health sólo dice que uvicorn
+      # atiende, y un backend con la base caída también atiende.
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              sys.exit(0 if urllib.request.urlopen("http://localhost:8000/health/ready", timeout=5).status == 200 else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Mismo origen: el browser pide /api/... a este mismo dominio y Caddy lo
+        # rutea. Sin dominio de API separado no hay CORS que configurar ni que
+        # equivocar.
+        VITE_API_URL: /api
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?falta APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?falta ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Los certificados viven acá. Perder este volumen significa volver a
+      # pedirlos, y Let's Encrypt tiene límite de emisiones por semana.
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    depends_on:
+      - backend
+      - frontend
+
+  backup:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_EVERY_SECONDS: ${BACKUP_EVERY_SECONDS:-86400}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+    volumes:
+      - ./backups:/backups
+      - ./ops:/ops:ro
+    entrypoint: ["/bin/sh", "/ops/backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

@@ -83,8 +83,14 @@ app = FastAPI(title="match_analisis API", version="0.1.0", lifespan=lifespan)
 _cors_origins = settings.cors_origins
 if _cors_origins == ["*"]:
     print(
-        "[cors] ADVERTENCIA: CORS_ORIGINS no está definido — se acepta cualquier origen. "
-        "Definí CORS_ORIGINS con la URL del frontend en producción.",
+        "[cors] CORS_ORIGINS no está definido — se acepta cualquier origen. "
+        "Está bien en desarrollo; en producción el despliegue estándar sirve todo "
+        "desde el mismo dominio y no necesita ninguno.",
+        flush=True,
+    )
+elif not _cors_origins:
+    print(
+        "[cors] Sin orígenes cruzados permitidos: frontend y API comparten dominio.",
         flush=True,
     )
 

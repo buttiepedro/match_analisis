@@ -1,0 +1,16 @@
+# Los scripts de shell corren adentro de contenedores Linux: `ops/*.sh` montados
+# y `backend/entrypoint.sh` copiado a la imagen. Con `core.autocrlf=true` —lo
+# normal en Windows— un clone fresco los deja con CRLF, y ahí el `#!/bin/sh\r`
+# falla con un error que no ayuda en nada:
+#
+#   exec ./entrypoint.sh: no such file or directory
+#
+# El archivo existe; lo que no existe es el intérprete "/bin/sh\r".
+*.sh text eol=lf
+
+# Mismo motivo: los lee un contenedor.
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+Caddyfile text eol=lf
+docker-compose*.yml text eol=lf
+.env.production.example text eol=lf

@@ -1,3 +1,5 @@
+import { wsBase } from "./apiBase";
+
 type WSMessage = { type: string; data: unknown };
 type MsgHandler = (msg: WSMessage) => void;
 
@@ -24,14 +26,7 @@ function backoffDelay(attempt: number): number {
 }
 
 function buildUrl(sessionId: string, token: string): string {
-  const rawApiUrl = import.meta.env.VITE_API_URL || "";
-  const apiUrl =
-    rawApiUrl && !rawApiUrl.startsWith("http")
-      ? `https://${rawApiUrl}`
-      : rawApiUrl || `${window.location.protocol}//${window.location.host}`;
-  const proto = apiUrl.startsWith("https") ? "wss:" : "ws:";
-  const host = new URL(apiUrl).host;
-  return `${proto}//${host}/ws/session/${sessionId}?token=${encodeURIComponent(token)}`;
+  return `${wsBase()}/ws/session/${sessionId}?token=${encodeURIComponent(token)}`;
 }
 
 class SessionWebSocket {

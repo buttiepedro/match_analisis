@@ -1,9 +1,8 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { apiBase } from "./apiBase";
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./authTokens";
 
-const rawApiUrl = import.meta.env.VITE_API_URL || "";
-export const baseURL =
-  rawApiUrl && !rawApiUrl.startsWith("http") ? `https://${rawApiUrl}` : rawApiUrl;
+export const baseURL = apiBase;
 
 const api = axios.create({ baseURL });
 

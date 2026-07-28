@@ -30,6 +30,11 @@ docker compose up --build
 
 El backend corre migraciones y crea el superadmin automáticamente al iniciar.
 
+> Este compose es **sólo para desarrollo**: publica Postgres en el 5432 y sirve
+> por HTTP. Para poner la app en un servidor está **[DEPLOY.md](DEPLOY.md)**, con
+> su propio `docker-compose.prod.yml`: TLS automático, un solo origen, backups y
+> nada más que Caddy expuesto.
+
 ## Tests
 
 ```bash

@@ -11,6 +11,12 @@ backend/tests/test.db
 # Environment
 .env
 *.env.local
+# Lleva la contraseña de Postgres y la clave que firma las sesiones. El que sí
+# va al repo es `.env.production.example`, que no matchea con esta línea.
+.env.production
+
+# Dumps de la base: el padrón de socios entero en texto plano.
+backups/
 
 # Node
 node_modules/
