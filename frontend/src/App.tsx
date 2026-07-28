@@ -26,6 +26,7 @@ const PlayerPortal = lazy(() => import("./pages/PlayerPortal"));
 const MemberPortal = lazy(() => import("./pages/MemberPortal"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const Members = lazy(() => import("./pages/Members"));
+const GymPlans = lazy(() => import("./pages/GymPlans"));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -99,6 +100,7 @@ export default function App() {
           <Route path="/mi-ficha"      element={<LayoutRoute><PlayerPortal /></LayoutRoute>} />
           <Route path="/mi-club"       element={<LayoutRoute><MemberPortal /></LayoutRoute>} />
           <Route path="/socios"        element={<LayoutRoute><Members /></LayoutRoute>} />
+          <Route path="/gimnasio"      element={<LayoutRoute><GymPlans /></LayoutRoute>} />
 
           {/* Session views — no sidebar */}
           <Route path="/sessions/:id"        element={<PrivateRoute><Session /></PrivateRoute>} />

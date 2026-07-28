@@ -64,6 +64,16 @@ intacta.
 > `expire_all()` alcanzaría también a `current_user`, y leer sus divisiones fuera de un
 > await rompe con `MissingGreenlet`.
 
+## Editor del preparador físico
+
+`/gimnasio`. La estructura completa se edita en memoria y se guarda de una: es lo que
+espera el `PUT` y es como trabaja un PF — escribe la semana entera de una sentada.
+
+**Cobertura de tests**: al elegir un `% de test`, la pantalla avisa cuántos jugadores
+de la división lo tienen cargado ("12 de 24 jugadores tienen este test"). Sin eso el PF
+escribe un plan con porcentajes y media división termina viendo "te falta el test",
+que es un problema que aparece recién en el celular del jugador.
+
 ## Adherencia
 
 `gym_logs` registra las sesiones marcadas como hechas, idempotente por

@@ -115,6 +115,12 @@ const IconBuilding = () => (
   </svg>
 );
 
+const IconDumbbell = () => (
+  <svg {...svg}>
+    <path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12" />
+  </svg>
+);
+
 const IconCard = () => (
   <svg {...svg}>
     <rect width="20" height="14" x="2" y="5" rx="2" />
@@ -159,13 +165,14 @@ const ASISTENCIA: NavItem = { label: "Asistencia", path: "/trainings", icon: <Ic
 const MEDICIONES: NavItem = { label: "Mediciones", path: "/mediciones", icon: <IconActivity />, alias: ["/performance"] };
 const CONFIG: NavItem = { label: "Configuración", path: "/config", icon: <IconSettings /> };
 const SOCIOS: NavItem = { label: "Socios", path: "/socios", icon: <IconCard />, permission: "socios.ver_todas" };
+const GIMNASIO: NavItem = { label: "Gimnasio", path: "/gimnasio", icon: <IconDumbbell />, permission: "gimnasio.ver" };
 const MI_CUOTA: NavItem = { label: "Mi cuota", path: "/mi-club", icon: <IconCard /> };
 
 /** Mismo menú para director y analista: ninguno de los dos configura el club. */
 const CUERPO_TECNICO: NavGroup[] = [
   { title: "Día a día", items: [HOY, CALENDARIO] },
   { title: "Partido", items: [PARTIDOS, STATS] },
-  { title: "Plantel", items: [PLANTEL, ASISTENCIA, MEDICIONES] },
+  { title: "Plantel", items: [PLANTEL, ASISTENCIA, MEDICIONES, GIMNASIO] },
 ];
 
 const NAV_BY_ROLE: Record<string, NavGroup[]> = {
