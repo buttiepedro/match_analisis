@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.core.permissions import Permission
-from app.core.deps import get_current_user, get_division_or_404, require, require_club_admin
+from app.core.deps import get_current_user, get_division_or_404, require
 from app.models import Division, Event, MatchLineup, Player, User, UserRole
 from app.schemas.player import PlayerCreate, PlayerResponse, PlayerUpdate
 

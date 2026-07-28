@@ -92,27 +92,6 @@ def require(*permissions: Permission):
     return dependency
 
 
-# Las dos dependencias de abajo son de la etapa anterior y ahora resuelven por
-# capacidad. Se conservan mientras queden call sites sin migrar; cuando no queden,
-# se borran.
-
-async def require_club_admin(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
-    """Equivalente al viejo `club_admin`: quien administra la configuración del club."""
-    if not has_permission(current_user, Permission.club_divisiones):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Club admin required")
-    return current_user
-
-
-async def require_timer_control(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
-    if not has_permission(current_user, Permission.partido_timer):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Match director or higher required"
-        )
-    return current_user
 
 
 # ── Club access helpers (shared across routers) ────────────────────────────────
@@ -138,8 +117,15 @@ def scoped_division_ids(current_user: User) -> set[uuid.UUID] | None:
     `None` es "sin restricción", que **no** es lo mismo que un conjunto vacío. Un
     usuario sin alcance asignado ve todo el club: así asignar alcance es opcional y
     ningún usuario existente pierde acceso al migrar.
+
+    Quien administra los usuarios del club administra el club entero, así que nunca
+    queda restringido. Se resuelve por **capacidad** y no por `users.role`: con el
+    enum, alguien a quien le dieran el rol Administrador desde la UI nueva habría
+    quedado con alcance restringido, porque su columna seguiría diciendo otra cosa.
     """
-    if current_user.role in (UserRole.superadmin, UserRole.club_admin):
+    if current_user.role == UserRole.superadmin:
+        return None
+    if has_permission(current_user, Permission.club_usuarios):
         return None
     ids = {d.id for d in current_user.divisions}
     return ids or None

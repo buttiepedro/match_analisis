@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.permissions import Permission
-from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require, require_club_admin
+from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require
 from app.models import Division, Player, Tournament, User
 from app.schemas.division import DivisionCreate, DivisionResponse, DivisionUpdate
 

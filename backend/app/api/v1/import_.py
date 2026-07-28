@@ -15,7 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_club_admin
+from app.core.permissions import Permission
+from app.core.deps import get_current_user, require
 from app.models import Event, MatchLineup, Player, Session, TimerState, Tournament, User, UserRole
 from app.models.player import LineupStatus
 
@@ -267,7 +268,7 @@ class ImportConfirmRequest(BaseModel):
 async def import_confirm(
     body: ImportConfirmRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_eventos))],
 ):
     tournament = await db.scalar(select(Tournament).where(Tournament.id == body.tournament_id))
     if not tournament:
@@ -545,7 +546,7 @@ async def import_players_xlsx(
     file: Annotated[UploadFile, File(...)],
     division_id: Annotated[uuid.UUID, Form(...)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.plantel_importar))],
 ):
     fname = (file.filename or "").lower()
     if not (fname.endswith(".xlsx") or fname.endswith(".xls")):

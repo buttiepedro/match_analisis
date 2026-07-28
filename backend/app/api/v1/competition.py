@@ -20,7 +20,6 @@ from app.core.deps import (
     get_current_user,
     get_division_or_404,
     require,
-    require_club_admin,
 )
 from app.models import Event, Opponent, Session, SessionStatus, Tournament, User
 from app.schemas.competition import (

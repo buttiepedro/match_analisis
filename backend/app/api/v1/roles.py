@@ -13,7 +13,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import assert_club_access, get_club_or_404, require_club_admin
+from app.core.deps import assert_club_access, get_club_or_404, require
 from app.core.permissions import ALL_PERMISSIONS, Permission
 from app.models import Role, RolePermission, User, user_roles
 from app.schemas.role import (
@@ -60,7 +60,7 @@ def _validate_permissions(permissions: list[str]) -> set[str]:
 
 @router.get("/permissions", response_model=list[PermissionCatalogEntry])
 async def permission_catalog(
-    _: Annotated[User, Depends(require_club_admin)],
+    _: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     """Catálogo completo, agrupado por dominio, para que la UI no lo hardcodee."""
     return [
@@ -77,7 +77,7 @@ async def permission_catalog(
 async def list_roles(
     club_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -105,7 +105,7 @@ async def create_role(
     club_id: uuid.UUID,
     body: RoleCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -138,7 +138,7 @@ async def update_role(
     role_id: uuid.UUID,
     body: RoleUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     """Un preset se edita: el club puede ajustar qué hace su Entrenador."""
     role = await _get_club_role_or_404(club_id, role_id, db, current_user)
@@ -168,7 +168,7 @@ async def delete_role(
     club_id: uuid.UUID,
     role_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     role = await _get_club_role_or_404(club_id, role_id, db, current_user)
 
@@ -197,7 +197,7 @@ async def get_user_roles(
     club_id: uuid.UUID,
     user_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -213,7 +213,7 @@ async def set_user_roles(
     user_id: uuid.UUID,
     body: UserRolesUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     """Reemplaza los roles del usuario. Las capacidades de todos se suman."""
     club = await get_club_or_404(club_id, db)

@@ -20,7 +20,6 @@ from app.core.deps import (
     get_current_user,
     get_division_or_404,
     require,
-    require_club_admin,
     require_player_self,
 )
 from app.models import Division, Player, User, UserRole

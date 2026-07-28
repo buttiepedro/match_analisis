@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.permissions import Permission
-from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require, require_club_admin
+from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require
 from app.models import Division, Session, Tournament, User
 from app.schemas.tournament import TournamentCreate, TournamentResponse, TournamentUpdate
 

@@ -211,3 +211,37 @@ async def test_scope_rejects_a_division_from_another_club(client, db, scope_ctx)
         headers=scope_ctx["admin_headers"],
     )
     assert res.status_code == 422
+
+
+async def test_an_admin_by_role_is_not_scoped_even_with_divisions_assigned(
+    client, db, scope_ctx
+):
+    """
+    Quien administra usuarios administra el club entero.
+
+    Importa para el día en que los roles se asignen desde la UI y `users.role` deje
+    de ser la fuente: si el alcance se resolviera por el enum, alguien con rol
+    Administrador pero columna `match_director` quedaría restringido sin motivo.
+    """
+    from app.core.permissions import ADMINISTRADOR
+    from app.models import Role, user_roles
+    from sqlalchemy import select
+
+    coach = scope_ctx["coach"]
+    await _scope_to(client, scope_ctx, [scope_ctx["m17"].id])
+
+    res = await client.get(
+        f"/divisions/{scope_ctx['primera'].id}/players", headers=scope_ctx["coach_headers"]
+    )
+    assert res.status_code == 403
+
+    admin_role = await db.scalar(
+        select(Role).where(Role.club_id == scope_ctx["club"].id, Role.name == ADMINISTRADOR)
+    )
+    await db.execute(user_roles.insert().values(user_id=coach.id, role_id=admin_role.id))
+    await db.commit()
+
+    res = await client.get(
+        f"/divisions/{scope_ctx['primera'].id}/players", headers=scope_ctx["coach_headers"]
+    )
+    assert res.status_code == 200, res.text

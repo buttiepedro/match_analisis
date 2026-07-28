@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import AsyncSessionLocal, get_db
-from app.core.deps import get_current_user, require_club_admin, require_timer_control
+from app.core.permissions import Permission
+from app.core.deps import get_current_user, require
 from app.core.security import decode_token
 from app.models import Event, MatchLineup, Session, TimerState, Tournament, User, UserRole
 from app.models.session import SessionStatus, TimerStatus
@@ -88,7 +89,7 @@ async def create_session(
     tournament_id: uuid.UUID,
     body: SessionCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_gestionar))],
 ):
     tournament = await _get_tournament_or_404(tournament_id, db)
     if current_user.role != UserRole.superadmin and current_user.club_id != tournament.club_id:
@@ -141,7 +142,7 @@ async def list_sessions(
 async def delete_session(
     session_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_gestionar))],
 ):
     session = await _get_session_or_404(session_id, db)
     tournament = await _get_tournament_or_404(session.tournament_id, db)
@@ -162,7 +163,7 @@ async def update_session(
     session_id: uuid.UUID,
     body: SessionUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.partido_gestionar))],
 ):
     session = await _get_session_or_404(session_id, db)
     tournament = await _get_tournament_or_404(session.tournament_id, db)
@@ -208,7 +209,7 @@ async def control_timer(
     session_id: uuid.UUID,
     body: TimerControlRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_timer_control)],
+    current_user: Annotated[User, Depends(require(Permission.partido_timer))],
 ):
     session = await _get_session_or_404(session_id, db)
     tournament = await _get_tournament_or_404(session.tournament_id, db)

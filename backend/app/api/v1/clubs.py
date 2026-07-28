@@ -7,7 +7,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require_club_admin, require_superadmin
+from app.core.permissions import Permission
+from app.core.deps import assert_club_access, get_club_or_404, get_current_user, require, require_superadmin
 from app.core.roles import assign_preset_for_legacy_role, seed_club_roles
 from app.core.security import get_password_hash
 from app.models import Club, Division, Player, User, UserRole, user_divisions
@@ -91,7 +92,7 @@ async def create_user(
     club_id: uuid.UUID,
     body: UserCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -132,7 +133,7 @@ async def get_user_divisions(
     club_id: uuid.UUID,
     user_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     """Lista vacía = sin restricción, o sea acceso a todas las divisiones del club."""
     user = await _get_club_user_or_404(club_id, user_id, db, current_user)
@@ -145,7 +146,7 @@ async def set_user_divisions(
     user_id: uuid.UUID,
     body: UserDivisionsUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     """
     Reemplaza el alcance del usuario.
@@ -190,7 +191,7 @@ async def set_user_divisions(
 async def list_users(
     club_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -207,7 +208,7 @@ async def update_user(
     user_id: uuid.UUID,
     body: UserUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -265,7 +266,7 @@ async def deactivate_user(
     club_id: uuid.UUID,
     user_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_club_admin)],
+    current_user: Annotated[User, Depends(require(Permission.club_usuarios))],
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
