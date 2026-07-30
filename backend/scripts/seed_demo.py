@@ -24,6 +24,7 @@ import getpass
 import os
 import random
 import sys
+import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -71,13 +72,42 @@ class Api:
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.token}"} if self.token else {}
 
+    #: Reintentos ante un problema del servidor, no del pedido. Un backend de
+    #: Railway que estaba dormido tarda unos segundos en levantar la base, y
+    #: durante ese rato devuelve 500/503; sobre miles de requests, un blip a mitad
+    #: de camino cortaría toda la corrida y dejaría el club a medio crear.
+    #: Un 4xx **no** se reintenta: eso es un pedido mal armado y hay que verlo.
+    MAX_RETRIES = 6
+    RETRY_STATUSES = {500, 502, 503, 504}
+
     def call(self, method: str, path: str, *, json: Any = None, params: Any = None) -> Any:
-        res = self.http.request(
-            method, f"{self.base}{path}", json=json, params=params, headers=self._headers()
-        )
-        if res.status_code >= 400:
-            raise RuntimeError(f"{method} {path} → {res.status_code}: {res.text[:400]}")
-        return res.json() if res.content else None
+        url = f"{self.base}{path}"
+        for intento in range(1, self.MAX_RETRIES + 1):
+            try:
+                res = self.http.request(method, url, json=json, params=params, headers=self._headers())
+            except httpx.TransportError as exc:
+                # La conexión se cayó (la base reinició, o Railway dio vuelta el
+                # contenedor). Mismo tratamiento que un 5xx.
+                if intento == self.MAX_RETRIES:
+                    raise RuntimeError(f"{method} {path} → sin respuesta tras {intento} intentos: {exc}")
+                self._esperar(intento, f"conexión caída ({exc.__class__.__name__})")
+                continue
+
+            if res.status_code in self.RETRY_STATUSES and intento < self.MAX_RETRIES:
+                self._esperar(intento, f"{res.status_code} del servidor")
+                continue
+
+            if res.status_code >= 400:
+                raise RuntimeError(f"{method} {path} → {res.status_code}: {res.text[:400]}")
+            return res.json() if res.content else None
+
+    @staticmethod
+    def _esperar(intento: int, motivo: str) -> None:
+        # Backoff: 1, 2, 4... hasta 15s. Le da tiempo a la base a terminar de
+        # arrancar sin quedarse esperando de más.
+        demora = min(2 ** (intento - 1), 15)
+        print(f"    ({motivo}) reintento en {demora}s...", flush=True)
+        time.sleep(demora)
 
     def get(self, path: str, **kw) -> Any:
         return self.call("GET", path, **kw)
