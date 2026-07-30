@@ -32,11 +32,26 @@ class JobPostModeration(BaseModel):
     days: Optional[int] = None
 
 
+class JobAttachmentResponse(BaseModel):
+    id: uuid.UUID
+    url: str
+    filename: str
+    content_type: str
+    size_bytes: int
+    is_image: bool
+
+
 class JobPostResponse(BaseModel):
     id: uuid.UUID
     kind: str
     title: str
     description: str
+    #: Arranque del texto, ya sin marcas de formato: es lo que se lee en la
+    #: tarjeta del listado. Se calcula en el servidor para que la tarjeta y la
+    #: página no puedan recortar distinto.
+    excerpt: str = ""
+    cover_image_url: Optional[str] = None
+    attachments: list[JobAttachmentResponse] = []
     #: `None` en avisos que no están vigentes y no son propios: un teléfono de un
     #: socio no circula sin motivo.
     contact: Optional[str] = None
@@ -46,6 +61,9 @@ class JobPostResponse(BaseModel):
     #: Sólo lo ve el autor: es la explicación de por qué se rechazó.
     moderation_note: Optional[str] = None
     author_name: str
+    #: Iniciales del autor, para el avatar de la tarjeta. Va resuelto del servidor
+    #: porque partir un nombre en el cliente termina distinto en cada pantalla.
+    author_initials: str = ""
     is_mine: bool
     published_at: Optional[datetime] = None
     expires_on: Optional[date] = None

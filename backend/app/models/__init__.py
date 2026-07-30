@@ -7,7 +7,7 @@ from app.models.tournament import Tournament
 from app.models.opponent import Opponent
 from app.models.member import Member, MemberImport
 from app.models.gym import GymPlan, GymDay, GymExercise, GymLog, LoadType
-from app.models.job_board import JobPost, JobKind, JobStatus
+from app.models.job_board import JobAttachment, JobKind, JobPost, JobStatus
 from app.models.session import Session, TimerState, SessionStatus, TimerStatus
 from app.models.event import Event, TeamSide
 from app.models.refresh_token import RefreshToken
@@ -53,6 +53,7 @@ __all__ = [
     "GymLog",
     "LoadType",
     "JobPost",
+    "JobAttachment",
     "JobKind",
     "JobStatus",
     "Session",

@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -40,6 +40,9 @@ class JobPost(Base):
     #: Cómo contactar al autor. Lo escribe él: puede no querer dar su teléfono.
     contact: Mapped[str] = mapped_column(String(200), nullable=False)
     category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    #: Imagen de portada. Es lo que hace que el aviso se lea como una publicación
+    #: y no como un renglón de una lista.
+    cover_image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     status: Mapped[JobStatus] = mapped_column(
         Enum(JobStatus), nullable=False, default=JobStatus.pendiente, server_default="pendiente"
     )
@@ -56,3 +59,34 @@ class JobPost(Base):
     )
 
     author: Mapped["User"] = relationship(foreign_keys=[author_id], lazy="selectin")
+    attachments: Mapped[list["JobAttachment"]] = relationship(
+        back_populates="post", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class JobAttachment(Base):
+    """
+    Un archivo colgado de un aviso: el CV, un presupuesto, una foto del trabajo.
+
+    Se guarda el nombre original **sólo para mostrarlo**. La clave en S3 es
+    aleatoria: el nombre que eligió quien subió el archivo no decide dónde queda
+    guardado ni cómo se sirve.
+    """
+
+    __tablename__ = "job_attachments"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("job_posts.id", ondelete="CASCADE"), nullable=False
+    )
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    filename: Mapped[str] = mapped_column(String(200), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    post: Mapped["JobPost"] = relationship(back_populates="attachments")
+
+    @property
+    def is_image(self) -> bool:
+        return self.content_type.startswith("image/")

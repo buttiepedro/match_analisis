@@ -11,28 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_password_hash
+from app.core.storage import public_url, s3_client
 from app.core.permissions import Permission
 from app.core.deps import get_current_user, get_division_or_404, require
 from app.models import Division, Event, MatchLineup, Player, User, UserRole
 from app.schemas.player import PlayerCreate, PlayerResponse, PlayerUpdate
 
-
-def _s3_client():
-    if not settings.AWS_S3_BUCKET:
-        raise HTTPException(status_code=501, detail="S3 no configurado (AWS_S3_BUCKET faltante)")
-    return boto3.client(
-        "s3",
-        region_name=settings.AWS_REGION,
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-    )
-
-
-def _s3_public_url(key: str) -> str:
-    if settings.AWS_S3_PUBLIC_URL:
-        base = settings.AWS_S3_PUBLIC_URL.rstrip("/")
-        return f"{base}/{key}"
-    return f"https://{settings.AWS_S3_BUCKET}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
 
 router = APIRouter(prefix="/divisions")
 
@@ -287,7 +271,7 @@ async def upload_player_photo(
     content = await file.read()
 
     try:
-        s3 = _s3_client()
+        s3 = s3_client()
         s3.put_object(
             Bucket=settings.AWS_S3_BUCKET,
             Key=key,
@@ -297,7 +281,7 @@ async def upload_player_photo(
     except (BotoCoreError, ClientError) as e:
         raise HTTPException(status_code=502, detail=f"Error al subir a S3: {e}")
 
-    player.profile_photo_url = _s3_public_url(key)
+    player.profile_photo_url = public_url(key)
     await db.commit()
     await db.refresh(player)
     return player

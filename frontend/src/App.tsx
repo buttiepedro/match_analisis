@@ -28,6 +28,7 @@ const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const Members = lazy(() => import("./pages/Members"));
 const GymPlans = lazy(() => import("./pages/GymPlans"));
 const JobBoard = lazy(() => import("./pages/JobBoard"));
+const JobPostPage = lazy(() => import("./pages/JobPost"));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -103,6 +104,7 @@ export default function App() {
           <Route path="/socios"        element={<LayoutRoute><Members /></LayoutRoute>} />
           <Route path="/gimnasio"      element={<LayoutRoute><GymPlans /></LayoutRoute>} />
           <Route path="/bolsa"         element={<LayoutRoute><JobBoard /></LayoutRoute>} />
+          <Route path="/bolsa/:postId" element={<LayoutRoute><JobPostPage /></LayoutRoute>} />
 
           {/* Session views — no sidebar */}
           <Route path="/sessions/:id"        element={<PrivateRoute><Session /></PrivateRoute>} />
