@@ -93,7 +93,11 @@ export default function Performance() {
       .get(`/divisions/${activeDivId}/tests/ranking`, {
         params: { test_type: activeTestType },
       })
-      .then(({ data }) => setRanking(data))
+      .then(({ data }) =>
+        setRanking(
+          (data as RankingEntry[]).map((r) => ({ ...r, value: Number(r.value) }))
+        )
+      )
       .catch(() => setError("Error cargando ranking"))
       .finally(() => setLoading(false));
   }, [activeDivId, activeTestType]);

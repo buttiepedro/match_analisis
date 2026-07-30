@@ -172,7 +172,7 @@ function MeasurementForm({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-white">Nueva medición</h3>
+          <h3 className="font-semibold text-ink">Nueva medición</h3>
           <button onClick={onClose} className="text-ink-muted hover:text-ink"><IconX /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
@@ -189,7 +189,7 @@ function MeasurementForm({
           <div>
             {field("Altura (cm)", "height_cm", "181")}
             {bmi && (
-              <p className="text-xs text-ink-muted mt-1">IMC estimado: <span className="text-white">{bmi}</span></p>
+              <p className="text-xs text-ink-muted mt-1">IMC estimado: <span className="text-ink">{bmi}</span></p>
             )}
           </div>
           <p className="text-xs text-ink-muted pt-1">Pliegues cutáneos (mm)</p>
@@ -279,7 +279,7 @@ function PhysicalTestForm({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-white">Nuevo test físico</h3>
+          <h3 className="font-semibold text-ink">Nuevo test físico</h3>
           <button onClick={onClose} className="text-ink-muted hover:text-ink"><IconX /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
@@ -364,7 +364,7 @@ function TabDatos({ player }: { player: any }) {
       {fields.map(({ label, value }) => (
         <div key={label} className="bg-surface rounded-xl px-4 py-3">
           <p className="text-xs text-ink-muted">{label}</p>
-          <p className="text-white font-medium mt-0.5">{value}</p>
+          <p className="text-ink font-medium mt-0.5">{value}</p>
         </div>
       ))}
     </div>
@@ -397,7 +397,7 @@ function TabFisico({ playerId, canEdit }: { playerId: string; canEdit: boolean }
     return (
       <div key={label} className="flex items-center justify-between py-2 border-b border-line last:border-0">
         <span className="text-sm text-ink-muted">{label}</span>
-        <span className="text-sm text-white font-medium">
+        <span className="text-sm text-ink font-medium">
           {current} {unit}
           {d && <DeltaBadge diff={d.diff} positive={d.positive} />}
         </span>
@@ -567,11 +567,11 @@ function TabTests({ playerId, canEdit }: { playerId: string; canEdit: boolean })
             return (
               <div key={type} className="flex items-center justify-between py-2.5">
                 <div>
-                  <p className="text-sm text-white font-medium">{meta?.label ?? type}</p>
+                  <p className="text-sm text-ink font-medium">{meta?.label ?? type}</p>
                   <p className="text-xs text-ink-muted">{test.test_date}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-white font-semibold">
+                  <span className="text-sm text-ink font-semibold">
                     {formatTestValue(Number(test.value), test.unit)}
                     {d && <DeltaBadge diff={d.diff} positive={d.positive} />}
                   </span>
@@ -600,7 +600,7 @@ function TabTests({ playerId, canEdit }: { playerId: string; canEdit: boolean })
             {data.map((t) => (
               <div key={t.id} className="bg-surface rounded-xl px-4 py-2.5 flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-white">{TEST_TYPE_META[t.test_type]?.label ?? t.test_type}</p>
+                  <p className="text-sm text-ink">{TEST_TYPE_META[t.test_type]?.label ?? t.test_type}</p>
                   <p className="text-xs text-ink-muted">{t.test_date}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -645,7 +645,7 @@ function TabHistorial({ playerId }: { playerId: string }) {
       {data.map((entry, i) => (
         <div key={entry.id} className="bg-surface rounded-xl px-4 py-3">
           <div className="flex items-center justify-between">
-            <p className="text-white font-medium text-sm">{entry.division_name}</p>
+            <p className="text-ink font-medium text-sm">{entry.division_name}</p>
             {i === 0 && !entry.to_date && (
               <span className="bg-brand-soft text-brand text-xs px-2 py-0.5 rounded-full">Actual</span>
             )}
@@ -933,7 +933,7 @@ function TabLesiones({ playerId, canEdit }: { playerId: string; canEdit: boolean
       {canEdit && (
         adding ? (
           <div className="bg-surface rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-white">Nueva lesión</p>
+            <p className="text-sm font-semibold text-ink">Nueva lesión</p>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-ink-muted block mb-1">Fecha</label>
@@ -1011,7 +1011,7 @@ function TabLesiones({ playerId, canEdit }: { playerId: string; canEdit: boolean
           return (
             <div key={injury.id} className="bg-surface rounded-xl px-4 py-3">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm text-white font-medium capitalize truncate flex-1">
+                <span className="text-sm text-ink font-medium capitalize truncate flex-1">
                   {injury.body_zone || "Sin zona"}
                 </span>
                 <span
@@ -1091,7 +1091,7 @@ export default function PlayerProfile() {
             <IconBack />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-white truncate">{player?.name ?? "Jugador"}</h1>
+            <h1 className="text-lg font-bold text-ink truncate">{player?.name ?? "Jugador"}</h1>
             <p className="text-xs text-ink-muted">
               {player?.position ?? "Sin posición"}
               {division && ` · ${division.name}`}

@@ -198,7 +198,7 @@ export default function Trainings() {
             <div className="mb-4">
               {creating ? (
                 <div className="bg-surface rounded-xl p-4 space-y-3">
-                  <p className="text-sm font-semibold text-white">Nuevo entrenamiento</p>
+                  <p className="text-sm font-semibold text-ink">Nuevo entrenamiento</p>
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       type="date"

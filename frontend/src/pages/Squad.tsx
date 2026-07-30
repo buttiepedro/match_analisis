@@ -277,7 +277,7 @@ function AddPlayerModal({
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 animate-overlay" onClick={onClose}>
       <div className="bg-surface rounded-2xl w-full max-w-sm p-6 space-y-4 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-white">Nuevo jugador</h3>
+          <h3 className="font-semibold text-ink">Nuevo jugador</h3>
           <button onClick={onClose} className="text-ink-muted hover:text-ink"><IconX /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
@@ -362,7 +362,7 @@ function MoveSheet({
       <div className="bg-surface rounded-t-2xl w-full max-w-sm p-5 space-y-3 animate-sheet md:animate-modal" onClick={(e) => e.stopPropagation()}>
         <div className="w-10 h-1 bg-surface-hover rounded-full mx-auto" />
         <p className="text-sm text-ink-muted text-center">
-          Mover <span className="text-white font-semibold">{count}</span> jugador{count !== 1 ? "es" : ""} a...
+          Mover <span className="text-ink font-semibold">{count}</span> jugador{count !== 1 ? "es" : ""} a...
         </p>
         <div className="space-y-2">
           {available.length === 0 && (
@@ -402,7 +402,7 @@ function ConfirmMove({
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-overlay">
       <div className="bg-surface rounded-2xl w-full max-w-xs p-6 space-y-4 animate-sheet md:animate-modal">
-        <p className="text-white text-center">
+        <p className="text-ink text-center">
           ¿Mover <strong>{count}</strong> jugador{count !== 1 ? "es" : ""} a{" "}
           <strong>{divisionName}</strong>?
         </p>
