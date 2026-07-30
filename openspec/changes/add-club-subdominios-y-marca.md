@@ -1,50 +1,76 @@
 ---
-title: Subdominio por club y marca propia — con decisión pendiente sobre base de datos
+title: Una instancia por club — app genérica sobre Neon compartido, marca automática
 type: feature
 status: proposed
 spec: despliegue
 created: 2026-07-29
+updated: 2026-07-30
 ---
 
-# Subdominio por club y marca propia
+# Una instancia por club — app genérica sobre Neon compartido, marca automática
 
 ## Descripción del Cambio
 
-Hoy toda la app cuelga de **un dominio único** ([[despliegue]]: "Un solo
-origen"). Un club nuevo se crea y sus socios entran por la misma URL que
-cualquier otro, distinguidos por login. El pedido es que cada club creado
-obtenga automáticamente `{club}.dominio.com`, con su logo y sus colores, y que
-el dominio principal quede reservado para crear clubes — el socio ya entra
-directo al link del suyo.
+Hoy toda la app cuelga de **un dominio único**, un backend y un Postgres
+propios ([[despliegue]]: "Un solo origen", un solo `db` en el compose). El
+pedido es que cada club creado tenga su `{club}.dominio.com`, con su logo y
+sus colores, y que el dominio principal quede reservado para crear
+clubes — el socio ya entra directo al link del suyo.
 
-Este cambio tiene **dos partes de tamaño muy distinto**:
+**Decisión de arquitectura, confirmada el 30/07**: en vez de un backend
+único que atiende a todos los clubes y resuelve "cuál es cuál" en cada
+request, la app pasa a ser **genérica** — misma imagen Docker, mismo código —
+y se **despliega una instancia por club**. Cada instancia se configura con
+los datos de conexión a la base y con qué club es; su marca (logo, colores)
+la resuelve **sola**, leyéndola de su propia fila en la base al arrancar.
 
-1. **Subdominio y marca** (este documento, con fases listas para ejecutar).
-2. **Si conviene una base de datos por club en Neon** — el roadmap la pidió
-   evaluada explícitamente. Trae una **recomendación**, no una implementación:
-   ver la sección dedicada antes de las fases. Nada de este cambio depende de
-   esa decisión — se puede subdominizar sin tocar la base de datos.
+Todas las instancias apuntan a **una sola base Postgres compartida en
+Neon** (serverless, con pooling) — **no** una base por club. Es la misma
+recomendación que ya estaba en la versión anterior de este documento, ahora
+reforzada: no cambia qué tan aislados están los datos de un club respecto de
+otro —eso lo sigue resolviendo `club_id`, como siempre—, cambia **cómo se
+despliega y opera** cada club.
 
 ---
 
-## Qué preserva y qué rompe de la arquitectura actual
+## Por qué una instancia por club y no un backend multi-tenant
 
-[[despliegue]] documenta una decisión que vale la pena proteger: **un solo
-origen, sin CORS**, porque Caddy le saca el prefijo `/api` antes de pasarlo al
-backend, y frontend y API comparten dominio. Ese diseño **se mantiene
-intacto por subdominio**: `nuevoclub.dominio.com/` sirve el frontend,
-`nuevoclub.dominio.com/api/*` la API, sin CORS — el wildcard no obliga a romper
-esa propiedad, sólo agrega una capa de resolución de *cuál* club es antes de
-todo lo demás.
+La alternativa —un solo backend que lee el header `Host` y resuelve el club
+en cada request— funciona, pero le suma al código una responsabilidad nueva
+en cada endpoint: además de "¿tiene permiso?", "¿es realmente el club que
+dice ser?". Con una instancia por club, esa pregunta **desaparece en vez de
+resolverse**: la instancia de `clubequis.dominio.com` literalmente no tiene
+forma de servir datos de otro club, porque arranca sabiendo cuál es el suyo y
+cada consulta ya sale con ese `club_id` fijo. No hay un cruce que verificar
+porque no hay otro club alcanzable desde ahí.
 
-Lo que sí cambia:
+El costo es el inverso de lo que se gana en simpleza: **un proceso backend y
+un proceso frontend por club**, en vez de uno compartido. Con la cantidad de
+clubes que este producto tiene realmente hoy, es un costo chico; si el
+producto llega a tener cientos de clubes, esto es lo primero que hay que
+revisar (ver Riesgos).
 
-- **Cómo se resuelve el club de un request.** Hoy es implícito en el JWT del
-  usuario. De acá en más, el `Host` header dice qué club **espera** ver el
-  request, y eso se valida contra el club del JWT — no lo reemplaza, lo cruza.
-- **Cómo se sirve la marca.** Hoy hay un tema único (`#211E67` / `#FF1B20`,
-  [[architecture]]). Pasa a resolverse en runtime por club.
-- **TLS deja de ser un certificado, pasa a ser uno por subdominio** (ver Fase C).
+---
+
+## Qué preserva y qué cambia de la arquitectura actual
+
+[[despliegue]] documenta "un solo origen, sin CORS": Caddy le saca el
+prefijo `/api` antes de pasarlo al backend, y frontend y API comparten
+dominio. **Se mantiene igual, por instancia**: `clubequis.dominio.com/`
+sirve el frontend de esa instancia, `clubequis.dominio.com/api/*` su
+backend, sin CORS.
+
+Lo que cambia:
+
+- **La base de datos deja de ser local al servidor** (`db` en el compose) y
+  pasa a ser Neon, compartida por todas las instancias.
+- **El ruteo por subdominio** ya no lo resuelve una consulta en cada
+  request: lo resuelve **qué contenedor está corriendo**, vía etiquetas de
+  Docker que Caddy lee solo (ver Infraestructura).
+- **Las migraciones** dejan de aplicarse solas al arrancar cada backend —
+  con una sola instancia tenía sentido; con N compartiendo una base, N
+  arranques simultáneos corriendo `alembic upgrade head` a la vez es una
+  carrera que hoy no existe.
 
 ---
 
@@ -57,235 +83,321 @@ clubs
 + secondary_color   VARCHAR(7) NULL
 ```
 
-Sin tabla nueva: la marca es del club, y `clubs` ya es donde vive `slug`.
+Sin tabla nueva: la marca es del club, y `clubs` —fila en la base
+compartida— ya es donde vive `slug`. Cada instancia lee **su propia** fila;
+el resto de la tabla (los otros clubes) existe en la misma base pero esa
+instancia nunca la consulta.
 
-**`slug` pasa a tener reglas de formato** que hoy no tiene, porque hoy es sólo un
-desambiguador de login y a partir de este cambio es un nombre de host:
+**`slug` sigue necesitando reglas de formato**, porque además de
+desambiguador de login pasa a ser nombre de host **y** nombre del stack de
+Docker de ese club:
 
 - Minúsculas, dígitos y guiones. Sin punto, sin empezar ni terminar en guión.
-- Lista de reservados que no se pueden usar como `slug` de un club:
-  `www`, `api`, `app`, `admin`, `mail`, `ftp` y el propio nombre que use el
-  dominio principal (`main`, si se lo llama así). Un club nuevo no puede
-  pisar una ruta de la plataforma.
-- Los clubes existentes se validan al migrar; uno con un `slug` que no cumple
-  el formato nuevo (mayúsculas, espacios) se normaliza una vez, a mano, no en
-  la migración automática — es dato de producción y una normalización
-  automática puede generar colisiones que nadie previó.
+- Reservados que ningún club puede usar: `www`, `api`, `app`, `admin`,
+  `mail`, `ftp` y el nombre que use el dominio principal.
+- Los `slug` existentes se auditan al migrar; uno que no cumpla el formato
+  nuevo se normaliza a mano, no en una migración automática — es dato de
+  producción.
 
----
+### Configuración por instancia (no es un modelo de datos — es entorno)
 
-## Resolución de tenant
-
-Middleware nuevo, antes de cualquier router:
-
-```python
-async def resolve_tenant(request: Request, call_next):
-    host = request.headers.get("host", "")
-    subdomain = extract_subdomain(host, settings.APP_DOMAIN)
-    request.state.club_slug = subdomain  # None en el dominio principal
-    return await call_next(request)
+```bash
+CLUB_SLUG=clubequis            # qué club es esta instancia
+DATABASE_URL=postgresql+asyncpg://...-pooler.neon.tech/main?sslmode=require
+DATABASE_URL_DIRECT=postgresql+asyncpg://...neon.tech/main?sslmode=require  # sólo Alembic
 ```
 
-- **Endpoints que dependen de un club** (casi todos) leen `request.state.club_slug`,
-  resuelven el `Club` y lo comparan contra `current_user.club_id`. Si no
-  coinciden, `403` — un token de un club no sirve en el subdominio de otro. Es
-  el mismo espíritu que el `409` de DNI ambiguo en [[socios]], pero acá el error
-  es un intento de cruce entre clubes, no una ambigüedad legítima.
-- **Endpoints de plataforma** (crear club, `superadmin`) no dependen del
-  subdominio: `users.role == superadmin` ya salta todo chequeo de capacidad
-  según [[permisos]], y sigue siendo así.
-- `GET /public/club-branding` — **sin autenticación**, resuelve por
-  `request.state.club_slug` y devuelve `{name, logo_url, primary_color,
-  secondary_color}`. Es lo que el frontend pide antes de mostrar nada.
-
-### Por qué el JWT no alcanza solo
-
-Si el club se resolviera **únicamente** por el JWT (como hoy) y el subdominio
-fuera cosmético, un socio de un club vería la marca de otro con sólo cambiar la
-URL, y el subdominio dejaría de ser una frontera real. Cruzarlo contra el JWT es
-lo que lo convierte en control de acceso y no en decoración.
+Todo lo demás —logo, colores, nombre— **no** se configura: la instancia lo
+lee de `clubs WHERE slug = :CLUB_SLUG` al arrancar. Configurar la marca a
+mano por instancia sería repetir, en variables de entorno, un dato que ya
+está en la base — y que además el club edita desde la app, no desde un
+archivo `.env` que hay que tocar y redesplegar.
 
 ---
 
-## Infraestructura
+## Cómo una instancia sabe quién es
+
+Reemplaza la idea de "resolver tenant por request": acá se resuelve **una
+vez, al arrancar**.
+
+```python
+@app.on_event("startup")
+async def load_club_context():
+    club = await get_club_by_slug(settings.CLUB_SLUG)
+    if club is None or not club.is_active:
+        raise RuntimeError(f"'{settings.CLUB_SLUG}' no es un club activo")
+    app.state.club = club  # id, name, logo_url, colores — en memoria
+```
+
+- Si el `slug` configurado no existe o el club está inactivo, **la instancia
+  no arranca**. Es preferible a arrancar y servir un 500 en el primer
+  request: el error aparece en el log de despliegue, no en el celular de un
+  socio.
+- Todo lo que hoy resuelve `club_id` a partir del JWT del usuario **sigue
+  igual** — no se toca `require_club_admin` ni el resto de [[permisos]].
+  Lo que se agrega es una capa más abajo: el login de esta instancia
+  **sólo busca usuarios con `club_id = app.state.club.id`**. Un DNI o email
+  de otro club, aunque exista en la base compartida, no matchea acá — no
+  porque se rechace explícitamente, sino porque la consulta nunca lo mira.
+- `GET /public/club-branding` — sin autenticación, devuelve
+  `app.state.club` tal cual quedó cacheado. No resuelve nada por request;
+  es lectura de memoria.
+
+### Lo que esto simplifica de la versión anterior de este documento
+
+La versión anterior de este cambio cruzaba el `Host` del request contra el
+`club_id` del JWT en cada endpoint, con un middleware nuevo y un `403`
+explícito ante mismatch. Con una instancia por club **ese cruce no hace
+falta**: no hay JWT de otro club que pueda llegar a validarse acá, porque el
+login que lo emitió nunca pudo encontrar a ese usuario en esta base scopeada.
+La frontera pasa de ser una verificación en tiempo de ejecución a ser una
+propiedad de qué proceso está corriendo.
+
+---
+
+## Preparación para Neon
+
+Esto es lo que hoy queda **decidido y a construir** — antes era una
+recomendación contra una idea (base por club); ahora es la base compartida
+real que corre en producción, y hay que dejar la app lista para sus
+particularidades.
+
+### Dos connection strings, no una
+
+Neon separa el endpoint **pooled** (PgBouncer en modo transacción) del
+**directo**:
+
+- `DATABASE_URL` (pooled) — la usa el backend en runtime. Con N instancias
+  cada una manteniendo su propio pool de conexiones contra la misma base,
+  el pooler es lo que evita agotar el límite de conexiones directas de
+  Neon a medida que se suman clubes. Con una sola instancia esto era
+  opcional; con una por club deja de serlo.
+- `DATABASE_URL_DIRECT` (sin pooler) — la usa **sólo** Alembic. Un pooler en
+  modo transacción no sostiene las funciones de sesión que algunas
+  migraciones necesitan (locks de advisory, `SET` de sesión); correr
+  migraciones contra el endpoint pooled falla de formas confusas que no
+  tienen que ver con la migración en sí.
+
+`sslmode=require` en ambas: Neon lo exige, y hoy el `DATABASE_URL` local no
+lo necesitaba.
+
+### El pool de SQLAlchemy, más chico por instancia
+
+Cada instancia sirve un club, típicamente con tráfico bajo. Mantener un
+`pool_size` grande en cada una apila una capa de pooling encima de otra sin
+necesidad — el pooler de Neon ya multiplexa entre todas las instancias del
+lado del servidor. Un pool chico por instancia (o `NullPool` si el volumen es
+bajo) alcanza y no compite innecesariamente por conexiones con el resto.
+
+### Cold start
+
+Neon serverless suspende el cómputo tras inactividad; el primer request
+después de un rato sin tráfico paga unos cientos de milisegundos a un par de
+segundos extra mientras el cómputo despierta. Es una característica del
+plan, no un bug de esta implementación — se documenta de frente, igual que
+la limitación de iOS Safari en [[add-notificaciones-push]]. Para un club
+chico, con tráfico intermitente entre semana, es exactamente el patrón que
+hace que aparezca.
+
+### Migraciones: de "cada instancia se automigra" a "se corre una vez"
+
+Hoy ([[despliegue]]) el backend corre `alembic upgrade head` solo al
+arrancar — seguro con **un** backend. Con N instancias compartiendo la
+misma base, si todas arrancan a la vez tras un release nuevo, todas
+intentarían migrar a la vez contra la misma base. Las migraciones ya son
+idempotentes ([[data-model]]: "chequean existencia antes de actuar"), así
+que en la práctica probablemente no rompan nada — pero es una garantía que
+no vale la pena depender de por las dudas, en vez de eliminar la carrera de
+raíz.
+
+**Se separa en dos pasos del script de despliegue**:
+1. Un job de migración, **uno solo**, corre `alembic upgrade head` contra
+   `DATABASE_URL_DIRECT` antes de tocar cualquier instancia de club.
+2. Recién después, se actualizan (o se crean) las instancias, que arrancan
+   asumiendo el schema ya al día — no vuelven a migrar.
+
+---
+
+## Infraestructura: ruteo por etiquetas, no por wildcard con `ask`
+
+La versión anterior de este documento proponía un backend único con Caddy
+wildcard + TLS on-demand + un endpoint `ask` que confirmaba si el slug era
+válido. Con una instancia real por club, ese `ask` deja de hacer falta: **el
+propio contenedor** declara su subdominio.
+
+### `caddy-docker-proxy`
+
+Un plugin de Caddy que arma la configuración de ruteo leyendo etiquetas de
+Docker, sin editar `Caddyfile` a mano ni reiniciar Caddy al sumar un club:
+
+```yaml
+# docker-compose.<slug>.yml — generado por instancia, ver "Provisión" abajo
+services:
+  backend:
+    image: match-analisis-backend:latest
+    environment:
+      CLUB_SLUG: clubequis
+      DATABASE_URL: ${NEON_POOLED_URL}
+    labels:
+      caddy: clubequis.dominio.com
+      caddy.handle_path: /api/*
+      caddy.handle_path.reverse_proxy: "{{upstreams 8000}}"
+
+  frontend:
+    image: match-analisis-frontend:latest
+    labels:
+      caddy: clubequis.dominio.com
+      caddy.reverse_proxy: "{{upstreams 80}}"
+```
+
+Caddy pide el certificado TLS con ACME estándar (HTTP-01) apenas ve la
+etiqueta — **no** hace falta wildcard ni `ask`: el subdominio existe en la
+configuración de Caddy únicamente si hay un contenedor real corriendo con
+esa etiqueta. El vector de abuso que el `ask` cerraba en el diseño anterior
+directamente no existe acá, porque no hay wildcard que emita certificados
+para nombres que nadie declaró.
 
 ### DNS
 
-Un único registro wildcard, `*.dominio.com → IP del servidor`. Crear un club no
-toca DNS — el wildcard ya cubre cualquier `slug` futuro.
-
-### TLS: on-demand, no wildcard
-
-Un certificado wildcard (`*.dominio.com`) exige validación **DNS-01**, que
-depende de que el proveedor de DNS tenga API (Cloudflare, Route53) y de darle a
-Caddy credenciales para escribir registros TXT — una dependencia externa nueva
-que hoy no existe.
-
-**Se recomienda TLS on-demand en su lugar**: Caddy emite un certificado
-individual la primera vez que alguien pide un subdominio, vía HTTP-01, sin
-necesitar wildcard ni credenciales de DNS. El riesgo de on-demand TLS —que
-cualquiera pida un subdominio inexistente y agote el rate limit de Let's
-Encrypt— se cierra con el `ask` de Caddy: antes de emitir, le pregunta al
-backend si ese `slug` es un club activo.
-
-```caddyfile
-*.dominio.com {
-	tls {
-		on_demand
-	}
-	handle_path /api/* {
-		reverse_proxy backend:8000
-	}
-	handle {
-		reverse_proxy frontend:80
-	}
-}
-
-# Endpoint interno que Caddy consulta antes de emitir cada certificado
-tls.on_demand.ask http://backend:8000/internal/valid-clubs?domain={query.domain}
-```
-
-`GET /internal/valid-clubs` sólo responde `200` si el subdominio pedido
-corresponde a un `club.is_active = true`; cualquier otro caso, `404`. Sin este
-`ask`, on-demand TLS es un vector de abuso conocido — con él, es exactamente la
-misma garantía que un wildcard, sin la dependencia de un proveedor de DNS con
-API.
-
-Costo del lado de: cada club nuevo dispara una emisión de certificado la
-primera vez que alguien entra — unos segundos, una sola vez, y Let's Encrypt
-permite 50 certificados por dominio registrable por semana, que alcanza de
-sobra al ritmo real de altas de clubes.
+Sigue siendo un único registro wildcard, `*.dominio.com → IP del servidor`
+— sólo para que el nombre **resuelva**; la decisión de si hay algo real
+detrás la toma Caddy mirando etiquetas, no el wildcard.
 
 ### Dominio principal
 
-`dominio.com` (sin subdominio) sirve **sólo**: login de `superadmin`, alta de
-clubes, y un buscador de "¿cuál es mi club?" por DNI para quien perdió el link
-— reusa el `409` con lista de clubes que [[socios]] ya resuelve en el login.
-No es una landing de marketing nueva; eso es contenido, no ingeniería, y queda
-fuera de este cambio.
+`dominio.com` (sin subdominio) sirve login de `superadmin` y el
+aprovisionamiento de clubes nuevos — corre como **una instancia más**, sin
+`CLUB_SLUG` (o con un modo especial de plataforma), separada de las
+instancias de cada club.
 
 ---
 
-## Frontend: una sola build, marca en runtime
+## Provisión de un club nuevo
 
-**No** se compila un build por club — no escala a "cada vez que se crea un
-club". Al cargar, el frontend pide `GET /public/club-branding` y aplica:
+No automatizado de punta a punta en esta v1. Un script que corre el
+operador de la plataforma:
+
+```bash
+./scripts/provision_club.sh clubequis "Club Equis"
+```
+
+1. Inserta la fila en `clubs` (contra `DATABASE_URL_DIRECT`, compartida).
+2. Genera `docker-compose.clubequis.yml` desde una plantilla, con
+   `CLUB_SLUG=clubequis`, el `DATABASE_URL` pooled compartido, y las
+   etiquetas de Caddy.
+3. `docker compose -f docker-compose.clubequis.yml up -d`.
+
+El club queda alcanzable en `clubequis.dominio.com` en el tiempo que tarda
+el contenedor en levantar más la emisión del certificado — minutos, no
+instantáneo.
+
+### Por qué no un botón de "crear club" que lo haga solo
+
+Automatizar el paso 2 y 3 desde la propia app significa darle a un endpoint
+acceso al socket de Docker del host —o a su API— para que pueda levantar
+contenedores nuevos. Es un salto real de superficie de ataque: un bug o una
+cuenta de `superadmin` comprometida en ese endpoint ya no significa acceso a
+datos, significa control del host. [[despliegue]] ya tomó esta misma
+posición para el despliegue en general ("Despliegue automático desde CI...
+antes de tener a dónde desplegar es adivinar"): con la cantidad de clubes
+que este producto tiene hoy, un script que el operador corre a mano es más
+seguro que automatizarlo, y automatizarlo es la mejora obvia el día que el
+ritmo de alta de clubes lo justifique.
+
+---
+
+## Frontend: una sola imagen, marca en runtime
+
+**No** se compila un build por club — la misma imagen de frontend corre en
+todas las instancias. Al cargar, pide `GET /public/club-branding` **a su
+propio backend** (mismo origen, sin necesidad de decir para qué club es: la
+instancia ya lo sabe) y aplica:
 
 - `logo_url` en el header
-- `primary_color` / `secondary_color` como variables CSS (`--brand`, ...),
-  con el tema actual (`#211E67`, [[architecture]]) como default si el club no
-  configuró nada
-- `name` en el `<title>` y como `favicon` si el club subió uno
+- `primary_color` / `secondary_color` como variables CSS, con el tema
+  actual (`#211E67`, [[architecture]]) como default si el club no configuró
+  nada
+- `name` en el `<title>` y como favicon si el club subió uno
 
-Un club recién creado, sin configurar nada, se ve **exactamente** como hoy —
-la marca es opt-in, no una pantalla más que hay que completar para poder usar
-la app.
+Un club recién creado, sin configurar marca, se ve **exactamente** como
+hoy — es opt-in, no un paso obligatorio para poder usar la app.
 
 ---
 
 ## Migración de clubes existentes
 
-El `slug` ya es único por club, así que **no hace falta reasignar nada** — cada
-club existente ya tiene el nombre que va a usar como subdominio. Lo que cambia
-es el link que sus socios usan para entrar.
+Dos movimientos, no uno:
 
-Mientras dure la transición, el dominio actual (sin subdominio) puede seguir
-resolviendo al club existente si hoy sólo hay uno en producción — evita
-romper links ya compartidos por WhatsApp el mismo día del despliegue. Con más
-de un club en producción al momento de este cambio, hace falta decidir a mano
-qué pasa con el dominio pelado (redirect a un club por defecto, o página de
-selección) — **es una pregunta operativa, no técnica, y depende de cuántos
-clubes estén corriendo cuando esto se implemente**.
+1. **De Postgres self-hosted a Neon.** Un `pg_dump` del `db` actual
+   restaurado en la base compartida de Neon — mismo tipo de operación que
+   ya sabe hacer el runbook de [[despliegue]], sólo que el destino cambia.
+   Se hace **una vez**, con el backend actual apagado durante la restauración
+   (mismo cuidado que ya exige un restore hoy).
+2. **De un backend único a una instancia por club.** Si hoy sólo hay un club
+   en producción, este paso es levantar su `docker-compose.<slug>.yml` y
+   apagar el compose viejo. Con más de un club ya corriendo al momento de
+   este cambio, se migra club por club, y el dominio actual queda
+   redirigiendo al último que falte migrar hasta que no quede ninguno.
 
----
-
-## Decisión pendiente: ¿base de datos por club en Neon?
-
-El roadmap ofreció una API key de Neon para crear una base por club
-automáticamente. Antes de construir eso, vale la pena decir con qué se
-compara.
-
-### Cómo es hoy
-
-Multi-tenant de **schema compartido**: una sola base, cada tabla llega al
-club por `club_id` (o lo deriva de `division_id`). Es el patrón que atraviesa
-todo [[data-model]] y que [[despliegue]] ya sabe respaldar, migrar y
-restaurar con un runbook probado.
-
-### Qué cuesta una base por club
-
-| Área | Hoy (schema compartido) | Con una base por club |
-|------|--------------------------|------------------------|
-| **Migraciones** | `alembic upgrade head` una vez, al arrancar | La misma migración corre contra **N** bases; una que falla a mitad de un despliegue deja al club 47 en una versión de schema distinta a los otros 46 |
-| **Conexión** | Un `DATABASE_URL`, un pool | El backend necesita resolver, por request, a qué base conectarse — un router de conexión que hoy no existe, y N pools en vez de uno |
-| **Backups** | Un `pg_dump`, una política de retención ([[despliegue]]) | N backups, N restauraciones a probar; el runbook actual no generaliza solo |
-| **Alta de club** | Un `INSERT` | Alta de club **depende de que la API de Neon responda** — un fallo de red externo ahora puede bloquear crear un club |
-| **Secretos** | Uno (`DATABASE_URL` en `.env`) | Un connection string por club, que hay que guardar cifrado en algún lado — y ese "algún lado" es, otra vez, una base compartida: el problema no desaparece, se duplica |
-| **Consultas de plataforma** (listar clubes, soporte a `superadmin`) | Una query | Necesitan un **registro central** de qué base corresponde a qué club — que es exactamente el problema que el schema compartido ya resuelve hoy |
-
-### Recomendación
-
-**No** provisionar una base de Neon por club de forma automática. El schema
-compartido ya resuelve el aislamiento que hace falta hoy —ningún club ve datos
-de otro, en cada tabla y cada query— sin ninguno de los costos de la tabla de
-arriba. Nada en el pedido señala un motivo real para pagarlos: no hay requisito
-de compliance, ni un cliente que exija sus datos físicamente separados, ni un
-plan de exportar la base de un club de forma independiente.
-
-**Dónde sí tiene sentido Neon**: como herramienta de *desarrollo*, no de
-*multi-tenancy* — una rama de base (branch) por PR o por entorno de prueba,
-que Neon hace barato y rápido, para probar migraciones antes de que lleguen a
-producción. Es una mejora real, pero es un cambio de flujo de CI, no de
-arquitectura de datos, y es un documento aparte si se decide perseguirlo.
-
-**Cuándo reconsiderar esto**: si en el futuro un club puntual necesita
-aislamiento fuerte por un motivo concreto (un contrato, una ley), la salida es
-migrar **ese club, a mano, una vez** — no construir el mecanismo automático
-para todos desde el día uno a cambio de un problema que hoy nadie tiene.
-
-Esta sección **no** se traduce en fases: es la respuesta a la pregunta, no una
-tarea. Si el club decide lo contrario después de leer esto, es un cambio nuevo,
-con su propio documento — no una fase agregada acá.
+**Es una pregunta operativa, no técnica, y depende de cuántos clubes estén
+corriendo cuando esto se implemente** — igual que ya lo era en la versión
+anterior de este documento.
 
 ---
 
 ## Fases de Implementación
 
-> Todas asumen la base de datos compartida actual — ninguna depende de la
-> decisión de Neon de arriba.
-
 ### Fase A: Modelo
 - [ ] Migración: `clubs.logo_url`, `clubs.primary_color`, `clubs.secondary_color`
-- [ ] Validación de formato de `slug` (regex + lista de reservados) en alta y edición de club
-- [ ] Auditoría de los `slug` existentes contra el formato nuevo, normalización manual si hace falta
+- [ ] Validación de formato de `slug` (regex + reservados) en alta y edición
+- [ ] Auditoría de los `slug` existentes, normalización manual si hace falta
 
-### Fase B: Resolución de tenant
-- [ ] Middleware `resolve_tenant`, extrae subdominio de `Host`
-- [ ] Cruce contra `current_user.club_id` en los endpoints autenticados; `403` ante mismatch
-- [ ] `GET /public/club-branding`, sin autenticación
-- [ ] `GET /internal/valid-clubs`, sólo para el `ask` de Caddy — no expuesto fuera de la red interna de compose
-- [ ] Tests: token de un club en el subdominio de otro → `403`; subdominio inexistente → `404` antes de llegar a ningún router de negocio
+### Fase B: La app sabe quién es
+- [ ] `CLUB_SLUG` en la configuración del backend
+- [ ] Carga de `app.state.club` al arrancar; falla el arranque si no existe
+      o está inactivo
+- [ ] Login scopeado a `club_id = app.state.club.id`, sin tocar el resto de
+      [[permisos]]
+- [ ] `GET /public/club-branding`, sin autenticación, sirve desde memoria
+- [ ] Tests: instancia con `CLUB_SLUG` inexistente no arranca; un usuario de
+      otro club no matchea en el login de esta instancia
 
-### Fase C: Infraestructura
+### Fase C: Preparación para Neon
+- [ ] `DATABASE_URL` pooled para runtime, `DATABASE_URL_DIRECT` para Alembic
+- [ ] `sslmode=require`
+- [ ] `pool_size` conservador en el engine de SQLAlchemy
+- [ ] Job de migración separado del arranque de las instancias
+- [ ] Verificar en un entorno real de Neon: pool agotado bajo carga
+      concurrente de varias instancias, y que Alembic corre limpio contra el
+      endpoint directo
+
+### Fase D: Infraestructura de ruteo
+- [ ] `caddy-docker-proxy` en el Caddy de la plataforma
+- [ ] Plantilla de `docker-compose.<slug>.yml` con las etiquetas
 - [ ] Registro DNS wildcard `*.dominio.com`
-- [ ] `Caddyfile` con bloque wildcard, `tls on_demand` y `ask` apuntando a `/internal/valid-clubs`
-- [ ] Verificar que `docker compose up` sigue funcionando en desarrollo sin wildcard (un solo host, como hoy)
+- [ ] Verificar que `docker compose up` de **desarrollo** sigue funcionando
+      igual que hoy, sin Caddy ni wildcard (un solo host local)
 
-### Fase D: Frontend
+### Fase E: Frontend
 - [ ] `GET /public/club-branding` al cargar, antes de renderizar el layout
 - [ ] Variables CSS de marca con el tema actual como default
 - [ ] Favicon y `<title>` dinámicos
 
-### Fase E: Alta de club
-- [ ] Pantalla de `superadmin` para subir logo y elegir colores al crear o editar un club
-- [ ] El club queda alcanzable en su subdominio inmediatamente después del alta (primer request dispara la emisión del certificado)
+### Fase F: Provisión de un club nuevo
+- [ ] `scripts/provision_club.sh`: alta en la base, generación del compose,
+      `up -d`
+- [ ] Pantalla de `superadmin` para editar logo y colores de un club ya
+      creado (no para crearlo — eso sigue siendo el script)
 
-### Fase F: Migración de clubes existentes
-- [ ] Confirmar con el club cuántos clubes hay en producción al momento de implementar esto (determina si el dominio pelado redirige a uno solo o necesita selector)
+### Fase G: Migración de lo existente
+- [ ] `pg_dump` / restore del `db` actual a la base de Neon
+- [ ] Confirmar cuántos clubes hay en producción al momento de implementar
+      esto, para decidir el orden de corte
 - [ ] Comunicar el link nuevo a los socios existentes
 
-### Fase G: Documentación
-- [ ] Actualizar [[despliegue]] con la sección de TLS on-demand y el `ask`
+### Fase H: Documentación
+- [ ] Reescribir la sección de infraestructura de [[despliegue]]: Neon,
+      `caddy-docker-proxy`, el job de migración separado
 - [ ] Actualizar [[data-model]] con las columnas de marca
 - [ ] `openspec/specs/multi-tenant.md`
 
@@ -295,11 +407,12 @@ con su propio documento — no una fase agregada acá.
 
 | Qué | Por qué no |
 |-----|-----------|
-| **Base de datos por club en Neon** | Ver "Decisión pendiente" arriba — recomendación en contra, no implementada |
-| **Landing de marketing en el dominio principal** | Es contenido, no arquitectura; el dominio principal de este cambio sólo resuelve alta de club y soporte |
-| **Dominios propios del club** (`clubequis.com.ar` en vez de `clubequis.dominio.com`) | Requiere que cada club administre su propio DNS y certificado; es un cambio de infraestructura mayor que un subdominio, y no se pidió |
-| **Theming más allá de logo y dos colores** (tipografía, layout) | No se pidió; dos colores y un logo son lo que "personalización de logos, colores" describe |
-| **Migrar clubes existentes a una base separada** | Consecuencia directa de la recomendación en contra de Neon-por-club |
+| **Base de datos por club en Neon** | Sigue descartado: el aislamiento ya lo da `club_id`, sin los costos de N bases (migraciones, backups, pools) que no cambian por desplegar una instancia por club |
+| **Aprovisionamiento de club 100% self-service** | Requiere darle a la app acceso al socket de Docker del host; salto de superficie de ataque que no se justifica con la cantidad de clubes actual |
+| **Orquestador (Kubernetes, Nomad) para escalar instancias automáticamente** | Un script y `docker compose` alcanzan al ritmo real de altas de clubes; se reevalúa si eso deja de ser cierto |
+| **Landing de marketing en el dominio principal** | Es contenido, no arquitectura |
+| **Dominios propios del club** (`clubequis.com.ar`) | Cada club administrando su propio DNS y certificado es un cambio mayor que un subdominio, y no se pidió |
+| **Theming más allá de logo y dos colores** | No se pidió |
 
 ---
 
@@ -308,13 +421,17 @@ con su propio documento — no una fase agregada acá.
 | Área | Impacto |
 |------|---------|
 | `backend/app/models/club.py` | Tres columnas nuevas |
-| `backend/app/middleware/tenant.py` | Nuevo |
-| `backend/app/api/v1/public.py` | Nuevo — branding, sin auth |
-| `backend/app/api/internal.py` | Nuevo — `valid-clubs`, sólo red interna |
-| `Caddyfile` | Reescrito para wildcard + on-demand TLS |
+| `backend/app/core/config.py` | `CLUB_SLUG`, `DATABASE_URL` (pooled), `DATABASE_URL_DIRECT` |
+| `backend/app/main.py` | Carga de `app.state.club` al arrancar, falla si no existe |
+| `backend/app/api/v1/auth.py` | Login scopeado a `app.state.club.id` |
+| `backend/app/api/v1/public.py` | Nuevo — branding, sin auth, servido desde memoria |
+| `backend/scripts/provision_club.sh` | Nuevo |
+| `backend/scripts/migrate.py` (o equivalente) | Nuevo — job de migración separado del arranque |
+| `docker-compose.<slug>.yml.tmpl` | Nuevo — plantilla por club |
+| `Caddyfile` | Reescrito para `caddy-docker-proxy` |
 | `frontend/src/App.tsx` | Fetch de branding antes del layout |
 | `frontend/src/theme/` | Variables CSS dinámicas |
-| Base de datos | **Ninguno** más allá de las tres columnas — se mantiene compartida |
+| Base de datos | Migra de Postgres self-hosted a Neon compartido; schema sin cambios más allá de las tres columnas |
 
 ---
 
@@ -322,26 +439,34 @@ con su propio documento — no una fase agregada acá.
 
 | Decisión | Elección | Razón |
 |----------|----------|-------|
-| Base de datos | Compartida, `club_id` como hoy | Ver "Decisión pendiente"; ningún requisito actual justifica el costo de N bases |
-| TLS | On-demand con `ask`, no wildcard DNS-01 | Evita depender de la API de un proveedor de DNS; el `ask` cierra el vector de abuso conocido |
-| Resolución de tenant | Subdominio **cruzado** contra el JWT, no lo reemplaza | Un subdominio que sólo decora no es una frontera real |
-| Marca | Runtime, una sola build | No escala compilar un frontend por club |
-| Formato de `slug` | Reglas de host + reservados | El `slug` pasa de desambiguador de login a nombre de host; hoy no tiene esas restricciones |
+| Base de datos | Compartida en Neon, **no** una por club | El aislamiento ya lo da `club_id`; N bases multiplican migraciones, backups y pools sin necesidad |
+| Despliegue | Una instancia (backend + frontend) por club, misma imagen genérica | Elimina la necesidad de resolver tenant por request; la frontera es qué proceso está corriendo |
+| Conexión a Neon | Pooled para runtime, directa sólo para Alembic | Un pooler en modo transacción no sostiene lo que Alembic necesita; el runtime sí necesita el pooler con N instancias compartiendo la base |
+| Migraciones | Job único, separado del arranque de cada instancia | N instancias automigrando a la vez contra la misma base es una carrera evitable |
+| Ruteo | `caddy-docker-proxy` por etiquetas, no wildcard + `ask` | El subdominio existe en Caddy sólo si hay un contenedor real; cierra el vector de abuso sin necesitar un endpoint que lo module |
+| Alta de club | Script del operador, no automatizado | Automatizarlo exige acceso al socket de Docker desde la app; no se justifica todavía |
+| Marca | Runtime, leída por la propia instancia de su fila en Neon | Configurarla por variable de entorno duplicaría un dato que el club ya edita desde la app |
 
 ---
 
 ## Criterios de Aceptación
 
-- [ ] Un club nuevo es alcanzable en `{slug}.dominio.com` sin ninguna acción
-      manual de infraestructura después del alta
-- [ ] Un token de un club usado en el subdominio de otro recibe `403`, no acceso
-- [ ] Un subdominio que no corresponde a ningún club activo no obtiene
-      certificado TLS (verificable con el `ask` respondiendo `404`)
-- [ ] El logo y los colores configurados por un club se ven en su subdominio y
-      en ningún otro
+- [ ] Un club nuevo queda alcanzable en `{slug}.dominio.com` corriendo su
+      propia instancia, tras el script de aprovisionamiento
+- [ ] Una instancia con un `CLUB_SLUG` que no existe o está inactivo no
+      arranca
+- [ ] Ningún usuario puede autenticarse en la instancia de un club distinto
+      al suyo — no por un chequeo que lo bloquea, sino porque el login de
+      esa instancia no lo encuentra
+- [ ] El logo y los colores configurados por un club se ven en su
+      subdominio y en ningún otro
 - [ ] Un club sin marca configurada se ve exactamente como hoy
-- [ ] El dominio principal sigue sirviendo login de `superadmin` y alta de club
-- [ ] `docker compose up` de desarrollo sigue funcionando sin wildcard ni DNS real
+- [ ] Las migraciones corren una sola vez por release, no una vez por
+      instancia
+- [ ] Alembic corre limpio contra el endpoint directo de Neon; el runtime
+      usa el pooled sin agotar conexiones con varias instancias activas
+- [ ] `docker compose up` de desarrollo sigue funcionando igual que hoy,
+      sin Caddy, sin wildcard, sin Neon
 
 ---
 
@@ -349,20 +474,22 @@ con su propio documento — no una fase agregada acá.
 
 | Riesgo | Mitigación |
 |--------|-----------|
-| **On-demand TLS sin `ask` es un vector de abuso** | El `ask` gatea cada emisión contra `clubs.is_active`; sin club real, sin certificado |
-| **Un `slug` mal formado rompe DNS o pisa una ruta de la plataforma** | Validación de formato + lista de reservados en alta y edición |
-| **Links ya compartidos del dominio actual dejan de andar el día del corte** | Fase F explícita: depende de cuántos clubes hay en producción al momento de implementar, se decide entonces |
-| **El middleware de tenant agrega latencia a cada request** | Es una consulta indexada por `slug` (ya `UNIQUE`); mismo costo que cualquier lookup por clave única que ya existe en el sistema |
-| **Se termina construyendo Neon-por-club igual, por presión de tener la API key ya disponible** | La recomendación está documentada con su razonamiento; si el club insiste después de leerla, es una decisión informada y no un default por comodidad |
+| **Un proceso por club multiplica el uso de RAM del servidor a medida que se suman clubes** | Aceptable a la escala actual; si deja de serlo, es la señal concreta para evaluar un orquestador — no antes |
+| **N instancias migrando a la vez contra la base compartida** | Job de migración separado, corrido una sola vez antes de tocar las instancias |
+| **Cold start de Neon sorprende al primer socio que entra tras horas sin tráfico** | Documentado de frente; el plan de Neon puede ajustarse (mantener el cómputo activo) si en uso real resulta molesto |
+| **`DATABASE_URL` pooled es un secreto compartido repetido en N archivos `.env`** | Mismo tratamiento que `SECRET_KEY` hoy — un secreto por entorno; repetirlo en N instancias del mismo operador no es lo mismo que exponerlo a terceros |
+| **Un `slug` mal formado rompe DNS, colisiona con una etiqueta de Caddy, o pisa una ruta de la plataforma** | Validación de formato + lista de reservados en alta y edición |
+| **Se pierde la posibilidad de una consulta única "todos los clubes" para soporte** | Sigue existiendo: `DATABASE_URL_DIRECT` apunta a la misma base compartida; una consulta de plataforma corre contra ella igual que hoy, sólo que ninguna instancia de club individual la necesita |
 
 ---
 
 ## Relacionado
 
 - [[add-portal-completo-roadmap]] — el programa; este es su cambio 5
-- [[despliegue]] — "un solo origen", que este cambio extiende a wildcard sin romper
-- [[socios]] — precedente del `409` de ambigüedad que el buscador del dominio principal reusa
-- [[permisos]] — `superadmin` salta todo chequeo de capacidad, incluido el de tenant
-- [[add-app-movil-react-native]] — necesita que la resolución de tenant esté decidida antes de construir su propio flujo de login
-- [[data-model]] — schema
+- [[despliegue]] — "un solo origen" y el runbook de backups, que este cambio migra de Postgres self-hosted a Neon
+- [[data-model]] — schema, y la idempotencia de las migraciones que hace segura la Fase C
+- [[permisos]] — `superadmin` y el resto del modelo de capacidades, sin cambios
+- [[socios]] — login por DNI/email, ahora scopeado por instancia en vez de por header
+- [[add-notificaciones-push]] — precedente de documentar una limitación de la plataforma de frente (iOS Safari), igual que el cold start de Neon acá
+- [[add-app-movil-react-native]] — consume `{slug}.dominio.com` igual que antes; no le cambia nada de este rediseño
 - [[architecture]] — tema por defecto que la marca por club sobreescribe

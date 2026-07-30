@@ -22,10 +22,10 @@ que el jugador reciba un aviso cuando sale la formación, y que tenga un lugar d
 agendar con la nutricionista.
 
 A eso se le suma algo que no es una feature: un **segundo frontend** en React
-Native, para App Store y Play Store, con la misma información que el web. Y una
-pregunta de infraestructura: que cada club creado tenga su propio subdominio
-(`{club}.dominio.com`) con su marca propia, y si conviene que además tenga su
-propia base de datos en Neon.
+Native, para App Store y Play Store, con la misma información que el web. Y un
+cambio de infraestructura: que cada club creado corra su propia instancia de
+una app genérica en `{club}.dominio.com`, con su marca propia, sobre una única
+base Postgres serverless compartida en Neon — **no** una base por club.
 
 Este documento es el **programa**: seis cambios, con el orden y el porqué de ese
 orden. Cada uno se escribe en detalle en su propio archivo — ya están escritos,
@@ -105,10 +105,12 @@ Ver [[add-turnos-nutricion]].
 
 ### 5. Subdominios por club y marca propia
 
-Cada club creado pasa a tener `{club}.dominio.com`, resuelto por header `Host`
-en vez de por selección manual, con logo y colores propios. Incluye la pregunta
-de si conviene una base de datos por club en Neon — **con una recomendación, no
-una decisión tomada**: ver el archivo para el detalle.
+Cada club creado pasa a tener `{club}.dominio.com`. La app se vuelve
+**genérica** —misma imagen, mismo código— y se despliega **una instancia por
+club**, todas contra una única base **Postgres serverless compartida en
+Neon, con pooling** — no una base por club, eso sigue descartado. Cada
+instancia resuelve su propio logo y colores sola, leyéndolos de su fila en
+la base al arrancar.
 
 Es el cambio de infraestructura más grande del programa. No bloquea a 1–4, pero
 **si** se hace, conviene que esté resuelto antes de **6**: la app móvil necesita
@@ -175,7 +177,7 @@ Ver [[add-app-movil-react-native]].
 | **La parte de infraestructura (5) se alarga y bloquea todo lo demás** | Está separada a propósito (ver "Dos programas"); 1–4 no dependen de 5 |
 | **La app móvil se construye contra una API que todavía cambia** | Va última, y sólo arranca cuando 1–4 (y 5, si se aprueba) están en producción, no en desarrollo |
 | **Notificaciones sin infraestructura previa se resuelven mal dos veces** (una para formación, otra para turnos) | 3 se diseña como servicio genérico desde el primer disparador, no como "push de formación" a secas |
-| **El pedido de Neon por club se implementa porque el dueño dio la api key, no porque convenga** | [[add-club-subdominios-y-marca]] trae la recomendación explícita antes de tocar código, y frena ahí hasta la confirmación |
+| **Una instancia por club multiplica procesos a medida que crece la cantidad de clubes** | Aceptable a la escala actual; [[add-club-subdominios-y-marca]] deja escrito qué señal amerita revisar esto (RAM del servidor), no antes |
 | **Seis cambios grandes a la vez diluyen foco** | Se secuencian, no se abren todos juntos; cada uno es útil por sí solo si el programa se corta después de él |
 
 ---
