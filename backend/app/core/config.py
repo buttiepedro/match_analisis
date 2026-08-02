@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     # Optional CDN/custom base URL. If unset, uses the standard S3 public URL.
     AWS_S3_PUBLIC_URL: str | None = None
 
+    # Claves VAPID para Web Push. Son del origen (la instalación), no del club:
+    # se generan una vez, no por tenant. Opcionales: sin ellas, el push queda
+    # apagado y la bandeja sigue funcionando igual (ver core/notifications.py).
+    VAPID_PUBLIC_KEY: str | None = None
+    VAPID_PRIVATE_KEY: str | None = None
+    VAPID_SUBJECT: str | None = None
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.strip().lower() == "production"

@@ -92,7 +92,7 @@ vacío rechazado por la validación de formato, y un error de foto que borraba
 toda la pantalla del jugador por compartir el state de error con la carga
 inicial.
 
-### 3. Notificaciones — infraestructura, primer uso: formación cargada
+### 3. Notificaciones — infraestructura, primer uso: formación cargada — ✅ hecho (2026-08-01)
 
 Hoy no existe **ningún** canal de push. [[club-operativo]] eligió texto para
 copiar en vez de push justamente porque no había infraestructura y armarla para
@@ -100,12 +100,23 @@ un solo aviso no se justificaba. Ahora sí: un aviso cuando se carga la formaci�
 es el primero de varios que van a aparecer (turnos de nutrición, después
 probablemente asistencia y cuotas).
 
-Se construye **una vez**, como servicio de notificaciones con destino
+Se construyó **una vez**, como servicio de notificaciones con destino
 intercambiable — push web (VAPID + service worker) primero, push nativo (FCM/APNs)
 cuando exista **6**. El primer disparador es la formación; el modelo ya queda
 listo para el resto.
 
-Ver [[add-notificaciones-push]].
+Ver [[add-notificaciones-push]] (archivado en
+`archive/2026-08-01-notificaciones-push.md`). **Lo que 4 necesita saber si
+reusa `notify()`**: el `data.url` de una notificación tiene que apuntar a
+algo que el destinatario pueda realmente abrir — la verificación en vivo
+encontró que la propuesta original apuntaba al editor del cuerpo técnico
+(`/sessions/{id}/lineup`, exige `partido.lineup`) para una notificación
+dirigida a jugadores, que no tienen esa capacidad. Se corrigió con un
+endpoint y una pantalla de sólo lectura nuevos
+(`GET /me/player/sessions/{id}/lineup`, `/mi-formacion/:id`). Antes de armar
+el recordatorio de turno de **4**, confirmar que la pantalla a la que apunta
+sea una que el jugador pueda abrir con su capacidad real, no la que usa el
+cuerpo técnico para gestionarlo.
 
 ### 4. Turnos con nutricionista
 

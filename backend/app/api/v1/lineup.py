@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.notifications import notify
 from app.core.permissions import Permission
 from app.core.deps import get_current_user, get_division_or_404, require
 from app.models import (
@@ -15,6 +17,7 @@ from app.models import (
     Event,
     MatchLineup,
     MatchSquad,
+    NotificationType,
     Player,
     Session,
     SessionStatus,
@@ -23,6 +26,8 @@ from app.models import (
     User,
     UserRole,
 )
+
+logger = logging.getLogger(__name__)
 from app.models.player import LineupStatus
 from app.schemas.player import (
     LineupBulkRequest,
@@ -240,6 +245,17 @@ async def replace_lineup(
     for entry in body.entries:
         await _get_club_player_or_404(entry.player_id, club_id, db)
 
+    # Se mira **antes** de tocar la base: es la única forma de distinguir "no
+    # había nada" de "ya había lineup y se está corrigiendo". Sólo interesa el
+    # equipo propio — al rival no le avisamos nada.
+    is_first_formation = body.team == "user" and bool(body.entries) and not bool(
+        await db.scalar(
+            select(MatchLineup.id)
+            .where(MatchLineup.session_id == session.id, MatchLineup.team == "user")
+            .limit(1)
+        )
+    )
+
     # Recién acá se toca la base: si algo falló arriba, el lineup viejo sigue intacto.
     await db.execute(
         delete(MatchLineup).where(
@@ -263,6 +279,9 @@ async def replace_lineup(
 
     await db.commit()
 
+    if is_first_formation:
+        await _notify_formation_loaded(session, club_id, db)
+
     result = await db.execute(
         select(MatchLineup)
         .where(MatchLineup.session_id == session.id, MatchLineup.team == body.team)
@@ -270,6 +289,49 @@ async def replace_lineup(
         .order_by(MatchLineup.jersey_number)
     )
     return result.scalars().all()
+
+
+async def _notify_formation_loaded(session: Session, club_id: uuid.UUID, db: AsyncSession) -> None:
+    """
+    Avisa a todos los jugadores con acceso al portal de la división — no sólo
+    a los 23 que quedaron en la grilla. Un jugador que quedó afuera también
+    quiere enterarse, y antes que nadie se lo cuente.
+
+    Nunca se deja escapar: un fallo del servicio de notificaciones no puede
+    tirar abajo el guardado de la formación, que es lo que el entrenador vino
+    a hacer acá.
+    """
+    try:
+        tournament = await db.scalar(select(Tournament).where(Tournament.id == session.tournament_id))
+        division = await db.scalar(select(Division).where(Division.id == tournament.division_id))
+        recipients = (
+            await db.execute(
+                select(Player.user_id).where(
+                    Player.division_id == tournament.division_id, Player.user_id.isnot(None)
+                )
+            )
+        ).scalars().all()
+
+        when = session.scheduled_at.strftime("%d/%m") if session.scheduled_at else "esta fecha"
+        title = f"Formación de {division.name}"
+        text = f"Ya está la formación para {session.away_team} del {when}. Fijate si estás."
+        # No es /sessions/{id}/lineup: ese es el editor del cuerpo técnico,
+        # exige partido.lineup y ningún jugador lo tiene. El destino es la
+        # vista de sólo lectura de GET /me/player/sessions/{id}/lineup.
+        data = {"session_id": str(session.id), "url": f"/mi-formacion/{session.id}"}
+
+        for user_id in recipients:
+            await notify(
+                db,
+                user_id=user_id,
+                club_id=club_id,
+                type=NotificationType.formacion_cargada,
+                title=title,
+                body=text,
+                data=data,
+            )
+    except Exception:
+        logger.exception("No se pudo notificar la formación cargada (session %s)", session.id)
 
 
 @router.get("/{session_id}/lineup/suggested", response_model=SuggestedLineupResponse)

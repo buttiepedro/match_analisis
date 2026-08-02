@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import api from "../lib/axios";
 import { useAuthStore } from "../store/authStore";
 
 /*
@@ -196,6 +197,13 @@ const IconLogout = () => (
   </svg>
 );
 
+const IconBell = () => (
+  <svg {...svg}>
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </svg>
+);
+
 // ── Menú por rol ──────────────────────────────────────────────────────────────
 
 const HOY: NavItem = { label: "Hoy", path: "/hoy", icon: <IconHome />, permission: ["asistencia.ver", "partido.ver", "plantel.ver"] };
@@ -271,6 +279,59 @@ const ROLE_LABEL: Record<string, string> = {
   player: "Jugador",
 };
 
+// ── Campana de notificaciones ───────────────────────────────────────────────
+
+const UNREAD_POLL_MS = 60_000;
+
+/**
+ * Recibir avisos propios no es un permiso sobre el club: se muestra a todo
+ * usuario autenticado, sin filtrar por capacidad — a diferencia del resto
+ * del menú, que sí filtra.
+ */
+function NotificationBell({ iconsOnly }: { iconsOnly: boolean }) {
+  const navigate = useNavigate();
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => {
+      api
+        .get<{ count: number }>("/me/notifications/unread-count")
+        .then(({ data }) => {
+          if (!cancelled) setCount(data.count);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, UNREAD_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  return (
+    <button
+      onClick={() => navigate("/notificaciones")}
+      aria-label={count > 0 ? `Notificaciones, ${count} sin leer` : "Notificaciones"}
+      title="Notificaciones"
+      className={`pressable relative flex items-center gap-3 rounded-lg text-sm font-medium text-ink-soft hover:bg-surface-strong hover:text-ink transition-colors ${
+        iconsOnly ? "justify-center px-0 py-2.5" : "px-3 py-2.5"
+      }`}
+    >
+      <span className="relative shrink-0">
+        <IconBell />
+        {count > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-[3px] rounded-full bg-danger text-white text-[9px] font-bold grid place-items-center leading-none">
+            {count > 9 ? "9+" : count}
+          </span>
+        )}
+      </span>
+      {!iconsOnly && <span className="truncate">Notificaciones</span>}
+    </button>
+  );
+}
+
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -288,6 +349,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   // Navegar cierra el cajón: si quedara abierto taparía la pantalla recién abierta.
   useEffect(() => setDrawerOpen(false), [location.pathname]);
+
+  // El service worker no puede navegar por su cuenta: si la app ya está
+  // abierta en una pestaña, `notificationclick` la enfoca y le manda esto.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "notification-click" && event.data.url) {
+        navigate(event.data.url);
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [navigate]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -421,6 +495,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         style={{ transitionTimingFunction: "var(--ease-out)" }}
       >
         {brandHeader(collapsed)}
+        <div className={`shrink-0 py-2 ${collapsed ? "px-2" : "px-3"} border-b border-line`}>
+          <NotificationBell iconsOnly={collapsed} />
+        </div>
         {navList(collapsed)}
 
         <button
@@ -449,9 +526,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <IconMenu />
         </button>
         {/* Mostrar dónde estoy importa más que repetir la marca en cada pantalla. */}
-        <span className="font-bold text-ink text-sm truncate">
+        <span className="font-bold text-ink text-sm truncate flex-1">
           {currentLabel ?? "Rugby Analisis"}
         </span>
+        <NotificationBell iconsOnly />
       </header>
 
       {/* ── Cajón — teléfono ────────────────────────────────────────────── */}

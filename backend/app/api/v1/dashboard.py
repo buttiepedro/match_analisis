@@ -11,6 +11,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.deps import (
@@ -27,6 +28,7 @@ from app.models import (
     Availability,
     Division,
     Event,
+    MatchLineup,
     Player,
     PlayerDivisionHistory,
     PlayerInjury,
@@ -38,6 +40,8 @@ from app.models import (
 )
 from app.schemas.injury import InjuryResponse
 from app.schemas.player import (
+    MyLineupEntry,
+    MyMatchLineupResponse,
     MyPlayerProfileResponse,
     MyPlayerUpdate,
     PlayerDivisionHistoryResponse,
@@ -197,6 +201,60 @@ async def my_closed_injuries(
         .order_by(PlayerInjury.injury_date.desc())
     )
     return result.scalars().all()
+
+
+@router.get("/me/player/sessions/{session_id}/lineup", response_model=MyMatchLineupResponse)
+async def my_session_lineup(
+    session_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    La formación de un partido de la propia división, de sólo lectura.
+
+    Es el destino del deep link de la notificación "salió la formación"
+    ([[add-notificaciones-push]]) — a propósito **no** reusa
+    `GET /sessions/{id}/lineup`: ese endpoint exige `partido.ver`, una
+    capacidad que ningún jugador tiene, y la pantalla que lo consume trae
+    controles de edición pensados para el cuerpo técnico.
+    """
+    player = await _get_own_player(current_user, db)
+
+    session = await db.scalar(select(Session).where(Session.id == session_id))
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partido no encontrado")
+
+    tournament = await db.scalar(select(Tournament).where(Tournament.id == session.tournament_id))
+    if not tournament or tournament.division_id != player.division_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este partido no es de tu división",
+        )
+
+    rows = (
+        await db.execute(
+            select(MatchLineup)
+            .where(MatchLineup.session_id == session.id, MatchLineup.team == "user")
+            .options(selectinload(MatchLineup.player))
+            .order_by(MatchLineup.jersey_number)
+        )
+    ).scalars().all()
+
+    return MyMatchLineupResponse(
+        session_id=session.id,
+        home_team=session.home_team,
+        away_team=session.away_team,
+        scheduled_at=session.scheduled_at,
+        entries=[
+            MyLineupEntry(
+                jersey_number=r.jersey_number,
+                position=r.position,
+                player_name=r.player.name,
+                is_me=r.player_id == player.id,
+            )
+            for r in rows
+        ],
+    )
 
 
 @router.get("/clubs/{club_id}/at-risk", response_model=list[uuid.UUID])

@@ -69,6 +69,8 @@ y typecheck + tests + build del frontend.
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credenciales S3 para fotos | — |
 | `AWS_REGION` / `AWS_S3_BUCKET` | Bucket de fotos de jugadores | `us-east-1` |
 | `AWS_S3_PUBLIC_URL` | Opcional: CDN delante del bucket | `https://cdn.midominio.com` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Opcional: notificaciones push. Generar con `python backend/scripts/generate_vapid_keys.py` | — |
+| `VAPID_SUBJECT` | Contacto del origen para el push | `mailto:admin@midominio.com` |
 
 > **CORS_ORIGINS sin definir acepta cualquier origen** y el backend lo avisa por log al
 > arrancar. En producción conviene listar explícitamente la URL del frontend.
@@ -107,24 +109,30 @@ match_analisis/
 │   │   ├── api/v1/        # auth, clubs, divisions, tournaments, sessions,
 │   │   │                  # lineup, players, performance, import,
 │   │   │                  # trainings, injuries, season, dashboard, competition,
-│   │   │                  # club_competencia (fixture/tablas/citados club-entero)
-│   │   ├── core/          # config, DB, seguridad, dependencias, antropometría
+│   │   │                  # club_competencia (fixture/tablas/citados club-entero),
+│   │   │                  # notifications (bandeja, devices, preferencias)
+│   │   ├── core/          # config, DB, seguridad, dependencias, antropometría,
+│   │   │                  # notifications (notify(), WebPushSender)
 │   │   ├── models/        # SQLAlchemy ORM
 │   │   ├── schemas/       # Pydantic
 │   │   └── ws/            # WebSocket manager + timer en memoria
 │   ├── alembic/           # Migraciones (auto-run al iniciar)
+│   ├── scripts/           # seed_demo.py, generate_vapid_keys.py
 │   ├── tests/             # pytest
 │   └── Dockerfile
 ├── frontend/
+│   ├── public/
+│   │   └── sw.js          # Service worker — sólo push, no cachea nada
 │   ├── src/
 │   │   ├── components/    # Timer, EventLog, modales, tabs del tablero
 │   │   ├── pages/         # Login, Torneos, Sesión, Lineup, Stats, Plantel, Perfil,
 │   │   │                  # Hoy, Calendario, Mediciones, Entrenamientos,
 │   │   │                  # Asistencia, Portal del jugador, Config,
-│   │   │                  # Fixture, Standings, Convocatorias (portal multidivisión)
+│   │   │                  # Fixture, Standings, Convocatorias (portal multidivisión),
+│   │   │                  # Notificaciones (bandeja), MiFormacion (lineup propio)
 │   │   ├── store/         # Zustand (auth, session, squad)
 │   │   └── lib/           # axios, tokens, WebSocket, cola offline, timer, stats,
-│   │                      # asistencia
+│   │                      # asistencia, push (suscripción de notificaciones)
 │   ├── nginx.conf         # Sirve el SPA estático
 │   └── Dockerfile
 ├── openspec/              # Specs y change proposals (SDD)
@@ -303,6 +311,30 @@ otro campo con `422`.
 Sin `club.ver_competencia` (ver abajo), el jugador no tiene acceso a ninguna
 otra pantalla del club.
 
+## Notificaciones
+
+Bandeja siempre, push best-effort — la bandeja es el canal primario, no un
+respaldo: el push puede no llegar por motivos ajenos a un bug (permiso no
+otorgado, navegador sin soporte, iPhone sin la app instalada).
+
+- **Campana** con contador de no leídas en el menú, visible para todo usuario
+  autenticado (no depende de ninguna capacidad).
+- **Primer disparador: formación cargada.** Cuando se guarda el lineup del
+  equipo propio por primera vez (no en correcciones posteriores), se avisa a
+  **todos** los jugadores de la división con acceso al portal — no sólo a
+  los 23 convocados.
+- **Web push** con claves VAPID propias de la instalación (opcional; sin
+  configurar, la bandeja sigue funcionando). El service worker
+  (`frontend/public/sw.js`) no cachea nada — sólo push, no es una PWA
+  offline-first.
+- **Preferencias por tipo**, opt-in por defecto. Apagar un tipo corta tanto
+  el push como la entrada en la bandeja para ese tipo.
+- **iOS Safari** sólo entrega push si la app está agregada a la pantalla de
+  inicio (16.4+) — limitación de Apple. Mientras tanto, la bandeja cubre el
+  caso.
+
+Ver [`openspec/specs/notificaciones.md`](openspec/specs/notificaciones.md) para el detalle completo.
+
 ## Portal multidivisión — Fixture, Tablas, Citados
 
 Tres pantallas de sólo lectura, del club **entero**, detrás de una única
@@ -375,6 +407,13 @@ directamente; el Jugador la hereda si el club configuró que herede de Socio.
 | POST | `/me/player/photo` | Subir foto de perfil propia | `player` |
 | GET | `/me/player/division-history` | Historial de divisiones propio | `player` |
 | GET | `/me/player/injuries` | Lesiones cerradas propias | `player` |
+| GET | `/me/player/sessions/{id}/lineup` | Formación de un partido de la propia división (sólo lectura) | `player` |
+| GET | `/push/vapid-public-key` | Clave pública para suscribirse al push | Autenticado |
+| POST/DELETE | `/me/notification-devices` | Suscribir / dar de baja este navegador | Autenticado |
+| GET | `/me/notifications` | Bandeja propia (`?unread=true`) | Autenticado |
+| GET | `/me/notifications/unread-count` | Contador para la campana | Autenticado |
+| POST | `/me/notifications/{id}/read` | Marcar como leída | Autenticado |
+| GET/PUT | `/me/notification-preferences` | Opt-out por tipo de aviso | Autenticado |
 | GET | `/health` | Healthcheck | Público |
 
 Documentación interactiva completa en `/docs` con el backend corriendo.

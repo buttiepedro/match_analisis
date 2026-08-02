@@ -4,6 +4,7 @@ import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 import Sparkline from "../components/Sparkline";
 import CropModal from "../components/CropModal";
+import { isPushSupported, isSubscribed, subscribeToPush, unsubscribeFromPush } from "../lib/push";
 import {
   TEST_TYPE_META,
   formatTestValue,
@@ -418,6 +419,77 @@ function daysBetween(from: string, to: string): number {
 
 type ContactForm = { phone: string; emergency_phone: string; email: string };
 
+/**
+ * Opt-in de push, en contexto — no al entrar a la app.
+ *
+ * Pedir el permiso del navegador en el primer segundo de la sesión es la
+ * forma más confiable de que lo rechace y el navegador no lo vuelva a
+ * preguntar nunca más. Acá se explica primero qué va a avisar.
+ */
+function PushBanner() {
+  const [status, setStatus] = useState<
+    "loading" | "unsupported" | "on" | "off"
+  >("loading");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!isPushSupported()) {
+      setStatus("unsupported");
+      return;
+    }
+    isSubscribed().then((yes) => setStatus(yes ? "on" : "off"));
+  }, []);
+
+  const activate = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await subscribeToPush();
+      setStatus("on");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo activar");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deactivate = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await unsubscribeFromPush();
+      setStatus("off");
+    } catch {
+      setError("No se pudo desactivar");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (status === "loading" || status === "unsupported") return null;
+
+  return (
+    <div className="mb-4">
+      <div className="bg-brand-soft border border-brand-ring rounded-xl px-4 py-3 flex items-center gap-3">
+        <span className="flex-1 text-sm text-ink">
+          {status === "on"
+            ? "Tenés los avisos activados: te avisamos apenas salga la formación."
+            : "Activá los avisos para enterarte apenas salga la formación."}
+        </span>
+        <button
+          onClick={status === "on" ? deactivate : activate}
+          disabled={busy}
+          className="pressable text-xs font-semibold text-brand hover:text-brand-hover disabled:opacity-50 shrink-0"
+        >
+          {busy ? "..." : status === "on" ? "Desactivar" : "Activar"}
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-600 mt-1.5">{error}</p>}
+    </div>
+  );
+}
+
 function PerfilTab({
   player,
   history,
@@ -470,6 +542,8 @@ function PerfilTab({
 
   return (
     <div className="space-y-5">
+      <PushBanner />
+
       <section>
         <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">
           Apto médico

@@ -31,6 +31,13 @@ from app.models.training import (
     Training,
     TrainingType,
 )
+from app.models.notification import (
+    Notification,
+    NotificationChannel,
+    NotificationDevice,
+    NotificationPreference,
+    NotificationType,
+)
 
 __all__ = [
     "Base",
@@ -79,4 +86,9 @@ __all__ = [
     "Attendance",
     "AttendanceStatus",
     "PRESENT_STATUSES",
+    "Notification",
+    "NotificationChannel",
+    "NotificationDevice",
+    "NotificationPreference",
+    "NotificationType",
 ]

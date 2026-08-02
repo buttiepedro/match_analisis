@@ -301,6 +301,50 @@ physical_tests
   created_at  TIMESTAMP
 ```
 
+### NotificationDevice
+```sql
+notification_devices
+  id             UUID PK
+  user_id        UUID FK → users.id
+  channel        ENUM('web_push', 'fcm', 'apns')
+  endpoint       TEXT NOT NULL        -- URL de push (web) o token (nativo)
+  p256dh         VARCHAR(255)         -- clave pública de la suscripción, sólo web_push
+  auth_secret    VARCHAR(255)         -- sólo web_push
+  is_active      BOOLEAN DEFAULT TRUE
+  last_seen_at   TIMESTAMP
+  created_at     TIMESTAMP
+
+  UNIQUE (user_id, endpoint)
+```
+
+### Notification
+```sql
+notifications
+  id          UUID PK
+  club_id     UUID FK → clubs.id
+  user_id     UUID FK → users.id
+  type        VARCHAR(50) NOT NULL   -- catálogo en app/models/notification.py
+  title       VARCHAR(150) NOT NULL
+  body        VARCHAR(300) NOT NULL
+  data        JSON DEFAULT '{}'      -- ej. {"session_id": "...", "url": "..."} para deep link
+  read_at     TIMESTAMP NULL
+  created_at  TIMESTAMP
+
+  INDEX (user_id, created_at)
+```
+
+### NotificationPreference
+```sql
+notification_preferences
+  id          UUID PK
+  user_id     UUID FK → users.id
+  type        VARCHAR(50) NOT NULL
+  enabled     BOOLEAN DEFAULT TRUE
+
+  UNIQUE (user_id, type)
+```
+> Sin fila = habilitado. Ver [[notificaciones]].
+
 ---
 
 ## Catálogo de Tipos de Evento (`event_type`)
@@ -412,3 +456,4 @@ CREATE INDEX idx_pt_player_type_date   ON physical_tests(player_id, test_type, t
 - [[match-session]] — lógica del timer y eventos
 - [[offline-resilience]] — cola offline, reconexión y sellado de tiempo
 - [[statistics-screens]] — pantallas de registro y análisis
+- [[notificaciones]] — bandeja, dispositivos de push y preferencias

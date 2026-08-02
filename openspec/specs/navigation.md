@@ -79,6 +79,16 @@ Director y analista comparten menú: ninguno de los dos configura el club, y las
 diferencias de permiso entre ambos son de acción dentro de cada pantalla, no de
 acceso a la pantalla.
 
+## La campana no es un ítem del menú
+
+`GET /me/notifications/unread-count` ([[notificaciones]]) se sondea cada 60
+segundos y se muestra como un ícono con contador, fijo en el encabezado de
+teléfono y en la barra de escritorio (arriba del `navList`, no adentro). No
+está en `NAV` ni pasa por `navFor`, a propósito: recibir avisos propios no es
+una capacidad sobre el club, así que no tiene sentido que dependa de una —
+todo usuario autenticado la ve, incluido un rol sin ninguna capacidad de
+club. Lleva a `/notificaciones`.
+
 ## Reglas
 
 - **Toda ruta bajo el layout tiene entrada en el menú de al menos un rol.** Es la
@@ -110,3 +120,4 @@ disparador abajo, no volver a la barra de cinco.
 - [[ux-redesign-v2]] — define las pantallas; su sección de navegación quedó superada
 - [[auth-and-users]] — roles y permisos
 - [[offline-resilience]] — el tablero, que queda fuera de la navegación
+- [[notificaciones]] — la campana y la bandeja

@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -189,3 +189,26 @@ class MyPlayerUpdate(BaseModel):
     phone: Optional[str] = None
     emergency_phone: Optional[str] = None
     email: Optional[EmailStr] = None
+
+
+class MyLineupEntry(BaseModel):
+    jersey_number: int
+    position: Optional[str] = None
+    player_name: str
+    #: Marca la fila del jugador que pidió esto — así el frontend puede
+    #: resaltar "estás acá" sin que el jugador tenga que buscarse en la lista.
+    is_me: bool
+
+
+class MyMatchLineupResponse(BaseModel):
+    """
+    La formación de **un** partido, desde la perspectiva del jugador que la
+    pide — no el editor del cuerpo técnico, que exige `partido.lineup` y trae
+    controles de edición que un jugador no tiene por qué ver.
+    """
+
+    session_id: uuid.UUID
+    home_team: str
+    away_team: str
+    scheduled_at: Optional[datetime] = None
+    entries: list[MyLineupEntry]

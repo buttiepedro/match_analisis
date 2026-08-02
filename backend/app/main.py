@@ -18,6 +18,7 @@ from app.api.v1.injuries import router as injuries_router
 from app.api.v1.job_board import router as job_board_router
 from app.api.v1.lineup import router as lineup_router
 from app.api.v1.members import router as members_router
+from app.api.v1.notifications import router as notifications_router
 from app.api.v1.performance import router as performance_router
 from app.api.v1.players import router as players_router
 from app.api.v1.roles import router as roles_router
@@ -148,3 +149,4 @@ app.include_router(roles_router, tags=["roles"])
 app.include_router(members_router, tags=["members"])
 app.include_router(gym_router, tags=["gym"])
 app.include_router(job_board_router, tags=["job-board"])
+app.include_router(notifications_router, tags=["notifications"])

@@ -1,9 +1,10 @@
 ---
 title: Notificaciones — infraestructura genérica, primer disparador es la formación
 type: feature
-status: proposed
+status: completed
 spec: notificaciones
 created: 2026-07-29
+completed: 2026-08-01
 ---
 
 # Notificaciones — infraestructura genérica, primer disparador es la formación
@@ -199,35 +200,63 @@ data:  { "session_id": "...", "url": "/sessions/{id}/lineup" }
 ## Fases de Implementación
 
 ### Fase A: Modelo y servicio
-- [ ] Migración: `notification_devices`, `notifications`, `notification_preferences`
-- [ ] `NotificationType` enum, con `formacion_cargada`
-- [ ] `notify()` con opt-out, inserción en bandeja, y despacho a devices activos
-- [ ] `WebPushSender` (usa una librería de Web Push estándar del lado del backend)
-- [ ] Tests: opt-out no guarda ni empuja, un sender que tira 410 desactiva el device,
-     un fallo del sender no rompe el flujo que llamó a `notify()`
+- [x] Migración: `notification_devices`, `notifications`, `notification_preferences` (`0024`)
+- [x] `NotificationType` enum, con `formacion_cargada`
+- [x] `notify()` con opt-out, inserción en bandeja, y despacho a devices activos
+- [x] `WebPushSender` — `pywebpush` (`webpush()` corre en `asyncio.to_thread`
+      porque es sync)
+- [x] Tests (`test_notifications.py`): opt-out no guarda ni empuja, un sender
+      que tira 410 desactiva el device, un fallo del sender no rompe el flujo
+      que llamó a `notify()`, devices inactivos no reciben push, sin fila de
+      preferencia = habilitado
 
 ### Fase B: Web push
-- [ ] Generación y configuración de claves VAPID
-- [ ] `GET /push/vapid-public-key`
-- [ ] `POST /me/notification-devices`, `DELETE /me/notification-devices/{id}`
-- [ ] `frontend/public/sw.js` — registro, `push`, `notificationclick`
-- [ ] Banner de opt-in contextual en el perfil del jugador
-- [ ] Tests: suscripción, des-suscripción, el device se asocia al usuario correcto
+- [x] Generación y configuración de claves VAPID — script dedicado
+      (`backend/scripts/generate_vapid_keys.py`; el primer intento de
+      documentar un one-liner con `py_vapid` no daba las claves en el formato
+      que espera `pywebpush`, así que quedó un script probado en vez de una
+      receta en un comentario)
+- [x] `GET /push/vapid-public-key` — sin auth a propósito: una clave pública
+      VAPID es información pública por diseño, no un secreto
+- [x] `POST /me/notification-devices` (reactiva si el `endpoint` ya existía),
+      `DELETE /me/notification-devices/{id}`
+- [x] `frontend/public/sw.js` — registro, `push`, `notificationclick`
+      (con `postMessage` a la pestaña abierta para navegar sin recarga)
+- [x] Banner de opt-in contextual en la solapa Perfil del portal del jugador
+- [x] Tests: suscripción reactiva en vez de duplicar, des-suscripción sólo del
+      dueño, el device se asocia al usuario correcto
 
 ### Fase C: Disparador de formación
-- [ ] Hook en `PUT /sessions/{id}/lineup`: detecta transición vacío → con datos
-- [ ] Notifica a todos los `players.user_id` de la división, convocados o no
-- [ ] Test: dos `PUT` seguidos (carga + corrección) generan **una sola** notificación
+- [x] Hook en `PUT /sessions/{id}/lineup`: detecta transición vacío → con
+      datos (mirando `MatchLineup` **antes** de tocar la base)
+- [x] Notifica a todos los `players.user_id` de la división, convocados o no
+- [x] Test: dos `PUT` seguidos (carga + corrección) generan **una sola**
+      notificación; el lineup del rival no notifica; un fallo de `notify()`
+      no impide guardar el lineup
 
 ### Fase D: Bandeja
-- [ ] `GET /me/notifications`, `POST /me/notifications/{id}/read`
-- [ ] `GET|PUT /me/notification-preferences`
-- [ ] Campana en [[navigation]] con contador de no leídas
-- [ ] Pantalla de bandeja, con deep link a `data.url`
+- [x] `GET /me/notifications` (+`unread-count`), `POST /me/notifications/{id}/read`
+- [x] `GET|PUT /me/notification-preferences`
+- [x] Campana en [[navigation]] con contador de no leídas — sondea cada 60s,
+      no depende de ninguna capacidad
+- [x] Pantalla de bandeja (`/notificaciones`), con deep link a `data.url`
+
+**Hallazgo de la verificación en vivo, fuera de las fases originales**: el
+`data.url` que proponía este documento (`/sessions/{id}/lineup`) devuelve
+`403` para el destinatario real — ese endpoint exige `partido.lineup`, capacidad
+que ningún jugador tiene. Se agregó `GET /me/player/sessions/{id}/lineup`
+(sólo lectura, resuelve por `_get_own_player`) y la pantalla
+`/mi-formacion/:id`, y el disparador se actualizó para apuntar ahí. Ver
+[[notificaciones]] para el detalle. Sin la verificación en navegador esto no
+lo hubiera encontrado ningún test, porque los tests llamaban a `notify()`
+directamente y nunca abrieron el link que un jugador realmente recibe.
 
 ### Fase E: Documentación
-- [ ] `openspec/specs/notificaciones.md`
-- [ ] Actualizar [[data-model]] y [[navigation]]
+- [x] `openspec/specs/notificaciones.md`
+- [x] Actualizar [[data-model]] y [[navigation]]
+- [x] Además: `.env.example`, `.env.production.example` y `README.md` con las
+      variables VAPID y el listado de endpoints — no estaban en el plan
+      original pero son la puerta de entrada real para quien despliega esto
 
 ---
 
@@ -248,13 +277,16 @@ data:  { "session_id": "...", "url": "/sessions/{id}/lineup" }
 | Área | Impacto |
 |------|---------|
 | `backend/app/models/notification.py` | Nuevo — tres tablas |
-| `backend/app/services/notifications.py` | Nuevo — `notify()`, `WebPushSender` |
-| `backend/app/api/v1/lineup.py` | Hook de despacho tras el `PUT` exitoso |
-| `backend/app/api/v1/notifications.py` | Nuevo — bandeja, preferencias, devices |
+| `backend/app/core/notifications.py` | Nuevo — `notify()`, `WebPushSender`. No `services/`: ese directorio no existe en el proyecto, `core/` es donde ya vive la lógica compartida (`core/roles.py`, `core/storage.py`) |
+| `backend/app/api/v1/lineup.py` | Hook de despacho tras el `PUT` exitoso, más `GET /me/player/sessions/{id}/lineup` (agregado en `dashboard.py`, no acá — ver nota de la Fase C) |
+| `backend/app/api/v1/dashboard.py` | Nuevo endpoint `GET /me/player/sessions/{id}/lineup`, junto al resto de `/me/player*` |
+| `backend/app/api/v1/notifications.py` | Nuevo — bandeja, preferencias, devices, `GET /push/vapid-public-key` |
+| `backend/scripts/generate_vapid_keys.py` | Nuevo — genera el par de claves en el formato que espera `pywebpush` |
 | `frontend/public/sw.js` | Nuevo |
 | `frontend/src/lib/push.ts` | Nuevo — suscripción del navegador |
-| `frontend/src/components/Sidebar` | Campana con contador |
-| `requirements.txt` | Librería de Web Push |
+| `frontend/src/pages/Notificaciones.tsx`, `MiFormacion.tsx` | Nuevas — bandeja y formación propia |
+| `frontend/src/components/Layout.tsx` | Campana con contador (no hay `components/Sidebar`, la navegación vive en `Layout.tsx`) |
+| `requirements.txt` | `pywebpush==2.3.0` |
 
 ---
 
@@ -273,16 +305,24 @@ data:  { "session_id": "...", "url": "/sessions/{id}/lineup" }
 
 ## Criterios de Aceptación
 
-- [ ] Un jugador que activa notificaciones recibe un push al cargarse por primera
-      vez la formación de su división
-- [ ] Correcciones posteriores al mismo lineup **no** generan un segundo aviso
-- [ ] Un jugador sin push (permiso denegado, o iPhone sin instalar la app) sigue
-      viendo el aviso en la bandeja
-- [ ] Apagar un tipo en preferencias corta tanto el push como la entrada en
-      bandeja para ese tipo
-- [ ] Una suscripción vencida se desactiva sola tras un 410, sin reintentos eternos
-- [ ] Un fallo del servicio de notificaciones no impide guardar la formación
-- [ ] Un jugador no ve notificaciones de otro usuario
+- [x] Un jugador que activa notificaciones recibe un push al cargarse por primera
+      vez la formación de su división — verificado el guardado en bandeja
+      end-to-end en vivo (login como jugador, la notificación aparece en la
+      campana y en `/notificaciones`); el envío real del push está cubierto
+      por tests con el sender simulado, no probado contra un push service
+      real (no hay forma de hacerlo en este entorno)
+- [x] Correcciones posteriores al mismo lineup **no** generan un segundo aviso — test
+- [x] Un jugador sin push (permiso denegado, o iPhone sin instalar la app) sigue
+      viendo el aviso en la bandeja — es el diseño mismo de `notify()`: guarda
+      primero, empuja después: y se confirmó en vivo que el intento de
+      suscripción falla con gracia (mensaje de error, la pantalla sigue
+      entera) cuando el navegador no puede suscribirse
+- [x] Apagar un tipo en preferencias corta tanto el push como la entrada en
+      bandeja para ese tipo — test
+- [x] Una suscripción vencida se desactiva sola tras un 410, sin reintentos eternos — test
+- [x] Un fallo del servicio de notificaciones no impide guardar la formación — test
+      + verificado que el disparador entero está en un `try/except` propio
+- [x] Un jugador no ve notificaciones de otro usuario — test
 
 ---
 
