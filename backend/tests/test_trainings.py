@@ -76,6 +76,48 @@ async def test_list_trainings_filters_by_date_range(client, training_ctx):
     assert len(res.json()) == 1
 
 
+async def test_location_is_nullable_and_editable(client, training_ctx):
+    """Texto libre: el club nombra sus lugares como quiere, y puede no cargarlo."""
+    training_id = await _create_training(client, training_ctx, date.today())
+
+    res = await client.get(f"/trainings/{training_id}", headers=training_ctx["headers"])
+    assert res.json()["location"] is None
+
+    res = await client.patch(
+        f"/trainings/{training_id}",
+        json={"location": "Cancha 2"},
+        headers=training_ctx["headers"],
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["location"] == "Cancha 2"
+
+    res = await client.get(
+        f"/divisions/{training_ctx['division'].id}/trainings", headers=training_ctx["headers"]
+    )
+    assert res.json()[0]["location"] == "Cancha 2"
+
+
+async def test_location_shows_up_in_today_and_calendar(client, training_ctx):
+    """El jugador necesita saber a dónde ir sin entrar a Config a buscarlo."""
+    res = await client.post(
+        f"/divisions/{training_ctx['division'].id}/trainings",
+        json={"date": date.today().isoformat(), "type": "entrenamiento", "location": "Gimnasio del club"},
+        headers=training_ctx["headers"],
+    )
+    assert res.status_code == 201, res.text
+
+    today = await client.get(
+        f"/clubs/{training_ctx['club'].id}/today", headers=training_ctx["headers"]
+    )
+    assert today.json()["trainings"][0]["location"] == "Gimnasio del club"
+
+    calendar = await client.get(
+        f"/divisions/{training_ctx['division'].id}/calendar", headers=training_ctx["headers"]
+    )
+    entrenamiento = next(e for e in calendar.json() if e["kind"] == "entrenamiento")
+    assert entrenamiento["location"] == "Gimnasio del club"
+
+
 async def test_deleting_a_training_removes_its_attendance(client, training_ctx):
     training_id = await _create_training(client, training_ctx, date.today())
     await client.put(

@@ -52,7 +52,7 @@ la semana que viene.
 
 ## Los seis cambios, en orden
 
-### 1. Portal multidivisión — fixture, tablas, citados y lugar de entrenamiento
+### 1. Portal multidivisión — fixture, tablas, citados y lugar de entrenamiento — ✅ hecho (2026-08-01)
 
 Extiende lo que ya existe (`standings`, `calendar`, `match_squad`) para que un
 socio o jugador vea **todas** las divisiones, no sólo la propia — no tiene una
@@ -63,9 +63,12 @@ Es lectura pura sobre datos que ya existen. Va primero porque no tiene
 dependencias, es el que más rápido se ve en producción, y establece el patrón de
 "lectura club-entero" que **2** y el resto del portal van a reusar.
 
-Ver [[add-portal-multidivision]].
+Ver [[add-portal-multidivision]] (archivado en
+`archive/2026-08-01-portal-multidivision.md`). Verificado en vivo contra un
+club sembrado con `scripts/seed_demo.py`: un socio sin división propia ve las
+tres pantallas nuevas con las cuatro divisiones del club.
 
-### 2. Perfil completo del jugador
+### 2. Perfil completo del jugador — ✅ hecho (2026-08-01)
 
 Todo lo que la ficha del jugador ya tiene —contacto, apto médico, obra social,
 historial de división, lesiones cerradas— pero que el portal de [[club-operativo]]
@@ -75,7 +78,19 @@ Va segundo por la misma razón que 1: sin dependencias, bajo riesgo, alto valor
 percibido — es lo que hace que el jugador sienta que la app es "de él", no sólo
 una planilla del entrenador.
 
-Ver [[add-perfil-jugador-completo]].
+Ver [[add-perfil-jugador-completo]] (archivado en
+`archive/2026-08-01-perfil-jugador-completo.md`). La Fase C (edición de
+contacto y foto), que el documento dejaba condicionada a que el club la
+confirmara, se implementó igual — es reversible sacando el botón del
+frontend, sin tocar el backend, así que no valía la pena bloquear el resto
+del cambio esperando esa confirmación. Verificado en vivo contra el club
+Demo: un jugador editó su teléfono y vio su apto médico, historial de
+divisiones y una lesión cerrada, todo calculado igual que en la grilla del
+cuerpo técnico. La verificación en vivo encontró y corrigió dos bugs que
+ningún test hubiera visto (detalle en el documento archivado): un email
+vacío rechazado por la validación de formato, y un error de foto que borraba
+toda la pantalla del jugador por compartir el state de error con la carga
+inicial.
 
 ### 3. Notificaciones — infraestructura, primer uso: formación cargada
 

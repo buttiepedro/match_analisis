@@ -41,6 +41,10 @@ class Training(Base):
         server_default="entrenamiento",
     )
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    #: "Cancha 2", "Gimnasio del club", una dirección. Texto libre porque el club
+    #: nombra sus lugares como quiere, y nullable porque una migración no puede
+    #: completar el historial de entrenamientos que ya existen.
+    location: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

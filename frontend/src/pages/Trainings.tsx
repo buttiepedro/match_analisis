@@ -22,6 +22,7 @@ interface Training {
   date: string;
   type: string;
   notes: string | null;
+  location: string | null;
   present_count: number;
   total_count: number;
 }
@@ -84,7 +85,11 @@ export default function Trainings() {
   const [error, setError] = useState("");
 
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ date: todayISO(), type: "entrenamiento" as TrainingType });
+  const [form, setForm] = useState({
+    date: todayISO(),
+    type: "entrenamiento" as TrainingType,
+    location: "",
+  });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -134,9 +139,12 @@ export default function Trainings() {
     setSubmitting(true);
     setError("");
     try {
-      const { data } = await api.post<Training>(`/divisions/${divisionId}/trainings`, form);
+      const { data } = await api.post<Training>(`/divisions/${divisionId}/trainings`, {
+        ...form,
+        location: form.location.trim() || undefined,
+      });
       setCreating(false);
-      setForm({ date: todayISO(), type: "entrenamiento" });
+      setForm({ date: todayISO(), type: "entrenamiento", location: "" });
       navigate(`/trainings/${data.id}`);
     } catch (err) {
       setError(parseApiError(err, "No se pudo crear el entrenamiento"));
@@ -218,6 +226,13 @@ export default function Trainings() {
                       ))}
                     </select>
                   </div>
+                  <input
+                    type="text"
+                    placeholder="Lugar (opcional): Cancha 2, Gimnasio del club..."
+                    value={form.location}
+                    onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                    className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
+                  />
                   <div className="flex gap-2">
                     <button
                       onClick={createTraining}
@@ -269,6 +284,9 @@ export default function Trainings() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-ink truncate">
                           {TRAINING_TYPE_LABEL[t.type as TrainingType] ?? t.type}
+                          {t.location && (
+                            <span className="text-ink-faint"> · {t.location}</span>
+                          )}
                         </p>
                         <p className="text-xs text-ink-muted">
                           {t.total_count === 0

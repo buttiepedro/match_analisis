@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { putQueued } from "../lib/offlineQueue";
+import { useAuthStore } from "../store/authStore";
 import {
   ATTENDANCE_STATUSES,
   ATTENDED,
@@ -22,6 +23,7 @@ interface Training {
   date: string;
   type: string;
   notes: string | null;
+  location: string | null;
 }
 
 interface AttendanceRow {
@@ -37,6 +39,9 @@ type SaveState = "idle" | "saving" | "saved" | "queued" | "error";
 export default function TrainingAttendance() {
   const { id: trainingId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const canEditLocation = useAuthStore((s) =>
+    s.user?.permissions?.includes("entrenamiento.gestionar")
+  );
 
   const [training, setTraining] = useState<Training | null>(null);
   const [rows, setRows] = useState<AttendanceRow[]>([]);
@@ -46,6 +51,9 @@ export default function TrainingAttendance() {
   const [error, setError] = useState("");
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [locationDraft, setLocationDraft] = useState("");
+  const [savingLocation, setSavingLocation] = useState(false);
 
   /** Se limpia al desmontar para no marcar "guardado" sobre una pantalla que ya no está. */
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,6 +129,22 @@ export default function TrainingAttendance() {
     }
   };
 
+  const saveLocation = async () => {
+    if (!trainingId) return;
+    setSavingLocation(true);
+    try {
+      const { data } = await api.patch<Training>(`/trainings/${trainingId}`, {
+        location: locationDraft.trim(),
+      });
+      setTraining(data);
+      setEditingLocation(false);
+    } catch (err) {
+      setError(parseApiError(err, "No se pudo guardar el lugar"));
+    } finally {
+      setSavingLocation(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-6"><p className="text-ink-muted text-sm">Cargando...</p></div>;
   }
@@ -138,11 +162,60 @@ export default function TrainingAttendance() {
       <h1 className="text-lg font-bold text-ink capitalize">
         {training ? formatLongDate(training.date) : ""}
       </h1>
-      <p className="text-sm text-ink-muted mb-4">
+      <p className="text-sm text-ink-muted mb-1">
         {training ? TRAINING_TYPE_LABEL[training.type as TrainingType] ?? training.type : ""} ·{" "}
         <span className="text-brand font-semibold tabular-nums">{presentCount}</span>
         <span className="text-ink-muted"> de {rows.length} presentes</span>
       </p>
+
+      {training && (
+        <div className="mb-4">
+          {editingLocation ? (
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                autoFocus
+                placeholder="Cancha 2, Gimnasio del club..."
+                value={locationDraft}
+                onChange={(e) => setLocationDraft(e.target.value)}
+                className="flex-1 bg-surface text-ink text-sm rounded-lg px-3 py-1.5 placeholder-ink-faint outline-none focus:ring-1 focus:ring-brand-ring"
+              />
+              <button
+                onClick={saveLocation}
+                disabled={savingLocation}
+                className="pressable text-xs font-semibold text-brand disabled:opacity-50"
+              >
+                Guardar
+              </button>
+              <button
+                onClick={() => setEditingLocation(false)}
+                className="pressable text-xs text-ink-muted"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm">
+              {training.location ? (
+                <span className="text-ink-soft">📍 {training.location}</span>
+              ) : (
+                <span className="text-ink-faint">Sin lugar cargado</span>
+              )}
+              {canEditLocation && (
+                <button
+                  onClick={() => {
+                    setLocationDraft(training.location ?? "");
+                    setEditingLocation(true);
+                  }}
+                  className="pressable text-xs text-brand hover:text-brand-hover transition-colors duration-150"
+                >
+                  Editar
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <p className="text-ink-muted text-sm py-8 text-center">

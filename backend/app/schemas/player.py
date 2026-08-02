@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 from typing import Literal, Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class PlayerCreate(BaseModel):
@@ -153,3 +153,39 @@ class SquadMessage(BaseModel):
 
     text: str
     count: int
+
+
+class MyPlayerProfileResponse(PlayerResponse):
+    """
+    `/me/player` agrega los dos flags que ya calcula la grilla de armado
+    ([[gestion-semanal]]) para que el jugador no tenga que restar fechas él
+    mismo para saber si su apto está por vencer.
+    """
+
+    clearance_expired: bool
+    clearance_expiring: bool
+
+
+class PlayerDivisionHistoryResponse(BaseModel):
+    division_id: uuid.UUID
+    division_name: str
+    from_date: date
+    #: None = división actual.
+    to_date: Optional[date] = None
+
+
+class MyPlayerUpdate(BaseModel):
+    """
+    Whitelist de lo que un jugador puede tocar de su propia ficha.
+
+    `extra="forbid"` en vez de ignorar en silencio: un jugador que manda `dni`
+    en el body tiene que ver el `422`, no un 200 que no cambió nada. La foto
+    **no** está acá a propósito — se sube por `POST /me/player/photo`, igual
+    que la carga el cuerpo técnico.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    phone: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    email: Optional[EmailStr] = None

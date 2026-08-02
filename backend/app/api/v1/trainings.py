@@ -105,6 +105,7 @@ async def create_training(
         date=body.date,
         type=TrainingType(body.type),
         notes=body.notes,
+        location=body.location,
         created_by=current_user.id,
     )
     db.add(training)
@@ -156,6 +157,7 @@ async def list_trainings(
             date=t.date,
             type=t.type.value,
             notes=t.notes,
+            location=t.location,
             present_count=int(by_training[t.id].present or 0) if t.id in by_training else 0,
             total_count=int(by_training[t.id].total) if t.id in by_training else 0,
         )
@@ -187,6 +189,8 @@ async def update_training(
         training.type = TrainingType(body.type)
     if body.notes is not None:
         training.notes = body.notes
+    if body.location is not None:
+        training.location = body.location
 
     await db.commit()
     await db.refresh(training)

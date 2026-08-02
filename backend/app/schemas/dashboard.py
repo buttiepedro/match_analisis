@@ -10,6 +10,7 @@ class TodayTraining(BaseModel):
     division_id: uuid.UUID
     division_name: str
     type: str
+    location: Optional[str] = None
     #: False = la planilla todavía no se cargó. Es la acción pendiente del día.
     attendance_loaded: bool
 
@@ -50,3 +51,4 @@ class CalendarEntry(BaseModel):
     date: date
     label: str
     status: Optional[str] = None
+    location: Optional[str] = None

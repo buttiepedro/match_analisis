@@ -29,6 +29,9 @@ const Members = lazy(() => import("./pages/Members"));
 const GymPlans = lazy(() => import("./pages/GymPlans"));
 const JobBoard = lazy(() => import("./pages/JobBoard"));
 const JobPostPage = lazy(() => import("./pages/JobPost"));
+const Fixture = lazy(() => import("./pages/Fixture"));
+const Standings = lazy(() => import("./pages/Standings"));
+const Convocatorias = lazy(() => import("./pages/Convocatorias"));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -105,6 +108,9 @@ export default function App() {
           <Route path="/gimnasio"      element={<LayoutRoute><GymPlans /></LayoutRoute>} />
           <Route path="/bolsa"         element={<LayoutRoute><JobBoard /></LayoutRoute>} />
           <Route path="/bolsa/:postId" element={<LayoutRoute><JobPostPage /></LayoutRoute>} />
+          <Route path="/fixture"       element={<LayoutRoute><Fixture /></LayoutRoute>} />
+          <Route path="/tablas"        element={<LayoutRoute><Standings /></LayoutRoute>} />
+          <Route path="/citados"       element={<LayoutRoute><Convocatorias /></LayoutRoute>} />
 
           {/* Session views — no sidebar */}
           <Route path="/sessions/:id"        element={<PrivateRoute><Session /></PrivateRoute>} />

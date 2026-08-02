@@ -193,11 +193,15 @@ trainings
   date         DATE NOT NULL
   type         ENUM('entrenamiento', 'gimnasio', 'fisico', 'amistoso', 'otro')
   notes        TEXT
+  location     VARCHAR(150)              -- "Cancha 2", nullable, texto libre
   created_by   UUID FK → users.id
   created_at   TIMESTAMP
 
   INDEX (division_id, date)
 ```
+> `location` (migración `0023`): texto libre porque el club nombra sus lugares
+> como quiere, nullable porque una migración no puede completar el historial de
+> entrenamientos que ya existen. Ver [[add-portal-multidivision]].
 
 ### Attendance (Asistencia)
 ```sql

@@ -12,12 +12,14 @@ class TrainingCreate(BaseModel):
     date: date
     type: TrainingTypeLiteral = "entrenamiento"
     notes: Optional[str] = None
+    location: Optional[str] = None
 
 
 class TrainingUpdate(BaseModel):
     date: Optional[date] = None
     type: Optional[TrainingTypeLiteral] = None
     notes: Optional[str] = None
+    location: Optional[str] = None
 
 
 class TrainingResponse(BaseModel):
@@ -28,6 +30,7 @@ class TrainingResponse(BaseModel):
     date: date
     type: str
     notes: Optional[str] = None
+    location: Optional[str] = None
 
 
 class TrainingWithCountsResponse(TrainingResponse):

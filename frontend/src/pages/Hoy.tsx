@@ -10,6 +10,7 @@ interface TodayTraining {
   division_id: string;
   division_name: string;
   type: string;
+  location: string | null;
   attendance_loaded: boolean;
 }
 
@@ -119,6 +120,7 @@ export default function Hoy() {
                     <p className="text-sm text-ink truncate">{t.division_name}</p>
                     <p className="text-xs text-ink-muted">
                       {TRAINING_TYPE_LABEL[t.type as TrainingType] ?? t.type}
+                      {t.location && ` · ${t.location}`}
                     </p>
                   </div>
                   <span

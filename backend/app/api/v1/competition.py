@@ -41,7 +41,7 @@ TRY_BONUS_THRESHOLD = 4
 LOSING_BONUS_MARGIN = 7
 
 
-def _score_from_events(events: list[Event], team: str) -> tuple[int, int]:
+def score_from_events(events: list[Event], team: str) -> tuple[int, int]:
     """Devuelve (puntos, tries) de un equipo en un partido."""
     points = 0
     tries = 0
@@ -156,8 +156,8 @@ async def opponent_history(
 
     for s in sessions:
         events = by_session.get(s.id, [])
-        own, _ = _score_from_events(events, "user")
-        rival, _ = _score_from_events(events, "rival")
+        own, _ = score_from_events(events, "user")
+        rival, _ = score_from_events(events, "rival")
         points_for += own
         points_against += rival
         if own > rival:
@@ -195,27 +195,20 @@ async def opponent_history(
 
 # ── Tabla de posiciones ───────────────────────────────────────────────────────
 
-@router.get("/tournaments/{tournament_id}/standings", response_model=list[StandingRow])
-async def tournament_standings(
-    tournament_id: uuid.UUID,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require(Permission.partido_ver))],
-):
+async def compute_standings(tournament_id: uuid.UUID, db: AsyncSession) -> list[StandingRow]:
     """
     Tabla del torneo desde la perspectiva del club.
 
     Sólo entran partidos **terminados**: uno en curso no tiene resultado, y
     contarlo mostraría una tabla que cambia sola durante el segundo tiempo.
-    """
-    tournament = await db.scalar(select(Tournament).where(Tournament.id == tournament_id))
-    if not tournament:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
-    await get_division_or_404(tournament.division_id, db, current_user)
 
+    Separada del endpoint para que [[add-portal-multidivision]] la reuse
+    división por división sin repetir el cálculo.
+    """
     sessions = (
         await db.execute(
             select(Session).where(
-                Session.tournament_id == tournament.id,
+                Session.tournament_id == tournament_id,
                 Session.status == SessionStatus.finished,
             )
         )
@@ -247,8 +240,8 @@ async def tournament_standings(
 
     for s in sessions:
         events = by_session.get(s.id, [])
-        own, own_tries = _score_from_events(events, "user")
-        rival, _ = _score_from_events(events, "rival")
+        own, own_tries = score_from_events(events, "user")
+        rival, _ = score_from_events(events, "rival")
 
         row = bucket(s.away_team)
         row["played"] += 1
@@ -290,3 +283,17 @@ async def tournament_standings(
     ]
     result.sort(key=lambda r: (-r.points, -r.difference, r.team))
     return result
+
+
+@router.get("/tournaments/{tournament_id}/standings", response_model=list[StandingRow])
+async def tournament_standings(
+    tournament_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require(Permission.partido_ver))],
+):
+    tournament = await db.scalar(select(Tournament).where(Tournament.id == tournament_id))
+    if not tournament:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
+    await get_division_or_404(tournament.division_id, db, current_user)
+
+    return await compute_standings(tournament.id, db)

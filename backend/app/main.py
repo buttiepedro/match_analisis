@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.club_competencia import router as club_competencia_router
 from app.api.v1.clubs import router as clubs_router
 from app.api.v1.competition import router as competition_router
 from app.api.v1.dashboard import router as dashboard_router
@@ -142,6 +143,7 @@ app.include_router(injuries_router, tags=["injuries"])
 app.include_router(season_router, tags=["season"])
 app.include_router(dashboard_router, tags=["dashboard"])
 app.include_router(competition_router, tags=["competition"])
+app.include_router(club_competencia_router, tags=["club-competencia"])
 app.include_router(roles_router, tags=["roles"])
 app.include_router(members_router, tags=["members"])
 app.include_router(gym_router, tags=["gym"])

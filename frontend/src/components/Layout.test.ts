@@ -30,15 +30,20 @@ const PRESET = {
     "socios.ver_todas", "socios.importar", "socios.ver_propia",
     "bolsa.ver", "bolsa.publicar", "bolsa.moderar",
     "club.usuarios", "club.divisiones", "club.torneos", "club.rivales",
+    "club.ver_competencia",
   ],
   entrenador: [
     ...READ_ONLY,
     "asistencia.cargar", "entrenamiento.gestionar",
     "partido.timer", "partido.eventos", "mediciones.cargar", "gimnasio.ver",
+    "club.ver_competencia",
   ],
-  analista: [...READ_ONLY, "partido.eventos", "asistencia.cargar", "mediciones.cargar"],
+  analista: [
+    ...READ_ONLY, "partido.eventos", "asistencia.cargar", "mediciones.cargar",
+    "club.ver_competencia",
+  ],
   jugador: ["gimnasio.ver_propio"],
-  socio: ["socios.ver_propia", "bolsa.ver", "bolsa.publicar"],
+  socio: ["socios.ver_propia", "bolsa.ver", "bolsa.publicar", "club.ver_competencia"],
   tesorero: ["socios.ver_todas", "socios.importar"],
   preparadorFisico: [
     ...READ_ONLY, "mediciones.cargar", "gimnasio.ver", "gimnasio.editar",
@@ -55,6 +60,7 @@ describe("navFor", () => {
     [
       "Hoy", "Calendario", "Partidos", "Estadísticas", "Plantel", "Asistencia",
       "Mediciones", "Gimnasio", "Socios", "Bolsa de trabajo", "Configuración",
+      "Fixture", "Tablas", "Citados",
     ].forEach((l) => expect(items).toContain(l));
   });
 
@@ -63,7 +69,7 @@ describe("navFor", () => {
     expect(items).toEqual(
       expect.arrayContaining([
         "Hoy", "Calendario", "Partidos", "Estadísticas", "Plantel", "Asistencia",
-        "Mediciones", "Gimnasio",
+        "Mediciones", "Gimnasio", "Fixture", "Tablas", "Citados",
       ])
     );
     expect(items).not.toContain("Configuración");
@@ -83,10 +89,13 @@ describe("navFor", () => {
     expect(items).toEqual(["Mi ficha"]);
   });
 
-  it("el socio ve su cuota y la bolsa, y nada del club", () => {
+  it("el socio ve su cuota, la bolsa y el portal multidivisión, y nada del club", () => {
     const items = labels("player", PRESET.socio);
     expect(items).toContain("Mi cuota");
     expect(items).toContain("Bolsa de trabajo");
+    expect(items).toContain("Fixture");
+    expect(items).toContain("Tablas");
+    expect(items).toContain("Citados");
     expect(items).not.toContain("Plantel");
     expect(items).not.toContain("Socios");
   });
@@ -116,11 +125,12 @@ describe("navFor", () => {
     expect(items).toContain("Gimnasio");
   });
 
-  it("un jugador que hereda de socio ve la bolsa", () => {
+  it("un jugador que hereda de socio ve la bolsa y el portal multidivisión", () => {
     const items = labels("player", [...PRESET.jugador, ...PRESET.socio]);
     expect(items).toContain("Bolsa de trabajo");
     expect(items).toContain("Mi ficha");
     expect(items).toContain("Mi cuota");
+    expect(items).toContain("Fixture");
   });
 
   // ── Bordes ─────────────────────────────────────────────────────────────────

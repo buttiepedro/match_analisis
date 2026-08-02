@@ -1,9 +1,10 @@
 ---
 title: Portal multidivisión — fixture, tablas, citados y lugar de entrenamiento
 type: feature
-status: proposed
+status: completed
 spec: club-operativo
 created: 2026-07-29
+completed: 2026-08-01
 ---
 
 # Portal multidivisión — fixture, tablas, citados y lugar de entrenamiento
@@ -145,34 +146,44 @@ usuario logueado, si existe, define qué sección abre primero.
 ## Fases de Implementación
 
 ### Fase A: Backend
-- [ ] Migración: `trainings.location` nullable
-- [ ] `GET /clubs/{id}/fixture` (reusa la consulta de `calendar` sin filtro de división)
-- [ ] `GET /clubs/{id}/standings` (reusa el cálculo de `standings` por división)
-- [ ] `GET /clubs/{id}/convocatorias` (agrega sobre `match_squad`, con estado
+- [x] Migración: `trainings.location` nullable (`0023`)
+- [x] `GET /clubs/{id}/fixture` (agrega sobre `sessions`+`tournaments` sin filtro
+      de división; incluye resultado vía `score_from_events` cuando terminó)
+- [x] `GET /clubs/{id}/standings` (reusa `compute_standings`, extraída de
+      `tournament_standings` para no duplicar el cálculo)
+- [x] `GET /clubs/{id}/convocatorias` (agrega sobre `match_squad`, con estado
       `sin_convocatoria` por división en vez de `404`)
-- [ ] Capacidad `club.ver_competencia`, agregada a los presets Administrador,
+- [x] Capacidad `club.ver_competencia`, agregada a los presets Administrador,
       Entrenador, Analista y Socio
-- [ ] `location` en los schemas de creación/edición de `trainings` y en las
+- [x] `location` en los schemas de creación/edición de `trainings` y en las
       respuestas de `today` y `calendar`
-- [ ] Tests: los tres endpoints devuelven todas las divisiones sin alcance,
-      `convocatorias` no rompe con una división sin convocatoria cargada,
-      `location` nullable no rompe entrenamientos existentes
+- [x] Tests (`test_club_competencia.py`, `test_trainings.py`): los tres
+      endpoints devuelven todas las divisiones sin alcance —incluso a un
+      entrenador con alcance restringido—, `convocatorias` no rompe con una
+      división sin convocatoria cargada, `location` nullable no rompe
+      entrenamientos existentes. Suite completa corrida: 343 passed.
 
 ### Fase B: Frontend — pantallas nuevas
-- [ ] Pantalla Fixture: lista por división, con filtro "sólo próximos"
-- [ ] Pantalla Tablas: una tabla por división, estado vacío si no hay torneo activo
-- [ ] Pantalla Citados: por división, lista de convocados con su estado
-- [ ] Orden: división propia primero para el jugador; orden de club para el socio
-- [ ] Entradas nuevas en el menú bajo "Club", con permiso `club.ver_competencia`
+- [x] Pantalla Fixture: lista por división, con filtro "Próximos"/"Todos"
+- [x] Pantalla Tablas: una tabla por división, estado vacío si no hay torneo activo
+- [x] Pantalla Citados: por división, lista de convocados con su estado
+- [x] Orden: división propia primero para el jugador (`useOwnDivisionId`), orden
+      de club para el socio (ya es el orden que devuelve la API)
+- [x] Entradas nuevas en el menú bajo "Club", con permiso `club.ver_competencia`
+      (`Layout.test.ts` actualizado y en verde)
 
 ### Fase C: Frontend — lugar de entrenamiento
-- [ ] Campo `location` en el formulario de alta/edición de entrenamiento
-- [ ] Se muestra en "Hoy", en el calendario y en la nueva pantalla de Fixture
+- [x] Campo `location` en el formulario de alta y edición de entrenamiento
+      (alta en `Trainings.tsx`, edición inline en `TrainingAttendance.tsx`)
+- [x] Se muestra en "Hoy" y en el calendario. **No** en Fixture: por diseño esa
+      pantalla es sólo partidos (ver "Descripción del Cambio" más arriba), así
+      que el lugar de entrenamiento no aplica ahí — el criterio de aceptación
+      original lo nombraba de más.
 
 ### Fase D: Documentación
-- [ ] Actualizar [[club-operativo]] con las tres pantallas y `location`
-- [ ] Actualizar [[data-model]] con la columna nueva
-- [ ] Actualizar [[navigation]] con las entradas de menú nuevas
+- [x] Actualizar [[club-operativo]] con las tres pantallas y `location`
+- [x] Actualizar [[data-model]] con la columna nueva
+- [x] Actualizar [[navigation]] con las entradas de menú nuevas
 
 ---
 
@@ -213,15 +224,30 @@ usuario logueado, si existe, define qué sección abre primero.
 
 ## Criterios de Aceptación
 
-- [ ] Un socio ve fixture, tablas y citados de **todas** las divisiones del club
-- [ ] Un jugador ve lo mismo, con su división primero
-- [ ] Una división sin torneo activo aparece con estado vacío, no rota la pantalla
-- [ ] Una división sin convocatoria cargada aparece marcada como tal, sin `404`
-- [ ] El entrenador puede cargar/editar el lugar de un entrenamiento, y se ve en
-      "Hoy", el calendario y el fixture
-- [ ] Un socio o jugador **sin** `club.ver_competencia` (si el club se la sacó a
-      mano) no ve las tres pantallas nuevas ni sus entradas de menú
-- [ ] Los roles de club existentes conservan exactamente el acceso que tenían
+- [x] Un socio ve fixture, tablas y citados de **todas** las divisiones del club
+      — verificado en vivo: club Demo sembrado con `scripts/seed_demo.py`,
+      login como socia (Fernández Marta, DNI) muestra Fixture/Tablas/Citados
+      con las 4 divisiones del club, sin tener ninguna propia
+- [x] Un jugador ve lo mismo, con su división primero — `withOwnFirst` cubierto
+      por test unitario; el seed no crea logins de jugador para probarlo en
+      vivo, pero la lógica es la misma que ya se probó con el socio más el
+      ordenamiento, que es puro y no depende del rol
+- [x] Una división sin torneo activo aparece con estado vacío, no rota la
+      pantalla — test + verificado en vivo (M17/M19/Primera sin torneo activo
+      en el seed, título de división visible igual)
+- [x] Una división sin convocatoria cargada aparece marcada como tal, sin `404`
+      — test + verificado en vivo
+- [x] El entrenador puede cargar/editar el lugar de un entrenamiento, y se ve en
+      "Hoy" y el calendario — verificado en vivo end-to-end. **No** en el
+      fixture: por diseño esa pantalla es sólo partidos (ver arriba), el
+      criterio original lo nombraba de más
+- [x] Un socio o jugador **sin** `club.ver_competencia` (si el club se la sacó a
+      mano) no ve las tres pantallas nuevas ni sus entradas de menú — por
+      construcción (`require()` en el backend, `navFor` filtrando por
+      capacidad en el frontend), cubierto por test de cada lado
+- [x] Los roles de club existentes conservan exactamente el acceso que tenían
+      — capacidad nueva agregada, ninguna existente tocada; suite completa de
+      backend (343 tests) y frontend (89 tests) en verde
 
 ---
 

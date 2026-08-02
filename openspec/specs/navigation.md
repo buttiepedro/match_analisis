@@ -52,10 +52,18 @@ Agrupada por momento de uso, no por entidad de datos:
 
 | Grupo | Ítems |
 |-------|-------|
+| Mi cuenta | Mi cuota, Mi ficha |
 | Día a día | Hoy, Calendario |
 | Partido | Partidos, Estadísticas |
-| Plantel | Plantel, Asistencia, Mediciones |
-| Club | Configuración |
+| Plantel | Plantel, Asistencia, Mediciones, Gimnasio |
+| Club | Fixture, Tablas, Citados, Socios, Bolsa de trabajo, Configuración |
+
+Fixture, Tablas y Citados —el portal multidivisión de
+[[add-portal-multidivision]]— van primero dentro de "Club" porque, a
+diferencia de Configuración y Socios, las ve también quien no administra
+nada: un socio o un jugador con `club.ver_competencia`. Comparten un único
+permiso porque son la misma pregunta ("¿cómo le va al club?") mirada desde
+tres ángulos, no tres decisiones de acceso distintas.
 
 Por rol:
 

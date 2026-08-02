@@ -151,6 +151,25 @@ const IconCard = () => (
   </svg>
 );
 
+const IconTrophy = () => (
+  <svg {...svg}>
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+  </svg>
+);
+
+const IconTable = () => (
+  <svg {...svg}>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M3 9h18M3 15h18M9 3v18" />
+  </svg>
+);
+
+const IconList = () => (
+  <svg {...svg}>
+    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+  </svg>
+);
+
 const IconMenu = () => (
   <svg {...svg} width="22" height="22">
     <path d="M3 6h18M3 12h18M3 18h18" />
@@ -192,6 +211,9 @@ const GIMNASIO: NavItem = { label: "Gimnasio", path: "/gimnasio", icon: <IconDum
 const BOLSA: NavItem = { label: "Bolsa de trabajo", path: "/bolsa", icon: <IconBriefcase />, permission: "bolsa.ver" };
 const MI_CUOTA: NavItem = { label: "Mi cuota", path: "/mi-club", icon: <IconCard />, permission: "socios.ver_propia" };
 const MI_FICHA: NavItem = { label: "Mi ficha", path: "/mi-ficha", icon: <IconUser />, onlyForPlayers: true };
+const FIXTURE: NavItem = { label: "Fixture", path: "/fixture", icon: <IconTrophy />, permission: "club.ver_competencia" };
+const TABLAS: NavItem = { label: "Tablas", path: "/tablas", icon: <IconTable />, permission: "club.ver_competencia" };
+const CITADOS: NavItem = { label: "Citados", path: "/citados", icon: <IconList />, permission: "club.ver_competencia" };
 
 /*
   El menú sale de las **capacidades**, no del `role` del enum viejo.
@@ -238,7 +260,7 @@ export const NAV: NavGroup[] = [
   { title: "Día a día", items: [HOY, CALENDARIO] },
   { title: "Partido", items: [PARTIDOS, STATS] },
   { title: "Plantel", items: [PLANTEL, ASISTENCIA, MEDICIONES, GIMNASIO] },
-  { title: "Club", items: [SOCIOS, BOLSA, CONFIG] },
+  { title: "Club", items: [FIXTURE, TABLAS, CITADOS, SOCIOS, BOLSA, CONFIG] },
 ];
 
 const ROLE_LABEL: Record<string, string> = {

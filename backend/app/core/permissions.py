@@ -64,6 +64,11 @@ class Permission(str, enum.Enum):
     club_usuarios = "club.usuarios"
     club_rivales = "club.rivales"
 
+    # Portal — vistas de sólo lectura del club entero, sin alcance por división
+    #: Fixture, tabla de posiciones y citados de **todas** las divisiones. No se
+    #: filtra por división a propósito: quien la tiene ve el club entero.
+    club_ver_competencia = "club.ver_competencia"
+
 
 ALL_PERMISSIONS: frozenset[str] = frozenset(p.value for p in Permission)
 
@@ -107,6 +112,7 @@ PRESET_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.partido_eventos.value,
         Permission.mediciones_cargar.value,
         Permission.gimnasio_ver.value,
+        Permission.club_ver_competencia.value,
     },
     # analyst: registraba eventos y tomaba asistencia; nada más.
     ANALISTA: READ_ONLY
@@ -114,6 +120,7 @@ PRESET_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.partido_eventos.value,
         Permission.asistencia_cargar.value,
         Permission.mediciones_cargar.value,
+        Permission.club_ver_competencia.value,
     },
     # player: ninguna capacidad sobre el club. No es un olvido — su acceso es a lo
     # propio, y eso lo resuelve `require_player_self`, que no es una capacidad.
@@ -140,6 +147,7 @@ PRESET_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.socios_ver_propia.value,
             Permission.bolsa_ver.value,
             Permission.bolsa_publicar.value,
+            Permission.club_ver_competencia.value,
         }
     ),
 }

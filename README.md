@@ -38,12 +38,12 @@ El backend corre migraciones y crea el superadmin automáticamente al iniciar.
 ## Tests
 
 ```bash
-# Backend — 177 tests, corren sobre SQLite en archivo temporal, sin dependencias externas
+# Backend — 354 tests, corren sobre SQLite en archivo temporal, sin dependencias externas
 cd backend
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest
 
-# Frontend — 48 tests
+# Frontend — 89 tests
 cd frontend
 npm install
 npm test
@@ -106,7 +106,8 @@ match_analisis/
 │   ├── app/
 │   │   ├── api/v1/        # auth, clubs, divisions, tournaments, sessions,
 │   │   │                  # lineup, players, performance, import,
-│   │   │                  # trainings, injuries, season, dashboard, competition
+│   │   │                  # trainings, injuries, season, dashboard, competition,
+│   │   │                  # club_competencia (fixture/tablas/citados club-entero)
 │   │   ├── core/          # config, DB, seguridad, dependencias, antropometría
 │   │   ├── models/        # SQLAlchemy ORM
 │   │   ├── schemas/       # Pydantic
@@ -119,7 +120,8 @@ match_analisis/
 │   │   ├── components/    # Timer, EventLog, modales, tabs del tablero
 │   │   ├── pages/         # Login, Torneos, Sesión, Lineup, Stats, Plantel, Perfil,
 │   │   │                  # Hoy, Calendario, Mediciones, Entrenamientos,
-│   │   │                  # Asistencia, Portal del jugador, Config
+│   │   │                  # Asistencia, Portal del jugador, Config,
+│   │   │                  # Fixture, Standings, Convocatorias (portal multidivisión)
 │   │   ├── store/         # Zustand (auth, session, squad)
 │   │   └── lib/           # axios, tokens, WebSocket, cola offline, timer, stats,
 │   │                      # asistencia
@@ -211,6 +213,9 @@ La capa que faltaba entre partido y partido.
 - **Ranking de asistencia** por división, con ventana de 30 o 90 días.
 - **Alerta de deserción**: 3 ausencias seguidas o menos de 50% marca al jugador
   *en riesgo*. Una falta justificada no corta la racha — no es deserción.
+- **Lugar de entrenamiento**: texto libre, opcional, editable desde la lista de
+  entrenamientos o desde la planilla de asistencia. Se ve en "Hoy" y en el
+  calendario — el jugador necesita saber a dónde ir.
 
 ## Armado de equipo (`/sessions/:id/lineup`)
 
@@ -283,8 +288,39 @@ Sólo entran partidos terminados.
 ## Portal del jugador (`/mi-ficha`)
 
 Un jugador invitado (`POST /divisions/{id}/players/{pid}/invite`) entra con rol
-`player` y ve **sólo su ficha**: asistencia, minutos, tests y estado. Sin acceso a
-ninguna pantalla del club.
+`player` y ve su ficha en cinco solapas: **Resumen** (asistencia, minutos,
+temporada), **Perfil**, **Tests**, **Físico** y **Gimnasio**.
+
+La solapa **Perfil** completa lo que el resto sólo mostraba al cuerpo técnico:
+contacto, obra social, apto médico con aviso de vencimiento (30 días, igual
+cálculo que usa la grilla de armado), historial de divisiones y lesiones
+cerradas (zona, gravedad, cuánto tardó en volver). El jugador edita su propio
+**teléfono, teléfono de emergencia, email y foto de perfil** — el resto (DNI,
+obra social, posición, disponibilidad, apto médico) lo carga únicamente el
+club, vía `PATCH /me/player` con una whitelist estricta que rechaza cualquier
+otro campo con `422`.
+
+Sin `club.ver_competencia` (ver abajo), el jugador no tiene acceso a ninguna
+otra pantalla del club.
+
+## Portal multidivisión — Fixture, Tablas, Citados
+
+Tres pantallas de sólo lectura, del club **entero**, detrás de una única
+capacidad (`club.ver_competencia`) que a propósito no se filtra por división —
+al revés que el resto de la app: un socio no tiene división propia, y un
+jugador quiere ver las demás divisiones *además de* la suya.
+
+- **Fixture** (`/fixture`): partidos de todas las divisiones, con resultado si
+  terminaron. Filtro "Próximos" / "Todos".
+- **Tablas** (`/tablas`): la tabla de posiciones de cada división con torneo
+  activo. Una división sin torneo aparece con estado vacío, no se omite.
+- **Citados** (`/citados`): la convocatoria del próximo partido con
+  convocatoria cargada, por división. Una división sin convocatoria se marca
+  como tal, no rompe la pantalla.
+
+El jugador ve su propia división primero, el resto colapsado; el socio, sin
+división propia, ve el orden del club. El preset Socio recibe la capacidad
+directamente; el Jugador la hereda si el club configuró que herede de Socio.
 
 ## Importación
 
@@ -331,6 +367,14 @@ ninguna pantalla del club.
 | GET/PUT | `/sessions/{id}/squad` | Convocatoria | club_admin |
 | PATCH | `/sessions/{id}/timer` | Controlar timer (REST) | match_director+ |
 | POST | `/sessions/{id}/events` | Registrar evento | analyst+ |
+| GET | `/clubs/{id}/fixture` | Partidos de todas las divisiones | `club.ver_competencia` |
+| GET | `/clubs/{id}/standings` | Tabla de cada división con torneo activo | `club.ver_competencia` |
+| GET | `/clubs/{id}/convocatorias` | Citados del próximo partido, por división | `club.ver_competencia` |
+| GET | `/me/player` | Ficha propia del jugador (contacto, apto médico, flags de vencimiento) | `player` |
+| PATCH | `/me/player` | Editar contacto propio (whitelist, `422` fuera de ella) | `player` |
+| POST | `/me/player/photo` | Subir foto de perfil propia | `player` |
+| GET | `/me/player/division-history` | Historial de divisiones propio | `player` |
+| GET | `/me/player/injuries` | Lesiones cerradas propias | `player` |
 | GET | `/health` | Healthcheck | Público |
 
 Documentación interactiva completa en `/docs` con el backend corriendo.

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 import Sparkline from "../components/Sparkline";
+import CropModal from "../components/CropModal";
 import {
   TEST_TYPE_META,
   formatTestValue,
@@ -26,7 +27,32 @@ interface Player {
   position: string | null;
   profile_photo_url: string | null;
   availability: string;
+  phone: string | null;
+  emergency_phone: string | null;
+  email: string | null;
+  obra_social: string | null;
+  medical_clearance_date: string | null;
   medical_clearance_expires: string | null;
+  clearance_expired: boolean;
+  clearance_expiring: boolean;
+}
+
+interface DivisionHistoryEntry {
+  division_id: string;
+  division_name: string;
+  from_date: string;
+  to_date: string | null;
+}
+
+interface ClosedInjury {
+  id: string;
+  injury_date: string;
+  body_zone: string | null;
+  injury_type: string | null;
+  severity: string;
+  expected_return: string | null;
+  actual_return: string | null;
+  notes: string | null;
 }
 
 interface AttendanceRecord {
@@ -44,7 +70,7 @@ interface AttendanceDetail {
   records: AttendanceRecord[];
 }
 
-type Tab = "resumen" | "tests" | "fisico" | "gimnasio";
+type Tab = "resumen" | "perfil" | "tests" | "fisico" | "gimnasio";
 
 const DAY_NAMES = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -367,6 +393,245 @@ function GimnasioTab({
   );
 }
 
+// ── Perfil ────────────────────────────────────────────────────────────────────
+
+const SEVERITY_LABEL: Record<string, string> = {
+  leve: "Leve",
+  moderada: "Moderada",
+  grave: "Grave",
+};
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("es-AR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.round(
+    (new Date(`${to}T00:00:00`).getTime() - new Date(`${from}T00:00:00`).getTime()) / 86_400_000
+  );
+}
+
+type ContactForm = { phone: string; emergency_phone: string; email: string };
+
+function PerfilTab({
+  player,
+  history,
+  injuries,
+  onUpdated,
+}: {
+  player: Player;
+  history: DivisionHistoryEntry[];
+  injuries: ClosedInjury[];
+  onUpdated: (p: Player) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<ContactForm>({
+    phone: player.phone ?? "",
+    emergency_phone: player.emergency_phone ?? "",
+    email: player.email ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const startEditing = () => {
+    setForm({
+      phone: player.phone ?? "",
+      emergency_phone: player.emergency_phone ?? "",
+      email: player.email ?? "",
+    });
+    setError("");
+    setEditing(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      // Un campo vacío significa "no lo toques", no "bórralo": mandar un
+      // email vacío rebota contra la validación de formato del backend.
+      const { data } = await api.patch<Player>("/me/player", {
+        phone: form.phone.trim() || undefined,
+        emergency_phone: form.emergency_phone.trim() || undefined,
+        email: form.email.trim() || undefined,
+      });
+      onUpdated(data);
+      setEditing(false);
+    } catch (err) {
+      setError(parseApiError(err, "No se pudo guardar"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <section>
+        <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">
+          Apto médico
+        </p>
+        {player.medical_clearance_expires ? (
+          <div
+            className={`rounded-xl px-4 py-3 border ${
+              player.clearance_expired
+                ? "bg-red-50 border-red-200"
+                : player.clearance_expiring
+                  ? "bg-amber-50 border-amber-200"
+                  : "bg-surface border-line"
+            }`}
+          >
+            <p className="text-sm text-ink">
+              Vence el {formatDate(player.medical_clearance_expires)}
+            </p>
+            {player.clearance_expired && (
+              <p className="text-xs text-red-700 mt-1">
+                Vencido — avisá al club para renovarlo.
+              </p>
+            )}
+            {!player.clearance_expired && player.clearance_expiring && (
+              <p className="text-xs text-amber-700 mt-1">Por vencer pronto.</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-ink-muted text-sm bg-surface rounded-xl px-4 py-3">
+            El club todavía no cargó tu apto médico.
+          </p>
+        )}
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Contacto</p>
+          {!editing && (
+            <button
+              onClick={startEditing}
+              className="pressable text-xs text-brand hover:text-brand-hover transition-colors duration-150"
+            >
+              Editar
+            </button>
+          )}
+        </div>
+
+        {editing ? (
+          <div className="bg-surface rounded-xl p-4 space-y-2.5">
+            {(
+              [
+                ["phone", "Teléfono", "text"],
+                ["emergency_phone", "Teléfono de emergencia", "text"],
+                ["email", "Email", "email"],
+              ] as const
+            ).map(([key, label, type]) => (
+              <div key={key}>
+                <label className="block text-xs text-ink-muted mb-1">{label}</label>
+                <input
+                  type={type}
+                  value={form[key]}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                  className="w-full bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
+                />
+              </div>
+            ))}
+            {error && <p className="text-xs text-red-600">{error}</p>}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={save}
+                disabled={saving}
+                className="pressable text-sm bg-brand hover:bg-brand-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium"
+              >
+                {saving ? "Guardando..." : "Guardar"}
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="pressable text-sm text-ink-muted hover:text-ink px-4 py-2 rounded-lg"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <dl className="bg-surface rounded-xl divide-y divide-line overflow-hidden">
+            {(
+              [
+                ["Teléfono", player.phone],
+                ["Tel. de emergencia", player.emergency_phone],
+                ["Email", player.email],
+                ["Obra social", player.obra_social],
+              ] as const
+            ).map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                <dt className="text-sm text-ink-muted shrink-0">{label}</dt>
+                <dd className="text-sm text-ink font-medium truncate text-right">
+                  {value ?? "—"}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        <p className="text-[11px] text-ink-faint mt-2">
+          DNI, obra social y posición los carga el club — cualquier corrección,
+          hablá con ellos.
+        </p>
+      </section>
+
+      <section>
+        <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">
+          Historial de divisiones
+        </p>
+        {history.length === 0 ? (
+          <p className="text-ink-muted text-sm bg-surface rounded-xl px-4 py-3">
+            Sin cambios de división registrados.
+          </p>
+        ) : (
+          <ul className="bg-surface rounded-xl divide-y divide-line overflow-hidden">
+            {history.map((h) => (
+              <li key={`${h.division_id}-${h.from_date}`} className="px-4 py-2.5">
+                <p className="text-sm text-ink">{h.division_name}</p>
+                <p className="text-xs text-ink-faint">
+                  {formatDate(h.from_date)} – {h.to_date ? formatDate(h.to_date) : "actualidad"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Lesiones</p>
+        {injuries.length === 0 ? (
+          <p className="text-ink-muted text-sm bg-surface rounded-xl px-4 py-3">
+            Sin lesiones cerradas registradas.
+          </p>
+        ) : (
+          <ul className="bg-surface rounded-xl divide-y divide-line overflow-hidden">
+            {injuries.map((inj) => (
+              <li key={inj.id} className="px-4 py-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-ink truncate">
+                    {inj.body_zone ?? "Sin zona"}
+                    {inj.injury_type && ` · ${inj.injury_type}`}
+                  </p>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-surface-strong text-ink-soft shrink-0">
+                    {SEVERITY_LABEL[inj.severity] ?? inj.severity}
+                  </span>
+                </div>
+                <p className="text-xs text-ink-faint mt-0.5">
+                  {formatDate(inj.injury_date)}
+                  {inj.actual_return &&
+                    ` · volvió ${daysBetween(inj.injury_date, inj.actual_return)} días después`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
 /**
  * Portal del jugador: sólo su ficha, sin nada del club.
  *
@@ -381,9 +646,19 @@ export default function PlayerPortal() {
   const [tests, setTests] = useState<PhysicalTest[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [gym, setGym] = useState<MyGymPlan | null>(null);
+  const [history, setHistory] = useState<DivisionHistoryEntry[]>([]);
+  const [injuries, setInjuries] = useState<ClosedInjury[]>([]);
   const [tab, setTab] = useState<Tab>("resumen");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // Separado de `error`: ese state dispara la pantalla completa de "no
+  // encontramos tu ficha" cuando falla la carga inicial. Reusarlo acá haría
+  // que un intento de foto fallido borrara todo el perfil ya cargado.
+  const [photoError, setPhotoError] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const reloadGym = () => {
     api.get<MyGymPlan>("/me/gym-plan").then(({ data }) => setGym(data)).catch(() => {});
@@ -394,22 +669,53 @@ export default function PlayerPortal() {
       .get<Player>("/me/player")
       .then(async ({ data }) => {
         setPlayer(data);
-        const [a, s, t, m, g] = await Promise.all([
+        const [a, s, t, m, g, h, i] = await Promise.all([
           api.get<AttendanceDetail>(`/players/${data.id}/attendance`).catch(() => null),
           api.get<SeasonStats>(`/players/${data.id}/season-stats`).catch(() => null),
           api.get<PhysicalTest[]>(`/players/${data.id}/tests`).catch(() => null),
           api.get<Measurement[]>(`/players/${data.id}/measurements`).catch(() => null),
           api.get<MyGymPlan>("/me/gym-plan").catch(() => null),
+          api.get<DivisionHistoryEntry[]>("/me/player/division-history").catch(() => null),
+          api.get<ClosedInjury[]>("/me/player/injuries").catch(() => null),
         ]);
         setAttendance(a?.data ?? null);
         setSeason(s?.data ?? null);
         setTests(t?.data ?? []);
         setMeasurements(m?.data ?? []);
         setGym(g?.data ?? null);
+        setHistory(h?.data ?? []);
+        setInjuries(i?.data ?? []);
       })
       .catch((err) => setError(parseApiError(err, "No se pudo cargar tu ficha")))
       .finally(() => setLoading(false));
   }, []);
+
+  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropConfirm = async (blob: Blob) => {
+    setCropSrc(null);
+    setUploadingPhoto(true);
+    setPhotoError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", blob, "photo.png");
+      const { data } = await api.post<Player>("/me/player/photo", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setPlayer(data);
+    } catch (err) {
+      setPhotoError(parseApiError(err, "No se pudo subir la foto"));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   if (loading) {
     return <div className="p-6"><p className="text-ink-muted text-sm">Cargando...</p></div>;
@@ -431,26 +737,56 @@ export default function PlayerPortal() {
   return (
     <div className="p-4 md:p-6 max-w-md mx-auto pb-10">
       <div className="flex items-center gap-3 mb-5">
-        {player.profile_photo_url ? (
-          <img
-            src={player.profile_photo_url}
-            alt={player.name}
-            className="w-14 h-14 rounded-full object-cover shrink-0"
+        <div className="relative w-14 h-14 shrink-0">
+          {player.profile_photo_url ? (
+            <img
+              src={player.profile_photo_url}
+              alt={player.name}
+              className="w-14 h-14 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-surface-strong grid place-items-center text-ink-soft font-bold text-lg">
+              {player.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <button
+            onClick={() => photoInputRef.current?.click()}
+            disabled={uploadingPhoto}
+            aria-label="Cambiar foto de perfil"
+            className="pressable absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-brand hover:bg-brand-hover text-white grid place-items-center text-[10px] shadow disabled:opacity-50"
+          >
+            {uploadingPhoto ? "…" : "✎"}
+          </button>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handlePhotoFileChange}
           />
-        ) : (
-          <div className="w-14 h-14 rounded-full bg-surface-strong grid place-items-center text-ink-soft font-bold text-lg shrink-0">
-            {player.name.charAt(0).toUpperCase()}
-          </div>
-        )}
+        </div>
         <div className="min-w-0">
           <h1 className="text-lg font-bold text-ink truncate">{player.name}</h1>
           <p className="text-xs text-ink-muted">{player.position ?? "Sin posición"}</p>
         </div>
       </div>
 
+      {photoError && (
+        <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-4">{photoError}</p>
+      )}
+
+      {cropSrc && (
+        <CropModal
+          imageSrc={cropSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
+
       <div className="flex gap-1 bg-surface p-1 rounded-xl mb-4">
         {([
           ["resumen", "Resumen"],
+          ["perfil", "Perfil"],
           ["tests", "Tests"],
           ["fisico", "Físico"],
           ["gimnasio", "Gimnasio"],
@@ -458,7 +794,7 @@ export default function PlayerPortal() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors duration-150 ${
+            className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors duration-150 ${
               tab === key ? "bg-brand text-white" : "text-ink-muted hover:text-ink"
             }`}
           >
@@ -545,6 +881,9 @@ export default function PlayerPortal() {
         </>
       )}
 
+      {tab === "perfil" && (
+        <PerfilTab player={player} history={history} injuries={injuries} onUpdated={setPlayer} />
+      )}
       {tab === "tests" && <TestsTab tests={tests} />}
       {tab === "fisico" && <FisicoTab measurements={measurements} />}
       {tab === "gimnasio" && <GimnasioTab data={gym} onLogged={reloadGym} />}

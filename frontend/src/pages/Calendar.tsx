@@ -16,6 +16,7 @@ interface CalendarEntry {
   date: string;
   label: string;
   status: string | null;
+  location: string | null;
 }
 
 const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
@@ -221,7 +222,10 @@ export default function Calendar() {
                       ? TRAINING_TYPE_LABEL[e.label as TrainingType] ?? e.label
                       : e.label}
                   </p>
-                  <p className="text-xs text-ink-muted capitalize">{e.kind}</p>
+                  <p className="text-xs text-ink-muted capitalize">
+                    {e.kind}
+                    {e.location && ` · ${e.location}`}
+                  </p>
                 </div>
               </button>
             </li>
