@@ -69,6 +69,12 @@ class Permission(str, enum.Enum):
     #: filtra por división a propósito: quien la tiene ve el club entero.
     club_ver_competencia = "club.ver_competencia"
 
+    # Turnos con nutricionista
+    #: Publicar/cancelar horarios, ver la agenda completa.
+    nutricion_turnos_publicar = "nutricion.turnos_publicar"
+    #: Reservar y cancelar el turno propio.
+    nutricion_turnos_reservar = "nutricion.turnos_reservar"
+
 
 ALL_PERMISSIONS: frozenset[str] = frozenset(p.value for p in Permission)
 
@@ -124,7 +130,12 @@ PRESET_PERMISSIONS: dict[str, frozenset[str]] = {
     },
     # player: ninguna capacidad sobre el club. No es un olvido — su acceso es a lo
     # propio, y eso lo resuelve `require_player_self`, que no es una capacidad.
-    JUGADOR: frozenset({Permission.gimnasio_ver_propio.value}),
+    # `nutricion.turnos_reservar` es la excepción a propósito: el pedido del
+    # club es "como jugador", directo en el preset y no heredado de Socio —
+    # un socio que no juega no tiene ficha física que la nutricionista siga.
+    JUGADOR: frozenset(
+        {Permission.gimnasio_ver_propio.value, Permission.nutricion_turnos_reservar.value}
+    ),
     # Los cuatro siguientes son nuevos: se siembran para que el club los complete
     # y **no se le asignan a nadie**. Adivinar quién es tesorero sería peor que
     # dejarlo sin asignar.
@@ -135,7 +146,11 @@ PRESET_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.gimnasio_ver.value,
         Permission.gimnasio_editar.value,
     },
-    NUTRICIONISTA: READ_ONLY | {Permission.mediciones_cargar.value},
+    NUTRICIONISTA: READ_ONLY
+    | {
+        Permission.mediciones_cargar.value,
+        Permission.nutricion_turnos_publicar.value,
+    },
     # Tesorero: ve el padrón entero y sincroniza contra el sistema contable.
     TESORERO: frozenset(
         {Permission.socios_ver_todas.value, Permission.socios_importar.value}

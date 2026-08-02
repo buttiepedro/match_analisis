@@ -191,12 +191,20 @@ async def test_the_player_preset_has_no_club_permissions(client, db, perm_ctx):
     """
     El jugador no tiene **ninguna capacidad sobre el club**.
 
-    Lo único que puede tener son capacidades sobre lo propio (`*.ver_propio`),
-    que no dan acceso a datos de nadie más: el filtro por jugador lo hace
-    `require_player_self`. Si algún día un preset Jugador gana una capacidad de
-    club, este test lo frena.
+    Las que puede tener son sobre lo propio: `*.ver_propio` (ver algo propio,
+    filtrado por `require_player_self`) o `nutricion.turnos_reservar`
+    (reservar/cancelar el turno propio — una acción, no una lectura, así que
+    no sigue el sufijo `_propio`, pero tampoco da acceso a nada de nadie más:
+    `book_nutrition_slot` resuelve el jugador del token, nunca de un `id`).
+    Si algún día un preset Jugador gana una capacidad de club de verdad, este
+    test lo frena.
     """
-    del_club = {p for p in PRESET_PERMISSIONS[JUGADOR] if not p.endswith(("_propio", "_propia"))}
+    permitidas_sobre_lo_propio = {Permission.nutricion_turnos_reservar.value}
+    del_club = {
+        p
+        for p in PRESET_PERMISSIONS[JUGADOR]
+        if not p.endswith(("_propio", "_propia")) and p not in permitidas_sobre_lo_propio
+    }
     assert del_club == set(), f"El jugador ganó capacidades de club: {sorted(del_club)}"
 
 
@@ -352,6 +360,31 @@ async def test_the_player_portal_still_works_without_any_capability(client, db, 
     ):
         res = await client.get(path, headers=headers)
         assert res.status_code == 200, f"{path} devolvió {res.status_code}: {res.text}"
+
+
+async def test_inviting_a_player_actually_grants_the_jugador_preset(client, db, perm_ctx, club_admin_ctx):
+    """
+    Bug real que encontró el cambio 4 (turnos con nutricionista): `POST
+    .../invite` creaba el usuario con `role=player` pero nunca llamaba a
+    `assign_preset_for_legacy_role`, a diferencia de `POST /clubs/{id}/users`.
+    El jugador quedaba con rol `player` y **cero** capacidades — invisible
+    hasta que algo del portal necesitó una capacidad de verdad en vez de
+    resolver todo por acceso propio (`require_player_self`).
+    """
+    res = await client.post(
+        f"/divisions/{perm_ctx['division'].id}/players",
+        json={"name": "Con Preset"},
+        headers=club_admin_ctx["headers"],
+    )
+    player_id = res.json()["id"]
+    await client.post(
+        f"/divisions/{perm_ctx['division'].id}/players/{player_id}/invite",
+        json={"email": "conpreset@example.com", "password": "secret123"},
+        headers=club_admin_ctx["headers"],
+    )
+
+    tokens = await login(client, "conpreset@example.com")
+    assert set(tokens["user"]["permissions"]) == set(PRESET_PERMISSIONS[JUGADOR])
 
 
 async def test_a_player_cannot_read_another_players_attendance(client, db, perm_ctx, club_admin_ctx):

@@ -38,6 +38,7 @@ from app.models.notification import (
     NotificationPreference,
     NotificationType,
 )
+from app.models.nutrition_slot import NutritionSlot, NutritionSlotStatus
 
 __all__ = [
     "Base",
@@ -91,4 +92,6 @@ __all__ = [
     "NotificationDevice",
     "NotificationPreference",
     "NotificationType",
+    "NutritionSlot",
+    "NutritionSlotStatus",
 ]

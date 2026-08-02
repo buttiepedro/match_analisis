@@ -1,9 +1,10 @@
 ---
 title: Turnos con nutricionista
 type: feature
-status: proposed
+status: completed
 spec: turnos-nutricion
 created: 2026-07-29
+completed: 2026-08-02
 ---
 
 # Turnos con nutricionista
@@ -176,30 +177,36 @@ nutricion.turnos_reservar    -- reservar y cancelar el propio turno
 ## Fases de Implementación
 
 ### Fase A: Modelo y reserva
-- [ ] Migración: `nutrition_slots`
-- [ ] `POST /clubs/{id}/nutrition-slots` (alta en lote)
-- [ ] `POST /nutrition-slots/{id}/book` con `UPDATE` condicionado
-- [ ] `POST /nutrition-slots/{id}/cancel`
-- [ ] `GET /clubs/{id}/nutrition-slots`, `GET /me/nutrition-appointments`
-- [ ] Capacidades `nutricion.turnos_publicar` y `nutricion.turnos_reservar`
-- [ ] Tests: dos reservas simultáneas del mismo slot, una gana y la otra recibe
+- [x] Migración: `nutrition_slots`
+- [x] `POST /clubs/{id}/nutrition-slots` (alta en lote)
+- [x] `POST /nutrition-slots/{id}/book` con `UPDATE` condicionado
+- [x] `POST /nutrition-slots/{id}/cancel`
+- [x] `GET /clubs/{id}/nutrition-slots`, `GET /me/nutrition-appointments`
+- [x] Capacidades `nutricion.turnos_publicar` y `nutricion.turnos_reservar`
+- [x] Tests: dos reservas simultáneas del mismo slot, una gana y la otra recibe
       `409`; cancelar libera o no según quién cancela
 
 ### Fase B: Recordatorio
-- [ ] `APScheduler` en el proceso del backend, job cada hora
-- [ ] `reminder_sent_at` se escribe después de notificar, no antes
-- [ ] Test: el job no reenvía un recordatorio ya marcado
+- [x] `APScheduler` en el proceso del backend, job cada hora
+- [x] `reminder_sent_at` se escribe después de notificar, no antes
+- [x] Test: el job no reenvía un recordatorio ya marcado
 
 ### Fase C: Frontend
-- [ ] Pantalla de la nutricionista: publicar horarios (selector múltiple),
+- [x] Pantalla de la nutricionista: publicar horarios (selector múltiple),
       agenda del día/semana
-- [ ] Pantalla del jugador: horarios libres, "mi turno" si tiene uno reservado
-- [ ] Confirmación y cancelación con feedback inmediato (la reserva puede
+- [x] Pantalla del jugador: horarios libres, "mi turno" si tiene uno reservado
+- [x] Confirmación y cancelación con feedback inmediato (la reserva puede
       fallar con `409` si alguien se adelantó — mostrarlo, no reintentar solo)
 
 ### Fase D: Documentación
-- [ ] `openspec/specs/turnos-nutricion.md`
-- [ ] Actualizar [[data-model]], [[permisos]] y [[navigation]]
+- [x] `openspec/specs/turnos-nutricion.md`
+- [x] Actualizar [[data-model]], [[permisos]] y [[navigation]]
+
+### No planeado, encontrado en el camino
+- [x] `POST /divisions/{id}/players/{id}/invite` nunca llamaba a
+      `assign_preset_for_legacy_role`: todo jugador invitado quedaba con cero
+      capacidades. Corregido + test de regresión. Ver detalle en
+      [[turnos-nutricion]].
 
 ---
 
@@ -222,7 +229,7 @@ nutricion.turnos_reservar    -- reservar y cancelar el propio turno
 | `backend/app/models/nutrition_slot.py` | Nuevo |
 | `backend/app/api/v1/nutrition.py` | Nuevo |
 | `backend/app/core/permissions.py` | Dos capacidades nuevas |
-| `backend/app/services/scheduler.py` | Nuevo — primer uso de `APScheduler` en el backend |
+| `backend/app/core/scheduler.py` | Nuevo — primer uso de `APScheduler` en el backend |
 | `requirements.txt` | `APScheduler` |
 | `frontend/src/pages/` | Dos pantallas nuevas (nutricionista y jugador) |
 
@@ -242,15 +249,15 @@ nutricion.turnos_reservar    -- reservar y cancelar el propio turno
 
 ## Criterios de Aceptación
 
-- [ ] La nutricionista publica varios horarios en una sola carga
-- [ ] Un jugador reserva un horario libre y dos jugadores no pueden reservar el
+- [x] La nutricionista publica varios horarios en una sola carga
+- [x] Un jugador reserva un horario libre y dos jugadores no pueden reservar el
       mismo (uno gana, el otro ve `409` en el momento)
-- [ ] Cancelar un turno reservado (jugador o nutricionista) actualiza la agenda
+- [x] Cancelar un turno reservado (jugador o nutricionista) actualiza la agenda
       de ambos
-- [ ] El jugador recibe un recordatorio entre 20 y 24 horas antes de su turno
-- [ ] El recordatorio no se manda dos veces aunque el job corra varias veces
+- [x] El jugador recibe un recordatorio entre 20 y 24 horas antes de su turno
+- [x] El recordatorio no se manda dos veces aunque el job corra varias veces
       sobre la misma ventana
-- [ ] Un socio sin ficha de jugador no puede reservar (salvo que el club le dé
+- [x] Un socio sin ficha de jugador no puede reservar (salvo que el club le dé
       la capacidad explícitamente)
 
 ---

@@ -30,6 +30,10 @@ class NotificationType(str, enum.Enum):
     """
 
     formacion_cargada = "formacion_cargada"
+    #: Al reservar o cancelar un turno de nutrición — jugador y nutricionista.
+    turno_confirmado = "turno_confirmado"
+    #: 20-24hs antes del turno, sólo al jugador.
+    turno_recordatorio = "turno_recordatorio"
 
 
 class NotificationDevice(Base):

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.roles import assign_preset_for_legacy_role
 from app.core.security import get_password_hash
 from app.core.storage import public_url, s3_client
 from app.core.permissions import Permission
@@ -182,6 +183,11 @@ async def invite_player(
     db.add(account)
     await db.flush()
     player.user_id = account.id
+    # Sin esto el jugador queda con rol `player` pero ninguna capacidad: el
+    # preset Jugador se siembra al crear el club, pero nunca se le asigna al
+    # usuario. Es el mismo paso que ya hace `POST /clubs/{id}/users` para el
+    # resto de los roles — acá faltaba.
+    await assign_preset_for_legacy_role(account, db)
     await db.commit()
 
     return PlayerInviteResponse(player_id=player.id, user_id=account.id, email=account.email)

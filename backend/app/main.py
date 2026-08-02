@@ -19,6 +19,7 @@ from app.api.v1.job_board import router as job_board_router
 from app.api.v1.lineup import router as lineup_router
 from app.api.v1.members import router as members_router
 from app.api.v1.notifications import router as notifications_router
+from app.api.v1.nutrition import router as nutrition_router
 from app.api.v1.performance import router as performance_router
 from app.api.v1.players import router as players_router
 from app.api.v1.roles import router as roles_router
@@ -29,6 +30,7 @@ from app.api.v1.trainings import router as trainings_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.roles import grant_newly_added_permissions
+from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.security import get_password_hash
 from app.models import User, UserRole
 
@@ -97,7 +99,9 @@ async def lifespan(app: FastAPI):
     _configure_s3_cors()
     await seed_superadmin()
     await grant_new_permissions()
+    start_scheduler()
     yield
+    stop_scheduler()
 
 
 app = FastAPI(title="match_analisis API", version="0.1.0", lifespan=lifespan)
@@ -150,3 +154,4 @@ app.include_router(members_router, tags=["members"])
 app.include_router(gym_router, tags=["gym"])
 app.include_router(job_board_router, tags=["job-board"])
 app.include_router(notifications_router, tags=["notifications"])
+app.include_router(nutrition_router, tags=["nutrition"])

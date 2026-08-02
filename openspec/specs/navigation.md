@@ -52,11 +52,15 @@ Agrupada por momento de uso, no por entidad de datos:
 
 | Grupo | Ítems |
 |-------|-------|
-| Mi cuenta | Mi cuota, Mi ficha |
+| Mi cuenta | Mi cuota, Mi ficha, Turno de nutrición |
 | Día a día | Hoy, Calendario |
 | Partido | Partidos, Estadísticas |
-| Plantel | Plantel, Asistencia, Mediciones, Gimnasio |
+| Plantel | Plantel, Asistencia, Mediciones, Gimnasio, Nutrición |
 | Club | Fixture, Tablas, Citados, Socios, Bolsa de trabajo, Configuración |
+
+"Turno de nutrición" (`nutricion.turnos_reservar`) y "Nutrición"
+(`nutricion.turnos_publicar`) son la misma agenda mirada por el jugador que
+reserva y por la nutricionista que la administra — ver [[turnos-nutricion]].
 
 Fixture, Tablas y Citados —el portal multidivisión de
 [[add-portal-multidivision]]— van primero dentro de "Club" porque, a
@@ -73,7 +77,7 @@ Por rol:
 | `club_admin` | Todo |
 | `match_director` | Todo menos Configuración |
 | `analyst` | Todo menos Configuración |
-| `player` | Mi ficha |
+| `player` | Mi ficha, Turno de nutrición |
 
 Director y analista comparten menú: ninguno de los dos configura el club, y las
 diferencias de permiso entre ambos son de acción dentro de cada pantalla, no de
@@ -121,3 +125,4 @@ disparador abajo, no volver a la barra de cinco.
 - [[auth-and-users]] — roles y permisos
 - [[offline-resilience]] — el tablero, que queda fuera de la navegación
 - [[notificaciones]] — la campana y la bandeja
+- [[turnos-nutricion]] — agenda de la nutricionista, ítems "Nutrición" y "Turno de nutrición"

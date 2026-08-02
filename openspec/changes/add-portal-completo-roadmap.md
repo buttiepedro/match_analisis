@@ -118,7 +118,7 @@ el recordatorio de turno de **4**, confirmar que la pantalla a la que apunta
 sea una que el jugador pueda abrir con su capacidad real, no la que usa el
 cuerpo técnico para gestionarlo.
 
-### 4. Turnos con nutricionista
+### 4. Turnos con nutricionista — ✅ hecho (2026-08-02)
 
 Agenda: la nutricionista publica disponibilidad, el jugador reserva, cualquiera
 de los dos cancela. Usa **3** para el recordatorio, pero el flujo de reserva en sí
@@ -127,7 +127,23 @@ no depende de nada.
 Va después de 3 porque un turno sin recordatorio es la mitad del valor, y
 construirlo dos veces —una sin push, otra con— es trabajo de más.
 
-Ver [[add-turnos-nutricion]].
+Ver [[add-turnos-nutricion]] (archivado en
+`archive/2026-08-02-turnos-nutricion.md`). Primer módulo con un job disparado
+por reloj (`APScheduler` en proceso, no una cola aparte — un solo backend no
+lo necesita) y primera capacidad de club de verdad en el preset Jugador
+(`nutricion.turnos_reservar`, directo en el preset, no heredada de Socio).
+**Lo que encontró la verificación en vivo, y que 6 debería saber**: hasta
+este cambio, todo lo que un jugador veía se resolvía por acceso propio
+(`require_player_self`), nunca por una capacidad de verdad — así que
+`POST /divisions/{id}/players/{id}/invite` llevaba desde que existe el
+sistema de capacidades ([[permisos]]) sin llamar a
+`assign_preset_for_legacy_role()`, y todo jugador invitado por ese camino
+quedaba con **cero** capacidades, sin ningún error visible. Se encontró recién
+al escribir los tests de este módulo, no en producción — pero cualquier
+cambio futuro que agregue la primera capacidad de club de verdad a un preset
+que hoy sólo tiene acceso propio corre el mismo riesgo de exponer un agujero
+similar en otro punto de alta de usuarios. Corregido, con test de regresión
+dedicado (detalle en [[turnos-nutricion]]).
 
 ### 5. Subdominios por club y marca propia
 

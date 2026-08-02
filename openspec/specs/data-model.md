@@ -345,6 +345,29 @@ notification_preferences
 ```
 > Sin fila = habilitado. Ver [[notificaciones]].
 
+### NutritionSlot
+```sql
+nutrition_slots
+  id                UUID PK
+  club_id           UUID FK → clubs.id
+  nutritionist_id   UUID FK → users.id
+  starts_at         TIMESTAMP NOT NULL
+  ends_at           TIMESTAMP NOT NULL
+  status            ENUM('libre', 'reservado', 'cancelado') DEFAULT 'libre'
+  player_id         UUID FK → players.id NULL   -- quién reservó
+  notes             VARCHAR(300) NULL           -- motivo de la consulta
+  booked_at         TIMESTAMP NULL
+  cancelled_by      UUID FK → users.id NULL
+  cancelled_at      TIMESTAMP NULL
+  reminder_sent_at  TIMESTAMP NULL              -- se escribe después de notificar
+  created_at        TIMESTAMP
+
+  INDEX (club_id, starts_at)
+  INDEX (nutritionist_id, starts_at)
+```
+> Un horario y una reserva son el mismo registro en distinto `status`. Ver
+> [[turnos-nutricion]].
+
 ---
 
 ## Catálogo de Tipos de Evento (`event_type`)
@@ -457,3 +480,4 @@ CREATE INDEX idx_pt_player_type_date   ON physical_tests(player_id, test_type, t
 - [[offline-resilience]] — cola offline, reconexión y sellado de tiempo
 - [[statistics-screens]] — pantallas de registro y análisis
 - [[notificaciones]] — bandeja, dispositivos de push y preferencias
+- [[turnos-nutricion]] — agenda de la nutricionista

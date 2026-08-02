@@ -30,7 +30,7 @@ define el código, porque cada endpoint referencia una.
 
 `dominio.acción`. Hoy: `plantel.*`, `asistencia.*`, `entrenamiento.gestionar`,
 `partido.*`, `medico.*`, `mediciones.*`, `gimnasio.*`, `socios.*`, `bolsa.*`,
-`club.*`.
+`club.*`, `nutricion.*`.
 
 ## Herencia entre roles
 
@@ -142,7 +142,11 @@ actualizar: la herencia se arma desde la pantalla de roles.
 | Preparador físico · Nutricionista · Tesorero · Socio | nuevos, sin asignar |
 
 **Jugador sin capacidades no es un olvido.** Su acceso es a lo propio y lo resuelve
-`require_player_self`, que no es una capacidad sobre el club.
+`require_player_self`, que no es una capacidad sobre el club. Las dos excepciones
+—`gimnasio.ver_propio` ([[gimnasio]]) y `nutricion.turnos_reservar`
+([[turnos-nutricion]])— son capacidades de verdad, pero siguen siendo sobre lo
+propio: la primera filtra por `_propio`, la segunda porque el endpoint resuelve
+siempre el jugador del token, nunca un `id` de otro.
 
 Eso **recortó** lo que un `player` podía: antes llegaba a cualquier endpoint con
 `get_current_user` y enumeraba divisiones, plantel, entrenamientos y lesiones del

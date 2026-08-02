@@ -34,6 +34,8 @@ const Standings = lazy(() => import("./pages/Standings"));
 const Convocatorias = lazy(() => import("./pages/Convocatorias"));
 const Notificaciones = lazy(() => import("./pages/Notificaciones"));
 const MiFormacion = lazy(() => import("./pages/MiFormacion"));
+const Nutricion = lazy(() => import("./pages/Nutricion"));
+const MiNutricion = lazy(() => import("./pages/MiNutricion"));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -115,6 +117,8 @@ export default function App() {
           <Route path="/citados"       element={<LayoutRoute><Convocatorias /></LayoutRoute>} />
           <Route path="/notificaciones" element={<LayoutRoute><Notificaciones /></LayoutRoute>} />
           <Route path="/mi-formacion/:id" element={<LayoutRoute><MiFormacion /></LayoutRoute>} />
+          <Route path="/nutricion"     element={<LayoutRoute><Nutricion /></LayoutRoute>} />
+          <Route path="/mi-turno-nutricion" element={<LayoutRoute><MiNutricion /></LayoutRoute>} />
 
           {/* Session views — no sidebar */}
           <Route path="/sessions/:id"        element={<PrivateRoute><Session /></PrivateRoute>} />

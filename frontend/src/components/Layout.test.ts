@@ -30,7 +30,7 @@ const PRESET = {
     "socios.ver_todas", "socios.importar", "socios.ver_propia",
     "bolsa.ver", "bolsa.publicar", "bolsa.moderar",
     "club.usuarios", "club.divisiones", "club.torneos", "club.rivales",
-    "club.ver_competencia",
+    "club.ver_competencia", "nutricion.turnos_publicar", "nutricion.turnos_reservar",
   ],
   entrenador: [
     ...READ_ONLY,
@@ -42,12 +42,13 @@ const PRESET = {
     ...READ_ONLY, "partido.eventos", "asistencia.cargar", "mediciones.cargar",
     "club.ver_competencia",
   ],
-  jugador: ["gimnasio.ver_propio"],
+  jugador: ["gimnasio.ver_propio", "nutricion.turnos_reservar"],
   socio: ["socios.ver_propia", "bolsa.ver", "bolsa.publicar", "club.ver_competencia"],
   tesorero: ["socios.ver_todas", "socios.importar"],
   preparadorFisico: [
     ...READ_ONLY, "mediciones.cargar", "gimnasio.ver", "gimnasio.editar",
   ],
+  nutricionista: [...READ_ONLY, "mediciones.cargar", "nutricion.turnos_publicar"],
 };
 
 function labels(role: string | undefined, permissions: string[]): string[] {
@@ -60,7 +61,7 @@ describe("navFor", () => {
     [
       "Hoy", "Calendario", "Partidos", "Estadísticas", "Plantel", "Asistencia",
       "Mediciones", "Gimnasio", "Socios", "Bolsa de trabajo", "Configuración",
-      "Fixture", "Tablas", "Citados",
+      "Fixture", "Tablas", "Citados", "Nutrición", "Turno de nutrición",
     ].forEach((l) => expect(items).toContain(l));
   });
 
@@ -84,9 +85,10 @@ describe("navFor", () => {
     expect(items).not.toContain("Configuración");
   });
 
-  it("el jugador sólo ve lo suyo", () => {
+  it("el jugador ve lo suyo y su turno de nutrición", () => {
     const items = labels("player", PRESET.jugador);
-    expect(items).toEqual(["Mi ficha"]);
+    expect(items).toEqual(expect.arrayContaining(["Mi ficha", "Turno de nutrición"]));
+    expect(items).not.toContain("Nutrición");
   });
 
   it("el socio ve su cuota, la bolsa y el portal multidivisión, y nada del club", () => {
@@ -109,6 +111,10 @@ describe("navFor", () => {
 
   it("el preparador físico llega al gimnasio", () => {
     expect(labels("analyst", PRESET.preparadorFisico)).toContain("Gimnasio");
+  });
+
+  it("la nutricionista llega a nutrición", () => {
+    expect(labels("analyst", PRESET.nutricionista)).toContain("Nutrición");
   });
 
   // ── Lo que este cambio vino a arreglar ──────────────────────────────────────

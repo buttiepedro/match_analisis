@@ -145,6 +145,13 @@ const IconDumbbell = () => (
   </svg>
 );
 
+const IconLeaf = () => (
+  <svg {...svg}>
+    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+    <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+  </svg>
+);
+
 const IconCard = () => (
   <svg {...svg}>
     <rect width="20" height="14" x="2" y="5" rx="2" />
@@ -219,6 +226,8 @@ const GIMNASIO: NavItem = { label: "Gimnasio", path: "/gimnasio", icon: <IconDum
 const BOLSA: NavItem = { label: "Bolsa de trabajo", path: "/bolsa", icon: <IconBriefcase />, permission: "bolsa.ver" };
 const MI_CUOTA: NavItem = { label: "Mi cuota", path: "/mi-club", icon: <IconCard />, permission: "socios.ver_propia" };
 const MI_FICHA: NavItem = { label: "Mi ficha", path: "/mi-ficha", icon: <IconUser />, onlyForPlayers: true };
+const MI_TURNO_NUTRICION: NavItem = { label: "Turno de nutrición", path: "/mi-turno-nutricion", icon: <IconLeaf />, permission: "nutricion.turnos_reservar" };
+const NUTRICION: NavItem = { label: "Nutrición", path: "/nutricion", icon: <IconLeaf />, permission: "nutricion.turnos_publicar" };
 const FIXTURE: NavItem = { label: "Fixture", path: "/fixture", icon: <IconTrophy />, permission: "club.ver_competencia" };
 const TABLAS: NavItem = { label: "Tablas", path: "/tablas", icon: <IconTable />, permission: "club.ver_competencia" };
 const CITADOS: NavItem = { label: "Citados", path: "/citados", icon: <IconList />, permission: "club.ver_competencia" };
@@ -264,10 +273,10 @@ export function navFor(role: string | undefined, permissions: string[]): NavGrou
 export const NAV: NavGroup[] = [
   // Primero lo propio: para un jugador o un socio es todo lo que hay, y sería
   // raro que apareciera al final de una lista de cosas que no puede tocar.
-  { title: "Mi cuenta", items: [MI_CUOTA, MI_FICHA] },
+  { title: "Mi cuenta", items: [MI_CUOTA, MI_FICHA, MI_TURNO_NUTRICION] },
   { title: "Día a día", items: [HOY, CALENDARIO] },
   { title: "Partido", items: [PARTIDOS, STATS] },
-  { title: "Plantel", items: [PLANTEL, ASISTENCIA, MEDICIONES, GIMNASIO] },
+  { title: "Plantel", items: [PLANTEL, ASISTENCIA, MEDICIONES, GIMNASIO, NUTRICION] },
   { title: "Club", items: [FIXTURE, TABLAS, CITADOS, SOCIOS, BOLSA, CONFIG] },
 ];
 
