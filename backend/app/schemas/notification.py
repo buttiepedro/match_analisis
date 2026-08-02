@@ -10,9 +10,12 @@ class VapidPublicKeyResponse(BaseModel):
 
 
 class NotificationDeviceCreate(BaseModel):
-    channel: Literal["web_push"] = "web_push"
-    #: URL de push del navegador (`PushSubscription.endpoint`).
+    channel: Literal["web_push", "fcm", "apns"] = "web_push"
+    #: URL de push del navegador (`web_push`) o token de Expo Push
+    #: (`ExponentPushToken[...]`, `fcm`/`apns` — ver [[app-movil]]).
     endpoint: str
+    #: Sólo `web_push`. `fcm`/`apns` no los necesitan: Expo entrega y
+    #: gestiona la suscripción del lado nativo.
     p256dh: Optional[str] = None
     auth_secret: Optional[str] = None
 

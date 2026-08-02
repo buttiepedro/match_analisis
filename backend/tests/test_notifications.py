@@ -75,6 +75,72 @@ async def _add_device(db, user_id, *, endpoint="https://push.example.com/abc", i
     return device
 
 
+async def _add_expo_device(db, user_id, *, channel, endpoint="ExponentPushToken[abc123]", is_active=True):
+    from app.models import NotificationChannel
+
+    device = NotificationDevice(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        channel=NotificationChannel(channel),
+        endpoint=endpoint,
+        is_active=is_active,
+    )
+    db.add(device)
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+
+# ── Doble del sender de Expo Push (fcm/apns — app-movil) ────────────────────
+
+@pytest.fixture
+def fake_expo_push(monkeypatch):
+    """
+    Reemplaza `httpx.AsyncClient` dentro de `core/notifications.py`. Mismo
+    criterio que `fake_webpush`: no se puede depender del servicio real de
+    Expo, pero sí hay que ejercitar cada resultado que puede devolver.
+    """
+    import app.core.notifications as modulo
+
+    calls: list[dict] = []
+    behavior = {"mode": "success"}
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._payload
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def post(self, url, json, headers):
+            calls.append({"url": url, "json": json})
+            if behavior["mode"] == "success":
+                return FakeResponse({"data": {"status": "ok"}})
+            if behavior["mode"] == "device_gone":
+                return FakeResponse(
+                    {"data": {"status": "error", "details": {"error": "DeviceNotRegistered"}}}
+                )
+            return FakeResponse(
+                {"data": {"status": "error", "details": {"error": "MessageTooBig"}}}
+            )
+
+    monkeypatch.setattr(modulo.httpx, "AsyncClient", FakeAsyncClient)
+    return calls, behavior
+
+
 # ── notify(): opt-out y bandeja ─────────────────────────────────────────────
 
 async def test_notify_saves_to_the_inbox(db, notif_ctx):
@@ -215,6 +281,100 @@ async def test_inactive_devices_are_not_pushed_to(db, notif_ctx, fake_webpush):
         body="y",
     )
     assert calls == []
+
+
+# ── notify(): despacho vía Expo Push (fcm/apns, app-movil) ──────────────────
+
+async def test_a_successful_expo_push_reaches_the_sender(db, notif_ctx, fake_expo_push):
+    calls, _ = fake_expo_push
+    await _add_expo_device(db, notif_ctx["user"].id, channel="fcm")
+
+    await notify(
+        db,
+        user_id=notif_ctx["user"].id,
+        club_id=notif_ctx["club"].id,
+        type=NotificationType.formacion_cargada,
+        title="Formación de Primera",
+        body="Ya está.",
+    )
+    assert len(calls) == 1
+    assert calls[0]["json"]["to"] == "ExponentPushToken[abc123]"
+    assert calls[0]["json"]["title"] == "Formación de Primera"
+
+
+async def test_apns_channel_uses_the_same_expo_sender(db, notif_ctx, fake_expo_push):
+    """`fcm` y `apns` son sólo de qué plataforma vino el token — Expo unifica el envío."""
+    calls, _ = fake_expo_push
+    await _add_expo_device(db, notif_ctx["user"].id, channel="apns")
+
+    await notify(
+        db,
+        user_id=notif_ctx["user"].id,
+        club_id=notif_ctx["club"].id,
+        type=NotificationType.formacion_cargada,
+        title="x",
+        body="y",
+    )
+    assert len(calls) == 1
+
+
+async def test_a_device_not_registered_response_deactivates_the_device(db, notif_ctx, fake_expo_push):
+    _, behavior = fake_expo_push
+    behavior["mode"] = "device_gone"
+    device = await _add_expo_device(db, notif_ctx["user"].id, channel="fcm")
+
+    await notify(
+        db,
+        user_id=notif_ctx["user"].id,
+        club_id=notif_ctx["club"].id,
+        type=NotificationType.formacion_cargada,
+        title="x",
+        body="y",
+    )
+
+    await db.refresh(device)
+    assert device.is_active is False
+
+
+async def test_an_unrelated_expo_error_does_not_raise_and_keeps_the_device_active(
+    db, notif_ctx, fake_expo_push
+):
+    _, behavior = fake_expo_push
+    behavior["mode"] = "boom"
+    device = await _add_expo_device(db, notif_ctx["user"].id, channel="fcm")
+
+    await notify(  # no debe lanzar
+        db,
+        user_id=notif_ctx["user"].id,
+        club_id=notif_ctx["club"].id,
+        type=NotificationType.formacion_cargada,
+        title="x",
+        body="y",
+    )
+
+    await db.refresh(device)
+    assert device.is_active is True
+
+
+# ── Endpoints: registro de device con channel fcm/apns ──────────────────────
+
+async def test_registering_a_device_with_fcm_channel(client, notif_ctx):
+    res = await client.post(
+        "/me/notification-devices",
+        json={"channel": "fcm", "endpoint": "ExponentPushToken[xyz789]"},
+        headers=notif_ctx["headers"],
+    )
+    assert res.status_code == 201, res.text
+    assert res.json()["channel"] == "fcm"
+
+
+async def test_registering_a_device_with_an_unknown_channel_is_rejected(client, notif_ctx):
+    res = await client.post(
+        "/me/notification-devices",
+        json={"channel": "sms", "endpoint": "555-0100"},
+        headers=notif_ctx["headers"],
+    )
+    assert res.status_code == 422
 
 
 # ── Endpoints: VAPID ─────────────────────────────────────────────────────────

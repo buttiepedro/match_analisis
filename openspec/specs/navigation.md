@@ -126,3 +126,4 @@ disparador abajo, no volver a la barra de cinco.
 - [[offline-resilience]] — el tablero, que queda fuera de la navegación
 - [[notificaciones]] — la campana y la bandeja
 - [[turnos-nutricion]] — agenda de la nutricionista, ítems "Nutrición" y "Turno de nutrición"
+- [[app-movil]] — mismo techo de "cinco es el límite" aplicado a los tabs de la app móvil

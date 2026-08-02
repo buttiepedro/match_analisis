@@ -1,7 +1,8 @@
 ---
 title: Portal completo de socio/jugador, notificaciones, app móvil y multi-tenant — roadmap
 type: roadmap
-status: proposed
+status: completed
+completed: 2026-08-02
 created: 2026-07-29
 ---
 
@@ -179,14 +180,49 @@ consuma `{slug}.dominio.com` igual que hoy consume el dominio único —
 no hay nada que la app móvil tenga que esperar de este cambio salvo que
 el corte efectivamente se ejecute.
 
-### 6. App móvil — React Native
+### 6. App móvil — React Native — ✅ código hecho, sin publicar (2026-08-02)
 
 Segundo frontend, mismo backend, alcance inicial acotado al portal de socio y
 jugador (lo que dejaron listo 1–4), no al tablero de partido del cuerpo técnico.
 Necesita el contrato de push de **3** definido y, si se aprueba 5, el contrato de
 resolución de club definido también — de ahí que vaya último.
 
-Ver [[add-app-movil-react-native]].
+Ver [[add-app-movil-react-native]] (archivado en
+`archive/2026-08-02-app-movil-react-native.md`, spec en [[app-movil]]).
+Arrancó con **3** ya en producción, como pedía el orden — **5** seguía sin
+cortar (sigue así), así que se construyó contra el camino 1 de resolución
+de club (selector/DNI, no subdominio), que no depende de que 5 se
+resuelva. Mismo criterio que 5: código completo y verificado donde se
+pudo, publicación explícitamente no ejecutada — no es equivalente a los
+cambios 1-4.
+
+Verificado en vivo, con Playwright sobre `expo start --web` (sin macOS ni
+Android SDK para un simulador nativo en esta sesión): login con email y
+con DNI —incluido el cambio de contraseña forzado del socio—, las cuatro
+pantallas con datos reales del backend, y el circuito completo de
+[[turnos-nutricion]] (reservar, ver "Tu turno", la notificación de
+confirmación apareciendo en la bandeja de la misma app). Cero errores de
+consola.
+
+**Encontró dos bugs reales de `expo-secure-store` en web** (la API sync no
+existe ahí, y el paquete no soporta web en absoluto — documentación
+oficial de Expo, no algo que se pueda arreglar): se resolvió con
+`localStorage` como alternativa **sólo para esta verificación**, ya que la
+v1 real no se publica para web.
+
+**Encontró que el backend no estaba tan listo para esto como decía la
+propuesta original**: `POST /me/notification-devices` sólo aceptaba
+`channel="web_push"`, y no había sender para `fcm`/`apns` — el enum ya
+tenía los valores (desde **3**) pero nadie había completado el otro lado.
+Se agregó `ExpoPushSender` (un solo POST a Expo Push Service, que le habla
+a FCM/APNs por su cuenta — la app nunca gestiona certificados a mano). No
+verificado de punta a punta contra un dispositivo real: hace falta un
+`projectId` de EAS que esta sesión no tiene.
+
+**Fase E (publicación) explícitamente no ejecutada**: sin cuenta de Apple
+Developer Program, de Google Play Developer, ni de Expo (`eas init`), no
+hay a dónde enviar un build. El mecanismo de credenciales de demo
+(`seed_demo.py`) ya está listo y no necesitó cambios.
 
 ---
 
@@ -242,6 +278,56 @@ Ver [[add-app-movil-react-native]].
 | **Seis cambios grandes a la vez diluyen foco** | Se secuencian, no se abren todos juntos; cada uno es útil por sí solo si el programa se corta después de él |
 
 ---
+
+## Cierre (02/08)
+
+Los seis cambios están implementados. Cada uno dejó su spec:
+
+| # | Cambio | Spec | Estado |
+|---|--------|------|--------|
+| 1 | Portal multidivisión | [[add-portal-multidivision]] | En producción |
+| 2 | Perfil completo del jugador | [[add-perfil-jugador-completo]] | En producción |
+| 3 | Notificaciones push | [[notificaciones]] | En producción |
+| 4 | Turnos con nutricionista | [[turnos-nutricion]] | En producción |
+| 5 | Una instancia por club | [[multi-tenant]] | Código listo, corte a producción no ejecutado |
+| 6 | App móvil | [[app-movil]] | Código listo, publicación en tiendas no ejecutada |
+
+Los cuatro primeros son features de producto: se probaron de punta a punta
+contra un backend real y quedaron funcionando —son los que un socio o
+jugador nota mañana mismo, tal como preveía "Orden y por qué"—. Los dos
+últimos son distintos en naturaleza, y a propósito: son infraestructura y
+publicación, dos pasos que dependen de cuentas, pagos y decisiones
+operativas que no le tocan al código —una cuenta de Neon, un dominio, una
+cuenta de Apple Developer Program y de Google Play Developer—. Quedaron
+construidos y verificados hasta donde el entorno de esta sesión permitió
+(Docker local, `expo start --web`), con lo que falta documentado
+explícitamente en cada spec, no escondido detrás de un "listo" a medias.
+
+### Lo que este programa cambió de verdad
+
+Los cambios 1–4 terminaron de convertir a match_analisis en una plataforma
+de club de verdad: el socio y el jugador ven el club entero, no una
+esquina; hay un canal de avisos que no depende de que alguien mire
+WhatsApp; y hay un segundo profesional del club (la nutricionista) con una
+herramienta real, no una promesa vacía en el catálogo de presets de
+[[permisos]]. El cambio 4 encontró, de paso, el bug más serio de todo el
+programa: jugadores invitados sin ninguna capacidad desde que existe el
+sistema de permisos, invisible hasta que la primera capacidad de club de
+verdad se la pidió.
+
+Los cambios 5 y 6 dejan **preparado** —no activado— el siguiente salto:
+que cada club tenga su propio dominio y su marca, y que el socio y el
+jugador puedan usar un teléfono en vez de un navegador. Ninguno de los dos
+es una decisión que un cambio de código pueda tomar solo.
+
+### Lo que queda para decidir, y no es técnico
+
+1. **Cuándo cortar a una instancia por club sobre Neon** (cambio 5). Depende
+   de cuántos clubes estén corriendo en ese momento — ver
+   [[multi-tenant]], "Migración de lo existente".
+2. **Si se publica la app móvil**, y con qué cuentas (Apple Developer
+   Program, Google Play Developer, Expo/EAS) — ver [[app-movil]], "Qué
+   falta para publicar".
 
 ## Relacionado
 

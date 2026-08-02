@@ -29,6 +29,10 @@ match_analisis/
 │   ├── Dockerfile
 │   ├── package.json
 │   └── src/
+├── mobile/                 # app móvil (Expo) — portal de socio/jugador, ver [[app-movil]]
+│   ├── app.json
+│   ├── package.json
+│   └── app/, src/
 ├── backend/
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -37,6 +41,10 @@ match_analisis/
 ├── docker-compose.yml
 └── .env.example
 ```
+
+`mobile/` no entra al `docker-compose.yml` del stack principal — Expo se
+compila y corre con su propio tooling, no en un contenedor. Consume la
+misma API del backend, sin lógica de negocio propia.
 
 ## Comunicación entre Servicios
 
@@ -73,3 +81,4 @@ match_analisis/
 - [[match-session]] — sesión de partido y timer
 - [[statistics-screens]] — pantallas de registro de estadísticas
 - [[video-analysis-engine]] — módulo separado de análisis de video (contenedor propio con GPU, no forma parte de este stack)
+- [[app-movil]] — segundo frontend (Expo), portal de socio/jugador, mismo backend

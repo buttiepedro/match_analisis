@@ -12,6 +12,7 @@ import json
 import logging
 import uuid
 
+import httpx
 from pywebpush import WebPushException, webpush
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,8 @@ from app.core.config import settings
 from app.models import Notification, NotificationChannel, NotificationDevice, NotificationPreference, NotificationType
 
 logger = logging.getLogger(__name__)
+
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 
 
 class DeviceGone(Exception):
@@ -54,10 +57,39 @@ class WebPushSender:
             raise
 
 
-#: Un sender por canal. Sumar `fcm`/`apns` ([[add-app-movil-react-native]]) es
-#: agregar una entrada acá, no reescribir `notify()`.
-SENDERS: dict[NotificationChannel, WebPushSender] = {
+class ExpoPushSender:
+    """
+    `fcm` y `apns` ([[app-movil]]) comparten este sender: Expo Push Service
+    es el intermediario que ya sabe hablarle a FCM y a APNs por su cuenta —
+    la app no gestiona certificados de Apple ni credenciales de Firebase,
+    sólo el token que `expo-notifications` entrega (`endpoint`, formato
+    `ExponentPushToken[...]`).
+    """
+
+    async def send(self, device: NotificationDevice, *, title: str, body: str, data: dict) -> None:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                EXPO_PUSH_URL,
+                json={"to": device.endpoint, "title": title, "body": body, "data": data},
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+            )
+        response.raise_for_status()
+        ticket = (response.json() or {}).get("data") or {}
+        if ticket.get("status") == "error":
+            # DeviceNotRegistered: el usuario desinstaló la app o revocó el
+            # permiso — mismo tratamiento que un 404/410 de web push.
+            if ticket.get("details", {}).get("error") == "DeviceNotRegistered":
+                raise DeviceGone
+            raise RuntimeError(f"Expo Push rechazó el envío: {ticket}")
+
+
+#: Un sender por canal. Sumar un canal nuevo es agregar una entrada acá, no
+#: reescribir `notify()`.
+_expo_sender = ExpoPushSender()
+SENDERS: dict[NotificationChannel, WebPushSender | ExpoPushSender] = {
     NotificationChannel.web_push: WebPushSender(),
+    NotificationChannel.fcm: _expo_sender,
+    NotificationChannel.apns: _expo_sender,
 }
 
 

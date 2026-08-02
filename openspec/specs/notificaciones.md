@@ -34,8 +34,9 @@ notification_preferences  user_id, type, enabled
 ```
 
 `channel` es lo que hace que un canal nativo (`fcm`/`apns`, de
-[[add-app-movil-react-native]]) sea agregar una fila al enum y un sender en
-`SENDERS`, no un sistema aparte.
+[[app-movil]]) sea agregar una fila al enum y un sender en
+`SENDERS`, no un sistema aparte — y así fue: `ExpoPushSender` se sumó sin
+tocar `notify()`.
 
 **Sin fila en `notification_preferences` = habilitado.** Opt-in por defecto,
 opt-out a mano — igual que el resto de la app no obliga a configurar nada
@@ -95,6 +96,20 @@ de formación (abajo) es el ejemplo — envuelve el llamado en su propio `try`.
   para no bloquear el loop de eventos del resto de la app mientras dura el
   envío.
 
+## Push nativo (`fcm`/`apns`)
+
+`ExpoPushSender`, compartido por los dos canales — la diferencia entre
+`fcm` y `apns` es de qué plataforma vino el token, no de cómo se manda.
+Un solo POST a `https://exp.host/--/api/v2/push/send`: Expo Push Service
+es el intermediario que le habla a FCM y a APNs por su cuenta, así que
+este backend nunca gestiona certificados de Apple ni credenciales de
+Firebase. Un `DeviceNotRegistered` en la respuesta desactiva el device,
+igual que un 404/410 de `web_push`.
+
+`NotificationDeviceCreate.channel` acepta `"fcm"`/`"apns"` además de
+`"web_push"` — el enum de la base (migración `0024`) ya los tenía, sólo el
+schema de entrada los rechazaba hasta [[app-movil]].
+
 ### El permiso se pide en contexto, no al entrar
 
 Pedirlo en el primer segundo de la sesión es la forma más confiable de que el
@@ -109,7 +124,7 @@ Web push en iOS **sólo** funciona si Safari es 16.4+ y la app está agregada a
 la pantalla de inicio — no en una pestaña normal. Es una limitación de Apple,
 no de esta implementación. Para un jugador con iPhone que no instaló la app,
 el aviso llega **sólo** a la bandeja dentro de la app, no como push del
-sistema. [[add-app-movil-react-native]] importa justamente por esto: una app
+sistema. [[app-movil]] importa justamente por esto: una app
 nativa recibe push por APNs sin esa condición.
 
 ## Disparador: formación cargada
@@ -186,7 +201,7 @@ WebSocket para esto, es deliberadamente un REST simple— y lleva a
 - [[add-notificaciones-push]] — la propuesta, cambio 3 del roadmap
 - [[add-portal-completo-roadmap]] — el programa
 - [[add-turnos-nutricion]] — segundo consumidor de `notify()`
-- [[add-app-movil-react-native]] — agrega los canales `fcm`/`apns`
+- [[app-movil]] — agrega los canales `fcm`/`apns` vía `ExpoPushSender`
 - [[gestion-semanal]] — `match_lineup`, dueño del disparador
 - [[permisos]] — el patrón de catálogo-en-código que este módulo repite
 - [[club-operativo]] — el portal del jugador, donde vive el banner de opt-in

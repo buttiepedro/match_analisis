@@ -1,9 +1,10 @@
 ---
 title: App móvil — React Native, portal de socio y jugador
 type: feature
-status: proposed
+status: completed
 spec: app-movil
 created: 2026-07-29
+completed: 2026-08-02
 ---
 
 # App móvil — React Native, portal de socio y jugador
@@ -122,42 +123,61 @@ producción antes o durante este.
 > por pantalla.
 
 ### Fase A: Scaffold
-- [ ] `mobile/` con Expo, TypeScript, `expo-router`
-- [ ] Cliente HTTP con el mismo patrón de refresh-único-en-vuelo que
-      `frontend/src/lib/axios.ts`, sobre `expo-secure-store`
-- [ ] Login: email o DNI, con el flujo de `must_change_password` de [[socios]]
-      y el selector/búsqueda de club (camino 1 de arriba)
-- [ ] Pantalla de error de red genérica — **sin** cola offline; una escritura
-      que falla se reintenta a mano, no se encola
+- [x] `mobile/` con Expo, TypeScript, `expo-router`
+- [x] Cliente HTTP con el mismo patrón de refresh-único-en-vuelo que
+      `frontend/src/lib/axios.ts` — sobre `expo-secure-store` en nativo;
+      `expo-secure-store` no soporta web, así que en la rama de
+      verificación (`expo start --web`) usa `localStorage`, ver
+      [[app-movil]]
+- [x] Login: email o DNI, con el flujo de `must_change_password` de [[socios]]
+      y el selector/búsqueda de club (camino 1 de arriba) — los dos
+      verificados en vivo
+- [x] Manejo de error genérico vía `ErrorBanner`/`parseApiError` — **sin**
+      cola offline; una escritura que falla se reintenta a mano, no se encola
 
 ### Fase B: Portal de lectura
-- [ ] Fixture, tablas, citados ([[add-portal-multidivision]])
-- [ ] Perfil de jugador completo ([[add-perfil-jugador-completo]])
-- [ ] Estado de cuota del socio ([[socios]])
-- [ ] Plan de gimnasio propio ([[gimnasio]])
-- [ ] Bolsa de trabajo, lectura y publicación ([[bolsa-trabajo]])
+- [x] Fixture, tablas, citados ([[add-portal-multidivision]]) — un tab
+      ("Club") con selector, no tres pantallas
+- [x] Perfil de jugador ([[add-perfil-jugador-completo]]) — simplificado:
+      sin sparklines de tests/físico (pide `react-native-svg`, fuera de
+      alcance) y sin subida de foto (pide `expo-image-picker` + recorte);
+      ver [[app-movil]], "Qué se simplificó"
+- [x] Estado de cuota del socio ([[socios]])
+- [x] Plan de gimnasio propio ([[gimnasio]])
+- [x] Bolsa de trabajo, lectura y publicación ([[bolsa-trabajo]]) —
+      texto plano, sin el compositor enriquecido ni portada/adjuntos de la web
 
 ### Fase C: Notificaciones
-- [ ] `expo-notifications`, permiso pedido en contexto (mismo criterio que la
-      Fase B de [[add-notificaciones-push]], no al abrir la app por primera vez)
-- [ ] Registro del token nativo en `POST /me/notification-devices`
-- [ ] Bandeja de notificaciones, mismo backend que la web
+- [x] `expo-notifications`, permiso pedido en contexto (`PushBanner` en la
+      tab Cuenta, mismo criterio que la Fase B de [[add-notificaciones-push]])
+- [x] Registro del token nativo en `POST /me/notification-devices` — pidió
+      dos cambios chicos de backend no anticipados por este documento: el
+      schema sólo aceptaba `channel="web_push"`, y no existía sender para
+      `fcm`/`apns`. Ambos resueltos (`ExpoPushSender`, ver [[notificaciones]])
+- [x] Bandeja de notificaciones, mismo backend que la web — verificada en
+      vivo mostrando un aviso real disparado desde la reserva de un turno
 
 ### Fase D: Turnos de nutrición
-- [ ] Reserva y cancelación ([[add-turnos-nutricion]])
+- [x] Reserva y cancelación ([[add-turnos-nutricion]]) — verificado de
+      punta a punta contra un backend real: reservar, ver "Tu turno", y la
+      notificación de confirmación en la bandeja de la misma app
 
 ### Fase E: Publicación
-- [ ] Cuenta de Apple Developer Program y Google Play Developer
-- [ ] Ícono, splash, screenshots, política de privacidad (requisito de ambas tiendas)
-- [ ] Credenciales de demo para el revisor: reusa `backend/scripts/seed_demo.py`
-      —ya existe, es idempotente y crea un club completo con socio y jugador—
-      en vez de armar un club de prueba a mano para cada revisión
-- [ ] `EAS Build` + `EAS Submit` para ambas tiendas
-- [ ] Universal Links / App Links si el cambio 5 está en producción (camino 2)
+- [ ] Cuenta de Apple Developer Program y Google Play Developer — **no
+      hecho**: requiere cuentas y pagos que esta sesión no tiene
+- [ ] Ícono, splash, screenshots, política de privacidad — no hecho
+- [ ] Credenciales de demo para el revisor — el mecanismo
+      (`backend/scripts/seed_demo.py`) ya existe y no necesitó cambios;
+      no se ejecutó como parte de una revisión real porque no hay nada a
+      lo que enviarlo todavía
+- [ ] `EAS Build` + `EAS Submit` — no hecho: necesita `eas init` con una
+      cuenta de Expo, que tampoco está disponible acá
+- [ ] Universal Links / App Links — no aplica: el cambio 5
+      ([[multi-tenant]]) tampoco está en producción
 
 ### Fase F: Documentación
-- [ ] `openspec/specs/app-movil.md`
-- [ ] `mobile/README.md` con setup y comando de build
+- [x] `openspec/specs/app-movil.md`
+- [x] `mobile/README.md` con setup y comando de build
 
 ---
 
@@ -177,11 +197,18 @@ producción antes o durante este.
 
 | Área | Impacto |
 |------|---------|
-| `backend/` | Ninguno más allá de lo que ya agregan los cambios 1–4: la API ya es agnóstica de quién la consume |
+| `backend/app/schemas/notification.py`, `backend/app/core/notifications.py` | `channel` acepta `fcm`/`apns`, nuevo `ExpoPushSender` — la API **no** era del todo agnóstica de quién la consume, ver más abajo |
 | `frontend/` | Ninguno |
 | `docker-compose.yml` | Ninguno — `mobile/` no entra al compose |
 | `mobile/` | Nuevo — todo el proyecto |
 | `backend/scripts/seed_demo.py` | Ninguno — se reusa tal cual para credenciales de revisión de tienda |
+
+> La fila de `backend/` de la tabla original decía "Ninguno... la API ya es
+> agnóstica de quién la consume". En la práctica no era cierto: el schema
+> de `POST /me/notification-devices` sólo aceptaba `channel="web_push"`, y
+> no había sender para `fcm`/`apns` — el punto de extensión estaba
+> preparado ([[notificaciones]] ya lo documentaba), pero nadie lo había
+> completado. Se encontró al construir `push.ts`, no antes.
 
 ---
 
@@ -200,16 +227,22 @@ producción antes o durante este.
 
 ## Criterios de Aceptación
 
-- [ ] Un socio o jugador entra a la app móvil con las mismas credenciales que
-      usa en la web
-- [ ] Fixture, tablas, citados, perfil, cuota, gimnasio, bolsa y turnos de
-      nutrición funcionan en la app con paridad de datos contra la web
-- [ ] Las notificaciones push nativas llegan usando la misma infraestructura
-      de [[add-notificaciones-push]], sin cambios en el backend más allá de
-      agregar el `channel`
+- [x] Un socio o jugador entra a la app móvil con las mismas credenciales que
+      usa en la web — verificado con un jugador (email) y un socio (DNI,
+      incluido el cambio de contraseña forzado del primer ingreso)
+- [x] Fixture, tablas, citados, perfil, cuota, gimnasio, bolsa y turnos de
+      nutrición funcionan en la app con paridad de **datos** contra la web
+      (la presentación se simplificó en algunos puntos, ver [[app-movil]])
+- [x] El registro de notificaciones push nativas usa la misma
+      infraestructura de [[add-notificaciones-push]] — pero **sí** hubo
+      cambios en el backend más allá de agregar el `channel` (ver arriba,
+      "Impacto en Código Existente"). Que un push nativo llegue de punta a
+      punta a un dispositivo real **no** se verificó — hace falta un
+      `projectId` de EAS que esta sesión no tiene
 - [ ] La app pasa la revisión de Apple y de Google con las credenciales de
-      `seed_demo.py`
-- [ ] El tablero de partido **no** existe en la v1 de la app móvil — no es un
+      `seed_demo.py` — no aplica todavía: no se envió a ninguna revisión
+      (fase E no ejecutada)
+- [x] El tablero de partido **no** existe en la v1 de la app móvil — no es un
       olvido, es alcance
 
 ---
