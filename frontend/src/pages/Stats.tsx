@@ -32,6 +32,7 @@ interface SessionInfo {
   home_team: string;
   away_team: string;
   scheduled_at: string | null;
+  tournament_id: string;
   tournament_name: string;
   division: { id: string; name: string };
 }
@@ -654,9 +655,10 @@ export default function Stats() {
   const [clubName,   setClubName]   = useState<string>("");
   const [loading,    setLoading]    = useState(true);
   const [loadError,  setLoadError]  = useState<string | null>(null);
-  const [selectedId,     setSelectedId]     = useState<string>("all");
-  const [catFilter,      setCatFilter]      = useState<CatFilter>("all");
-  const [divisionFilter, setDivisionFilter] = useState<string>("");
+  const [selectedId,      setSelectedId]      = useState<string>("all");
+  const [catFilter,       setCatFilter]       = useState<CatFilter>("all");
+  const [divisionFilter,  setDivisionFilter]  = useState<string>("");
+  const [tournamentFilter, setTournamentFilter] = useState<string>("");
   const [objectives, setObjectives] = useState<Objectives>(() => {
     try {
       const stored = localStorage.getItem(OBJECTIVES_KEY);
@@ -692,6 +694,7 @@ export default function Stats() {
             ).then(({ data }) =>
               data.map((s) => ({
                 ...s,
+                tournament_id: t.id,
                 tournament_name: `${t.name}${t.season ? ` ${t.season}` : ""}`,
                 division: t.division,
               }))
@@ -738,16 +741,41 @@ export default function Stats() {
     ? sessions.filter((s) => s.division.id === divisionFilter)
     : sessions;
 
+  const tournaments = Array.from(
+    new Map(
+      sessionsInDivision.map((s) => [s.tournament_id, { id: s.tournament_id, name: s.tournament_name }])
+    ).values()
+  );
+
+  const sessionsInTournament = tournamentFilter
+    ? sessionsInDivision.filter((s) => s.tournament_id === tournamentFilter)
+    : sessionsInDivision;
+
+  // sessions ya viene ordenado por fecha descendente, así que el primer
+  // elemento de cada subconjunto filtrado es siempre el último partido registrado.
   const handleDivisionChange = (divId: string) => {
     setDivisionFilter(divId);
-    if (divId && selectedId !== "all") {
-      const sel = sessions.find((s) => s.id === selectedId);
-      if (sel?.division.id !== divId) setSelectedId("all");
+    setTournamentFilter("");
+    if (divId) {
+      const inDiv = sessions.filter((s) => s.division.id === divId);
+      setSelectedId(inDiv.length > 0 ? inDiv[0].id : "all");
+    } else {
+      setSelectedId("all");
+    }
+  };
+
+  const handleTournamentChange = (tournId: string) => {
+    setTournamentFilter(tournId);
+    if (tournId) {
+      const inTournament = sessionsInDivision.filter((s) => s.tournament_id === tournId);
+      setSelectedId(inTournament.length > 0 ? inTournament[0].id : "all");
+    } else {
+      setSelectedId("all");
     }
   };
 
   const filteredSessions = selectedId === "all"
-    ? sessionsInDivision
+    ? sessionsInTournament
     : sessions.filter((s) => s.id === selectedId);
 
   const allEvents: NormalizedEvent[] = filteredSessions.flatMap((s) =>
@@ -837,7 +865,7 @@ export default function Stats() {
           className="bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
         >
           <option value="all">Todos los partidos</option>
-          {sessionsInDivision.map((s) => (
+          {sessionsInTournament.map((s) => (
             <option key={s.id} value={s.id}>
               {displayClubName} vs {s.userTeam === "user" ? s.away_team : s.home_team}
               {s.scheduled_at
@@ -872,6 +900,35 @@ export default function Stats() {
               }`}
             >
               {d.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Tournament filter pills */}
+      {!loading && tournaments.length > 1 && (
+        <div className="flex gap-2 mb-3 flex-wrap">
+          <button
+            onClick={() => handleTournamentChange("")}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              tournamentFilter === ""
+                ? "bg-brand text-white"
+                : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
+            }`}
+          >
+            Todos los torneos
+          </button>
+          {tournaments.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => handleTournamentChange(t.id)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                tournamentFilter === t.id
+                  ? "bg-brand text-white"
+                  : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
+              }`}
+            >
+              {t.name}
             </button>
           ))}
         </div>
