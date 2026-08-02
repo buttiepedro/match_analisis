@@ -1,8 +1,10 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
+import { applyClubBranding, fetchClubBranding } from "./lib/branding";
+import { useBrandingStore } from "./store/brandingStore";
 
 /*
   Todo salvo el login se carga por demanda. El tablero de cancha es la pantalla
@@ -81,6 +83,18 @@ function Home() {
 }
 
 export default function App() {
+  // Antes de renderizar cualquier pantalla: sin esto, la primera pintura
+  // sería con el tema por defecto y "saltaría" a la marca del club apenas
+  // llega la respuesta. Un club sin marca configurada no nota la diferencia
+  // porque `applyClubBranding` con `null` no toca nada.
+  const setBranding = useBrandingStore((s) => s.setBranding);
+  useEffect(() => {
+    fetchClubBranding().then((branding) => {
+      applyClubBranding(branding);
+      setBranding(branding);
+    });
+  }, [setBranding]);
+
   return (
     <BrowserRouter>
       <Suspense fallback={<RouteFallback />}>

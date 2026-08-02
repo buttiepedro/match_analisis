@@ -1,0 +1,108 @@
+name: match-analisis-platform
+
+# Instancia de PLATAFORMA: sirve el dominio principal (login de `superadmin`,
+# alta de clubes) y el Caddy compartido que rutea a cada instancia de club por
+# subdominio. Ver openspec/specs/multi-tenant.md.
+#
+# Reemplaza a docker-compose.prod.yml el día que se decide el corte (fase G
+# del cambio — no automático, es una decisión operativa: ver el spec). Hasta
+# entonces, docker-compose.prod.yml sigue siendo el que corre de verdad.
+#
+# Se levanta con:
+#
+#   docker compose -f docker-compose.platform.yml --env-file .env.platform up -d --build
+#
+# Diferencias contra docker-compose.prod.yml:
+#
+# - **Sin `db` ni `backup`.** La base es Neon, compartida por esta instancia
+#   y por cada docker-compose.club.<slug>.yml — Neon resuelve sus propios
+#   backups (point-in-time recovery), no `ops/backup.sh` sobre un volumen
+#   local que ya no existe.
+# - **Caddy corre `caddy-docker-proxy`**, no lee un Caddyfile estático de
+#   rutas: arma la configuración leyendo las etiquetas `caddy.*` de los
+#   contenedores en marcha, incluidos los de cada club (que viven en un
+#   compose aparte). `Caddyfile.platform` sólo trae las opciones globales
+#   (email de ACME) y el sitio de esta instancia — no los de cada club.
+# - **backend sin CLUB_SLUG**: es la instancia de plataforma
+#   (app/core/club_context.py con app.state.club = None).
+
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env.platform
+    environment:
+      ENVIRONMENT: production
+      # Sin CLUB_SLUG a propósito: instancia de plataforma.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              sys.exit(0 if urllib.request.urlopen("http://localhost:8000/health/ready", timeout=5).status == 200 else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      caddy: ${APP_DOMAIN:?falta APP_DOMAIN}
+      caddy.handle_path: /api/*
+      caddy.handle_path.reverse_proxy: "{{upstreams 8000}}"
+    networks:
+      - caddy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+    restart: unless-stopped
+    depends_on:
+      - backend
+    labels:
+      caddy: ${APP_DOMAIN:?falta APP_DOMAIN}
+      caddy.import: common
+      caddy.reverse_proxy: "{{upstreams 80}}"
+    networks:
+      - caddy
+
+  caddy:
+    # lucaslorentz/caddy-docker-proxy: arma el Caddyfile leyendo labels de
+    # Docker en vez de un archivo estático por ruta. `-alpine` trae Caddy 2
+    # + el plugin, sin compilar nada a mano.
+    image: lucaslorentz/caddy-docker-proxy:2.9-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?falta ACME_EMAIL}
+    volumes:
+      # Necesita leer el estado de Docker para saber qué contenedores están
+      # vivos y con qué etiquetas — es la pieza que reemplaza al `ask`
+      # endpoint de la versión anterior de este diseño.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./Caddyfile.platform:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    networks:
+      - caddy
+
+networks:
+  # Red externa: cada docker-compose.club.<slug>.yml se une a la misma para
+  # que Caddy vea sus contenedores. `docker network create caddy` una sola
+  # vez, antes del primer `up`.
+  caddy:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

@@ -15,13 +15,18 @@ updated: 2026-07-26
 ### Club
 ```sql
 clubs
-  id            UUID PK
-  name          VARCHAR(100) NOT NULL
-  slug          VARCHAR(50) UNIQUE NOT NULL
-  is_active     BOOLEAN DEFAULT TRUE
-  created_at    TIMESTAMP
-  updated_at    TIMESTAMP
+  id                UUID PK
+  name              VARCHAR(100) NOT NULL
+  slug              VARCHAR(50) UNIQUE NOT NULL
+  is_active         BOOLEAN DEFAULT TRUE
+  logo_url          VARCHAR(300) NULL     -- S3, igual que Player.profile_photo_url
+  primary_color     VARCHAR(7) NULL       -- hex; NULL = tema por defecto
+  secondary_color   VARCHAR(7) NULL
+  created_at        TIMESTAMP
+  updated_at        TIMESTAMP
 ```
+> `logo_url`/`primary_color`/`secondary_color` (migración `0026`): la marca
+> del club en la instancia que le corresponde. Ver [[multi-tenant]].
 
 ### User
 ```sql
@@ -481,3 +486,4 @@ CREATE INDEX idx_pt_player_type_date   ON physical_tests(player_id, test_type, t
 - [[statistics-screens]] — pantallas de registro y análisis
 - [[notificaciones]] — bandeja, dispositivos de push y preferencias
 - [[turnos-nutricion]] — agenda de la nutricionista
+- [[multi-tenant]] — una instancia por club, columnas de marca

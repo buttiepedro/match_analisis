@@ -1,10 +1,11 @@
 ---
 title: Una instancia por club — app genérica sobre Neon compartido, marca automática
 type: feature
-status: proposed
-spec: despliegue
+status: completed
+spec: multi-tenant
 created: 2026-07-29
 updated: 2026-07-30
+completed: 2026-08-02
 ---
 
 # Una instancia por club — app genérica sobre Neon compartido, marca automática
@@ -348,58 +349,70 @@ anterior de este documento.
 ## Fases de Implementación
 
 ### Fase A: Modelo
-- [ ] Migración: `clubs.logo_url`, `clubs.primary_color`, `clubs.secondary_color`
-- [ ] Validación de formato de `slug` (regex + reservados) en alta y edición
+- [x] Migración: `clubs.logo_url`, `clubs.primary_color`, `clubs.secondary_color`
+- [x] Validación de formato de `slug` (regex + reservados) en alta
+      (no hay edición de slug — ver Decisiones Técnicas actualizado)
 - [ ] Auditoría de los `slug` existentes, normalización manual si hace falta
+      — no hecha: no ejecutada en este cambio, es un paso operativo sobre
+      producción, no de código
 
 ### Fase B: La app sabe quién es
-- [ ] `CLUB_SLUG` en la configuración del backend
-- [ ] Carga de `app.state.club` al arrancar; falla el arranque si no existe
-      o está inactivo
-- [ ] Login scopeado a `club_id = app.state.club.id`, sin tocar el resto de
+- [x] `CLUB_SLUG` en la configuración del backend
+- [x] Carga de `app.state.club` al arrancar; falla el arranque si no existe
+      o está inactivo — verificado también contra Postgres real en Docker,
+      no sólo SQLite
+- [x] Login scopeado a `club_id = app.state.club.id`, sin tocar el resto de
       [[permisos]]
-- [ ] `GET /public/club-branding`, sin autenticación, sirve desde memoria
-- [ ] Tests: instancia con `CLUB_SLUG` inexistente no arranca; un usuario de
-      otro club no matchea en el login de esta instancia
+- [x] `GET /public/club-branding`, sin autenticación, sirve desde memoria
+- [x] Tests: instancia con `CLUB_SLUG` inexistente no arranca; un usuario de
+      otro club no matchea en el login de esta instancia (14 tests nuevos,
+      `tests/test_club_instance.py`)
 
 ### Fase C: Preparación para Neon
-- [ ] `DATABASE_URL` pooled para runtime, `DATABASE_URL_DIRECT` para Alembic
-- [ ] `sslmode=require`
-- [ ] `pool_size` conservador en el engine de SQLAlchemy
-- [ ] Job de migración separado del arranque de las instancias
-- [ ] Verificar en un entorno real de Neon: pool agotado bajo carga
-      concurrente de varias instancias, y que Alembic corre limpio contra el
-      endpoint directo
+- [x] `DATABASE_URL` pooled para runtime, `DATABASE_URL_DIRECT` para Alembic
+- [x] `sslmode=require` — documentado en `.env.platform.example` (va en la
+      connection string, no necesita código)
+- [x] `pool_size` conservador en el engine de SQLAlchemy
+- [x] Job de migración separado del arranque de las instancias
+      (`entrypoint.sh` + `SKIP_MIGRATIONS` + `migrate_shared_db.sh`)
+- [ ] Verificar en un entorno real de Neon — **no hecho**: esta sesión no
+      tiene una cuenta de Neon. Ver [[multi-tenant]], "Qué se verificó y
+      qué no"
 
 ### Fase D: Infraestructura de ruteo
-- [ ] `caddy-docker-proxy` en el Caddy de la plataforma
-- [ ] Plantilla de `docker-compose.<slug>.yml` con las etiquetas
-- [ ] Registro DNS wildcard `*.dominio.com`
-- [ ] Verificar que `docker compose up` de **desarrollo** sigue funcionando
-      igual que hoy, sin Caddy ni wildcard (un solo host local)
+- [x] `caddy-docker-proxy` en el Caddy de la plataforma
+      (`docker-compose.platform.yml`, `Caddyfile.platform`)
+- [x] Plantilla de `docker-compose.<slug>.yml` con las etiquetas
+- [ ] Registro DNS wildcard `*.dominio.com` — no aplica sin un dominio real
+- [x] Verificar que `docker compose up` de **desarrollo** sigue funcionando
+      igual que hoy: migró las 26 revisiones y arrancó como instancia de
+      plataforma sin tocar nada
 
 ### Fase E: Frontend
-- [ ] `GET /public/club-branding` al cargar, antes de renderizar el layout
-- [ ] Variables CSS de marca con el tema actual como default
-- [ ] Favicon y `<title>` dinámicos
+- [x] `GET /public/club-branding` al cargar, antes de renderizar el layout
+- [x] Variables CSS de marca con el tema actual como default
+- [x] Favicon y `<title>` dinámicos, logo en el header — verificado con
+      Playwright contra una instancia escopeada real (Postgres + Docker)
 
 ### Fase F: Provisión de un club nuevo
-- [ ] `scripts/provision_club.sh`: alta en la base, generación del compose,
-      `up -d`
+- [x] `backend/scripts/provision_club.sh`: alta vía `POST /clubs`,
+      generación del compose, `up -d` — escrito, **no corrido** contra un
+      Docker host/registro real
 - [ ] Pantalla de `superadmin` para editar logo y colores de un club ya
-      creado (no para crearlo — eso sigue siendo el script)
+      creado — el endpoint (`PATCH /clubs/{id}/branding`) está y tiene
+      tests; la pantalla queda pendiente, no bloquea el resto del cambio
 
 ### Fase G: Migración de lo existente
-- [ ] `pg_dump` / restore del `db` actual a la base de Neon
-- [ ] Confirmar cuántos clubes hay en producción al momento de implementar
-      esto, para decidir el orden de corte
-- [ ] Comunicar el link nuevo a los socios existentes
+- [ ] No ejecutada — es una decisión operativa que depende de cuántos
+      clubes estén corriendo al momento del corte, documentada en
+      [[multi-tenant]] pero deliberadamente no accionada acá
 
 ### Fase H: Documentación
-- [ ] Reescribir la sección de infraestructura de [[despliegue]]: Neon,
-      `caddy-docker-proxy`, el job de migración separado
-- [ ] Actualizar [[data-model]] con las columnas de marca
-- [ ] `openspec/specs/multi-tenant.md`
+- [x] `openspec/specs/multi-tenant.md`, con secciones explícitas de qué se
+      verificó y qué no
+- [x] Actualizar [[data-model]] con las columnas de marca
+- [x] [[despliegue]]: forward-pointer a [[multi-tenant]], sin reescribir la
+      sección vigente — `docker-compose.prod.yml` sigue siendo lo real
 
 ---
 
@@ -426,12 +439,14 @@ anterior de este documento.
 | `backend/app/api/v1/auth.py` | Login scopeado a `app.state.club.id` |
 | `backend/app/api/v1/public.py` | Nuevo — branding, sin auth, servido desde memoria |
 | `backend/scripts/provision_club.sh` | Nuevo |
-| `backend/scripts/migrate.py` (o equivalente) | Nuevo — job de migración separado del arranque |
-| `docker-compose.<slug>.yml.tmpl` | Nuevo — plantilla por club |
-| `Caddyfile` | Reescrito para `caddy-docker-proxy` |
+| `backend/scripts/migrate_shared_db.sh` | Nuevo — job de migración separado del arranque, envuelve `backend/migrate.py` existente |
+| `backend/entrypoint.sh` | `SKIP_MIGRATIONS` — sin configurar, sigue migrando solo al arrancar |
+| `docker-compose.club.yml.tmpl` | Nuevo — plantilla por club |
+| `docker-compose.platform.yml`, `Caddyfile.platform` | Nuevos — **no** se tocó `docker-compose.prod.yml` ni `Caddyfile`, que siguen siendo el despliegue real |
 | `frontend/src/App.tsx` | Fetch de branding antes del layout |
-| `frontend/src/theme/` | Variables CSS dinámicas |
-| Base de datos | Migra de Postgres self-hosted a Neon compartido; schema sin cambios más allá de las tres columnas |
+| `frontend/src/lib/branding.ts`, `frontend/src/store/brandingStore.ts` | Nuevos — aplican `--brand`, título, favicon; estado para el logo del header |
+| `frontend/tailwind.config.ts`, `frontend/src/index.css` | `brand.*` pasa a derivarse de la variable CSS `--brand` con `color-mix()` |
+| Base de datos | Sin cambios en este cambio — sigue en Postgres self-hosted. Neon es el destino preparado, no ejecutado (fase G) |
 
 ---
 
@@ -452,21 +467,33 @@ anterior de este documento.
 ## Criterios de Aceptación
 
 - [ ] Un club nuevo queda alcanzable en `{slug}.dominio.com` corriendo su
-      propia instancia, tras el script de aprovisionamiento
-- [ ] Una instancia con un `CLUB_SLUG` que no existe o está inactivo no
-      arranca
-- [ ] Ningún usuario puede autenticarse en la instancia de un club distinto
+      propia instancia, tras el script de aprovisionamiento — **no
+      verificado**: el script se escribió pero no se corrió contra un
+      Docker host ni un dominio real
+- [x] Una instancia con un `CLUB_SLUG` que no existe o está inactivo no
+      arranca — verificado contra Postgres real en Docker (`RuntimeError`
+      visible, proceso termina)
+- [x] Ningún usuario puede autenticarse en la instancia de un club distinto
       al suyo — no por un chequeo que lo bloquea, sino porque el login de
-      esa instancia no lo encuentra
-- [ ] El logo y los colores configurados por un club se ven en su
-      subdominio y en ningún otro
-- [ ] Un club sin marca configurada se ve exactamente como hoy
-- [ ] Las migraciones corren una sola vez por release, no una vez por
-      instancia
+      esa instancia no lo encuentra — verificado en vivo (admin del club
+      correcto entra, `superadmin` recibe `401`) y con 14 tests
+- [x] El logo y los colores configurados por un club se ven en su
+      subdominio — verificado con Playwright (color `bg-brand` computado
+      coincide con `primary_color`, logo carga). "Y en ningún otro" no se
+      pudo probar con dos instancias corriendo a la vez en esta sesión
+- [x] Un club sin marca configurada se ve exactamente como hoy —
+      `applyClubBranding(null)` no toca nada; confirmado en la instancia de
+      plataforma (`/public/club-branding` → `404`, sin efecto)
+- [x] Las migraciones corren una sola vez por release, no una vez por
+      instancia — mecanismo construido (`SKIP_MIGRATIONS`,
+      `migrate_shared_db.sh`); no verificado con N instancias reales
+      arrancando a la vez
 - [ ] Alembic corre limpio contra el endpoint directo de Neon; el runtime
-      usa el pooled sin agotar conexiones con varias instancias activas
-- [ ] `docker compose up` de desarrollo sigue funcionando igual que hoy,
-      sin Caddy, sin wildcard, sin Neon
+      usa el pooled sin agotar conexiones con varias instancias activas —
+      **no verificado**: hace falta una cuenta de Neon
+- [x] `docker compose up` de desarrollo sigue funcionando igual que hoy,
+      sin Caddy, sin wildcard, sin Neon — verificado: migró la `0026` y
+      arrancó como instancia de plataforma sin cambios de comportamiento
 
 ---
 
@@ -478,7 +505,7 @@ anterior de este documento.
 | **N instancias migrando a la vez contra la base compartida** | Job de migración separado, corrido una sola vez antes de tocar las instancias |
 | **Cold start de Neon sorprende al primer socio que entra tras horas sin tráfico** | Documentado de frente; el plan de Neon puede ajustarse (mantener el cómputo activo) si en uso real resulta molesto |
 | **`DATABASE_URL` pooled es un secreto compartido repetido en N archivos `.env`** | Mismo tratamiento que `SECRET_KEY` hoy — un secreto por entorno; repetirlo en N instancias del mismo operador no es lo mismo que exponerlo a terceros |
-| **Un `slug` mal formado rompe DNS, colisiona con una etiqueta de Caddy, o pisa una ruta de la plataforma** | Validación de formato + lista de reservados en alta y edición |
+| **Un `slug` mal formado rompe DNS, colisiona con una etiqueta de Caddy, o pisa una ruta de la plataforma** | Validación de formato + lista de reservados en alta. No hay edición de `slug` en el código (nunca la hubo) — cambiarlo sigue siendo una operación manual sobre la base, no una pantalla |
 | **Se pierde la posibilidad de una consulta única "todos los clubes" para soporte** | Sigue existiendo: `DATABASE_URL_DIRECT` apunta a la misma base compartida; una consulta de plataforma corre contra ella igual que hoy, sólo que ninguna instancia de club individual la necesita |
 
 ---

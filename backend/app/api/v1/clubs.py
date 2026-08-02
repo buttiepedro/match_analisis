@@ -12,15 +12,35 @@ from app.core.deps import assert_club_access, get_club_or_404, get_current_user,
 from app.core.roles import assign_preset_for_legacy_role, seed_club_roles
 from app.core.security import get_password_hash
 from app.models import Club, Division, Player, User, UserRole, user_divisions
-from app.schemas.club import ClubCreate, ClubResponse
+from app.schemas.club import ClubBrandingUpdate, ClubCreate, ClubResponse
 from app.schemas.player import PlayerWithDivisionResponse
 from app.schemas.user import UserCreate, UserDivisionsUpdate, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/clubs")
 
+#: `slug` no es sólo desambiguador de login: en
+#: [[add-club-subdominios-y-marca]] pasa a ser nombre de host y de stack de
+#: Docker. Ningún club puede pisar estos.
+RESERVED_SLUGS = frozenset({"www", "api", "app", "admin", "mail", "ftp"})
+_SLUG_FORMAT = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
 
 def _slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def _validate_slug(slug: str) -> None:
+    """Minúsculas, dígitos y guiones; sin empezar/terminar en guión; sin reservados."""
+    if not slug or not _SLUG_FORMAT.match(slug):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El nombre del club no genera un slug válido (minúsculas, dígitos y guiones)",
+        )
+    if slug in RESERVED_SLUGS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"'{slug}' es un slug reservado de la plataforma",
+        )
 
 
 # ── Clubs ──────────────────────────────────────────────────────────────────────
@@ -32,6 +52,7 @@ async def create_club(
     _: Annotated[User, Depends(require_superadmin)],
 ):
     slug = _slugify(body.name)
+    _validate_slug(slug)
 
     existing = await db.scalar(select(Club).where(Club.slug == slug))
     if existing:
@@ -82,6 +103,33 @@ async def get_club(
 ):
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
+    return club
+
+
+@router.patch("/{club_id}/branding", response_model=ClubResponse)
+async def update_club_branding(
+    club_id: uuid.UUID,
+    body: ClubBrandingUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_superadmin)],
+):
+    """
+    Logo y colores, no el slug: crear el club sigue siendo el único momento en
+    que el slug se fija (ver [[add-club-subdominios-y-marca]]) — es nombre de
+    host y de stack de Docker, así que cambiarlo en caliente es un cambio de
+    infraestructura, no una edición de marca.
+    """
+    club = await get_club_or_404(club_id, db)
+
+    if body.logo_url is not None:
+        club.logo_url = body.logo_url
+    if body.primary_color is not None:
+        club.primary_color = body.primary_color
+    if body.secondary_color is not None:
+        club.secondary_color = body.secondary_color
+
+    await db.commit()
+    await db.refresh(club)
     return club
 
 

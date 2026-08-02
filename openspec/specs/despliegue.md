@@ -126,6 +126,15 @@ Levantando el stack completo (`APP_DOMAIN=:80`, HTTP plano):
 Lo único que **no** se pudo probar es la emisión del certificado, que necesita un
 dominio público.
 
+## El próximo modelo: una instancia por club
+
+[[multi-tenant]] ya está construido y probado contra Postgres local, pero
+**no es lo que corre hoy**. Este documento —`docker-compose.prod.yml`, una
+base propia, un backend— sigue siendo el despliegue real hasta que se
+decida el corte a Neon + una instancia por club, que es una decisión
+operativa (depende de cuántos clubes haya corriendo en ese momento), no un
+paso automático de este cambio.
+
 ## Fuera de alcance
 
 | Qué | Por qué no |

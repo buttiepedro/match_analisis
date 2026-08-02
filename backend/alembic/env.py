@@ -21,7 +21,13 @@ def _sync_url(url: str) -> str:
 
 
 config = context.config
-config.set_main_option("sqlalchemy.url", _sync_url(settings.DATABASE_URL))
+# DATABASE_URL_DIRECT (sin pooler) si está configurada — Neon en modo
+# transacción no sostiene lo que Alembic necesita (locks de advisory, SET de
+# sesión). Sin configurar, se usa DATABASE_URL: es lo que ya pasa hoy contra
+# una base propia sin pooler de por medio. Ver [[add-club-subdominios-y-marca]].
+config.set_main_option(
+    "sqlalchemy.url", _sync_url(settings.DATABASE_URL_DIRECT or settings.DATABASE_URL)
+)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

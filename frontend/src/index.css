@@ -12,6 +12,16 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /*
+    Marca por club (ver [[add-club-subdominios-y-marca]]): `lib/branding.ts`
+    pisa `--brand` con `primary_color` si el club configuró uno.
+    `brand-hover/soft/ring` en `tailwind.config.ts` se derivan de acá con
+    `color-mix()` en vez de guardar cuatro variables — un solo color por
+    editar, no cuatro que se pueden desincronizar.
+  */
+  --brand: #211e67;
+  --club-secondary: transparent;
 }
 
 * {

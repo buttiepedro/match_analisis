@@ -10,7 +10,16 @@ def _async_url(url: str) -> str:
     return url
 
 
-engine = create_async_engine(_async_url(settings.DATABASE_URL), echo=False)
+#: SQLite (tests, dev sin Postgres) no acepta `pool_size`/`max_overflow` — usa
+#: su propio pool por archivo, y NullPool rompe la base en memoria entre
+#: conexiones.
+_pool_kwargs = (
+    {}
+    if _async_url(settings.DATABASE_URL).startswith("sqlite")
+    else {"pool_size": settings.DB_POOL_SIZE, "max_overflow": settings.DB_MAX_OVERFLOW}
+)
+
+engine = create_async_engine(_async_url(settings.DATABASE_URL), echo=False, **_pool_kwargs)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

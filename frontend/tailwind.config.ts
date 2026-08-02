@@ -5,6 +5,12 @@ import type { Config } from "tailwindcss";
   de tema oscuro a claro obligó a tocar veinte archivos, y no debería volver a
   pasar si mañana cambia la marca.
 
+  `brand.*` sale de `--brand` (definida en `index.css`, pisable en runtime por
+  `lib/branding.ts` con el `primary_color` del club — ver
+  [[add-club-subdominios-y-marca]]), y el resto de la familia se deriva con
+  `color-mix()` en vez de guardar una variable por tono: un club que
+  personaliza su marca cambia **un** color, no cuatro.
+
   Los tonos de `ink` están elegidos para pasar contraste AA sobre blanco, que es
   el error típico al pasar de oscuro a claro: el gris que se leía bien sobre
   negro desaparece sobre blanco.
@@ -15,11 +21,12 @@ export default {
     extend: {
       colors: {
         brand: {
-          DEFAULT: "#211E67",
-          hover: "#2D2A85",
-          soft: "#ECEBF5", // fondo de chip/estado sobre blanco
-          ring: "#C9C7E4",
+          DEFAULT: "var(--brand)",
+          hover: "color-mix(in srgb, var(--brand) 88%, white)", // más claro, no más oscuro: es el hover, no el pressed
+          soft: "color-mix(in srgb, var(--brand) 8%, white)", // fondo de chip/estado sobre blanco
+          ring: "color-mix(in srgb, var(--brand) 25%, white)",
         },
+        "club-secondary": "var(--club-secondary)",
         danger: {
           DEFAULT: "#FF1B20",
           hover: "#E30B10",

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
 import { useAuthStore } from "../store/authStore";
+import { useBrandingStore } from "../store/brandingStore";
 
 /*
   Navegación única: una barra lateral, colapsable en escritorio y en cajón
@@ -345,6 +346,7 @@ function NotificationBell({ iconsOnly }: { iconsOnly: boolean }) {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
+  const branding = useBrandingStore((s) => s.branding);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const location = useLocation();
@@ -454,8 +456,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         iconsOnly ? "justify-center px-0" : ""
       } h-14 shrink-0`}
     >
-      {!iconsOnly && <span className="font-bold text-ink text-sm truncate">Rugby Analisis</span>}
-      {iconsOnly && <span className="font-bold text-brand text-base">RA</span>}
+      {branding?.logo_url && (
+        <img
+          src={branding.logo_url}
+          alt={branding.name}
+          className="h-7 w-7 rounded object-contain shrink-0"
+        />
+      )}
+      {!iconsOnly && (
+        <span className="font-bold text-ink text-sm truncate">
+          {branding?.name ?? "Rugby Analisis"}
+        </span>
+      )}
+      {iconsOnly && !branding?.logo_url && <span className="font-bold text-brand text-base">RA</span>}
     </div>
   );
 
@@ -536,7 +549,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </button>
         {/* Mostrar dónde estoy importa más que repetir la marca en cada pantalla. */}
         <span className="font-bold text-ink text-sm truncate flex-1">
-          {currentLabel ?? "Rugby Analisis"}
+          {currentLabel ?? branding?.name ?? "Rugby Analisis"}
         </span>
         <NotificationBell iconsOnly />
       </header>
@@ -555,7 +568,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             className="relative flex h-full w-[264px] max-w-[82vw] flex-col bg-surface border-r border-line animate-drawer"
           >
             <div className="flex items-center justify-between h-14 px-4 border-b border-line shrink-0">
-              <span className="font-bold text-ink text-sm">Rugby Analisis</span>
+              <span className="flex items-center gap-2 min-w-0">
+                {branding?.logo_url && (
+                  <img
+                    src={branding.logo_url}
+                    alt={branding.name}
+                    className="h-7 w-7 rounded object-contain shrink-0"
+                  />
+                )}
+                <span className="font-bold text-ink text-sm truncate">
+                  {branding?.name ?? "Rugby Analisis"}
+                </span>
+              </span>
               <button
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Cerrar menú"

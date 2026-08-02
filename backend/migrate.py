@@ -7,7 +7,10 @@ import psycopg2
 from alembic.config import Config
 from alembic import command
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+# DATABASE_URL_DIRECT (sin pooler) si está configurada — es el endpoint que
+# Alembic va a usar de verdad (ver alembic/env.py), así que es contra ese que
+# hay que esperar. Ver [[add-club-subdominios-y-marca]].
+DATABASE_URL = os.environ.get("DATABASE_URL_DIRECT") or os.environ.get("DATABASE_URL", "")
 SYNC_URL = (
     DATABASE_URL
     .replace("postgresql+asyncpg://", "postgresql://")

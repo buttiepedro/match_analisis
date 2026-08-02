@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,9 +42,17 @@ def _user_response(user: User) -> UserResponse:
     return payload
 
 
-async def _resolve_login(body: LoginRequest, db: AsyncSession) -> User | None:
+async def _resolve_login(body: LoginRequest, db: AsyncSession, instance_club: Club | None) -> User | None:
     """
     Resuelve el usuario por email o por DNI.
+
+    `instance_club` es `app.state.club` (ver [[add-club-subdominios-y-marca]]):
+    en una instancia por club, el login **sólo** busca usuarios de ese club —
+    no porque se rechace un usuario de otro club, sino porque la consulta
+    nunca lo mira. Con eso, un DNI ya nunca puede resolver a más de un club
+    acá adentro, así que la disambiguación por `club_slug` de abajo sólo
+    aplica en la instancia de plataforma (`instance_club is None`), que sigue
+    viendo todos los clubes de la base compartida.
 
     El DNI es único **por club**, así que la misma persona puede ser socia de dos
     clubes. Si resuelve a más de uno se pide el club en vez de elegir por el
@@ -52,7 +60,10 @@ async def _resolve_login(body: LoginRequest, db: AsyncSession) -> User | None:
     haya dos.
     """
     if body.email:
-        return await db.scalar(select(User).where(User.email == body.email))
+        query = select(User).where(User.email == body.email)
+        if instance_club is not None:
+            query = query.where(User.club_id == instance_club.id)
+        return await db.scalar(query)
 
     if not body.document_id:
         raise HTTPException(
@@ -61,7 +72,9 @@ async def _resolve_login(body: LoginRequest, db: AsyncSession) -> User | None:
         )
 
     query = select(User).where(User.document_id == body.document_id)
-    if body.club_slug:
+    if instance_club is not None:
+        query = query.where(User.club_id == instance_club.id)
+    elif body.club_slug:
         query = query.join(Club, Club.id == User.club_id).where(Club.slug == body.club_slug)
 
     matches = (await db.execute(query)).scalars().all()
@@ -87,10 +100,11 @@ async def _resolve_login(body: LoginRequest, db: AsyncSession) -> User | None:
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
+    request: Request,
     body: LoginRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    user = await _resolve_login(body, db)
+    user = await _resolve_login(body, db, request.app.state.club)
 
     if not user or not user.is_active or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")

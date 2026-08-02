@@ -162,6 +162,10 @@ adivinar quién es tesorero sería peor que dejarlo sin asignar.
 Crear clubes es una capacidad de la plataforma y no pertenece a ningún club. Sigue
 siendo un chequeo directo sobre `users.role`, y saltea todo chequeo de capacidad.
 
+Por el mismo motivo, en [[multi-tenant]] `superadmin` (`club_id = NULL`) no puede
+loguearse en la instancia de **ningún** club — sólo en la de plataforma, que es
+donde vive `POST /clubs`.
+
 ## Uso
 
 ```python

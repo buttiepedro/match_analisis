@@ -1,0 +1,67 @@
+name: match-analisis-club-{{SLUG}}
+
+# Plantilla por club. `backend/scripts/provision_club.sh` la copia y
+# reemplaza `{{SLUG}}` y `{{DOMAIN}}` antes de levantarla — no se edita a
+# mano salvo para ajustar la plantilla en sí. Ver
+# openspec/specs/multi-tenant.md.
+#
+# Se levanta con:
+#
+#   docker compose -f docker-compose.club.{{SLUG}}.yml --env-file .env.platform up -d --build
+#
+# Misma imagen genérica que la instancia de plataforma — lo único que cambia
+# entre un club y otro es CLUB_SLUG y el dominio de las etiquetas de Caddy.
+# Sin `db` ni `backup`: todas las instancias comparten la base Neon de
+# .env.platform (DATABASE_URL pooled). Sin Caddy propio: se unen a la red
+# `caddy` de docker-compose.platform.yml, que ya tiene el suyo corriendo.
+
+services:
+  backend:
+    image: match-analisis-backend:latest
+    restart: unless-stopped
+    env_file: .env.platform
+    environment:
+      ENVIRONMENT: production
+      CLUB_SLUG: "{{SLUG}}"
+      # El job de migración (scripts/migrate_shared_db.sh) ya corrió una vez
+      # contra DATABASE_URL_DIRECT antes de levantar esta instancia — que
+      # además migrara sola sería una carrera contra las otras N instancias
+      # arrancando en simultáneo.
+      SKIP_MIGRATIONS: "true"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              sys.exit(0 if urllib.request.urlopen("http://localhost:8000/health/ready", timeout=5).status == 200 else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      caddy: "{{DOMAIN}}"
+      caddy.import: common
+      caddy.handle_path: /api/*
+      caddy.handle_path.reverse_proxy: "{{upstreams 8000}}"
+    networks:
+      - caddy
+
+  frontend:
+    image: match-analisis-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      - backend
+    labels:
+      caddy: "{{DOMAIN}}"
+      caddy.reverse_proxy: "{{upstreams 80}}"
+    networks:
+      - caddy
+
+networks:
+  caddy:
+    external: true

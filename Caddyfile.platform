@@ -1,0 +1,40 @@
+{
+	# Let's Encrypt avisa acá si un certificado está por vencer y no pudo renovarse.
+	email {$ACME_EMAIL}
+
+	# caddy-docker-proxy: arma el resto de la configuración leyendo las
+	# etiquetas `caddy.*` de los contenedores en marcha — de esta instancia
+	# de plataforma y de cada docker-compose.club.<slug>.yml que se una a la
+	# misma red `caddy`. Ver docker-compose.platform.yml y
+	# openspec/specs/multi-tenant.md.
+	docker_proxy
+}
+
+# Snippet compartido: cada sitio (el de plataforma, acá abajo, y el de cada
+# club, vía la etiqueta `caddy.import: common` en su propio compose) lo
+# importa en vez de repetir headers y logging por instancia.
+(common) {
+	encode zstd gzip
+
+	header {
+		# La app maneja DNIs, domicilios y contraseñas. HSTS evita que un
+		# primer request en http llegue a viajar en claro.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		# Delata la versión del servidor sin darle nada a nadie.
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 20mb
+			roll_keep 10
+		}
+	}
+}
+
+# El sitio de esta instancia (dominio principal: alta de clubes, login de
+# superadmin) sale de las etiquetas `caddy` del backend/frontend en
+# docker-compose.platform.yml — no hace falta declararlo acá también.

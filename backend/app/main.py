@@ -22,11 +22,13 @@ from app.api.v1.notifications import router as notifications_router
 from app.api.v1.nutrition import router as nutrition_router
 from app.api.v1.performance import router as performance_router
 from app.api.v1.players import router as players_router
+from app.api.v1.public import router as public_router
 from app.api.v1.roles import router as roles_router
 from app.api.v1.season import router as season_router
 from app.api.v1.sessions import session_router, sessions_router, ws_router
 from app.api.v1.tournaments import router as tournaments_router
 from app.api.v1.trainings import router as trainings_router
+from app.core.club_context import load_club_context
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.roles import grant_newly_added_permissions
@@ -96,6 +98,10 @@ async def grant_new_permissions() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Primero: si esta instancia no sabe de qué club es, nada más importa —
+    # falla acá, antes de sembrar nada, en vez de arrancar y servir un 500 en
+    # el primer request.
+    await load_club_context(app)
     _configure_s3_cors()
     await seed_superadmin()
     await grant_new_permissions()
@@ -105,6 +111,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="match_analisis API", version="0.1.0", lifespan=lifespan)
+#: `load_club_context` lo pisa en el arranque real. Default explícito porque
+#: el cliente de test (`ASGITransport`) no corre `lifespan` — sin esto,
+#: `request.app.state.club` tira `AttributeError` en vez de comportarse como
+#: la instancia de plataforma.
+app.state.club = None
 
 _cors_origins = settings.cors_origins
 if _cors_origins == ["*"]:
@@ -155,3 +166,4 @@ app.include_router(gym_router, tags=["gym"])
 app.include_router(job_board_router, tags=["job-board"])
 app.include_router(notifications_router, tags=["notifications"])
 app.include_router(nutrition_router, tags=["nutrition"])
+app.include_router(public_router, tags=["public"])

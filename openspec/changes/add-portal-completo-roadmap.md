@@ -145,7 +145,7 @@ que hoy sólo tiene acceso propio corre el mismo riesgo de exponer un agujero
 similar en otro punto de alta de usuarios. Corregido, con test de regresión
 dedicado (detalle en [[turnos-nutricion]]).
 
-### 5. Subdominios por club y marca propia
+### 5. Subdominios por club y marca propia — ✅ código hecho, corte no ejecutado (2026-08-02)
 
 Cada club creado pasa a tener `{club}.dominio.com`. La app se vuelve
 **genérica** —misma imagen, mismo código— y se despliega **una instancia por
@@ -158,7 +158,26 @@ Es el cambio de infraestructura más grande del programa. No bloquea a 1–4, pe
 **si** se hace, conviene que esté resuelto antes de **6**: la app móvil necesita
 saber una sola vez cómo resuelve el club de cada usuario, no dos.
 
-Ver [[add-club-subdominios-y-marca]].
+Ver [[add-club-subdominios-y-marca]] (archivado en
+`archive/2026-08-02-club-subdominios-y-marca.md`, spec en
+[[multi-tenant]]). **Distinto a los cambios 1-4**: esto no es una feature
+que se prueba de punta a punta y queda en producción — es infraestructura
+preparada para un corte que todavía no pasó. Lo construido y verificado
+contra Postgres real en Docker: `app.state.club` resuelto al arrancar (una
+instancia con un `CLUB_SLUG` inexistente no levanta), login escopeado al
+club de la instancia, marca (logo/colores) aplicada en runtime vía
+variables CSS y confirmada con Playwright. Lo construido pero **no**
+verificado por faltar la infraestructura real: `caddy-docker-proxy` con
+dos o más instancias detrás del mismo Caddy, el script de aprovisionamiento
+contra un Docker host de verdad, y todo lo específico de Neon (pool
+pooled/directo, cold start). La migración de los clubes que ya existen
+(fase G) es, a propósito, una decisión operativa que no se tomó acá —
+depende de cuántos clubes estén corriendo el día que se decida cortar.
+`docker-compose.prod.yml` sigue siendo el despliegue real hasta entonces.
+**Lo que 6 necesita saber**: el diseño ya contempla que la app móvil
+consuma `{slug}.dominio.com` igual que hoy consume el dominio único —
+no hay nada que la app móvil tenga que esperar de este cambio salvo que
+el corte efectivamente se ejecute.
 
 ### 6. App móvil — React Native
 
