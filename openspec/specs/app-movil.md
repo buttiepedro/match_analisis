@@ -37,6 +37,20 @@ Igual que decidió la propuesta original — [[add-app-movil-react-native]]:
 | Notificaciones | `expo-notifications` + Expo Push Service | Token sin gestionar certificados de Apple/Firebase a mano |
 | Navegación | `expo-router`, `Stack.Protected` para las guardas de auth | Patrón actual de la librería (ver más abajo) |
 
+### El SDK de Expo se fija a lo que soporta Expo Go, no al último release
+
+El proyecto arrancó en SDK 57 (lo último al escribir el código) y se bajó a
+**SDK 54** después de probarlo contra un iPhone real: la versión de Expo
+Go publicada en la App Store va **detrás** de los releases de SDK — Apple
+tarda en aprobar cada una, y Expo lo documenta como algo recurrente, no una
+excepción. Un proyecto en un SDK que Expo Go todavía no sirve falla con
+`Project is incompatible with this version of Expo Go` apenas el
+dispositivo intenta conectar; en `expo start --web` (donde no hay Expo Go
+de por medio) ese chequeo no se dispara, así que el problema quedó oculto
+hasta la primera prueba en un dispositivo real. **Antes de subir el SDK en
+este proyecto, confirmar qué versión sirve Expo Go en las tiendas —no
+asumir que la última es la usable.**
+
 ## Dónde vive el token — y por qué es todo async
 
 `expo-secure-store` (Keychain/Keystore) es el storage en nativo — no
@@ -154,7 +168,7 @@ más confiable de que se rechace para siempre.
 ## Qué se verificó y qué no
 
 Contra un backend real (SQLite local + `seed_demo.py`), conducido con
-Playwright sobre `expo start --web` — la única forma de correr esto en un
+Playwright sobre `expo start --web` — la primera forma de correr esto en un
 browser en esta sesión, sin macOS ni Android SDK para un simulador nativo:
 
 - Login con email (jugador) y con DNI (socio), incluido el flujo forzado
@@ -170,7 +184,14 @@ browser en esta sesión, sin macOS ni Android SDK para un simulador nativo:
   [[turnos-nutricion]], que ya se había probado desde la web.
 - Cero errores de consola en las corridas verificadas.
 
-**Encontrado y corregido en el camino** (dos bugs reales, no hipótesis):
+**Después, en un iPhone real vía Expo Go** (ya fuera de la sesión que
+escribió el código, con el usuario probando en su propio dispositivo):
+`npx expo start`, escanear el QR, la app conecta y corre. Verificación más
+fuerte que un simulador — es exactamente el camino 1 de "Resolución de
+club" funcionando de punta a punta, contra un backend en Railway.
+
+**Encontrado y corregido en el camino** (cuatro bugs reales, no hipótesis
+— dos durante el desarrollo inicial, dos al probar contra un iPhone real):
 
 1. `SecureStore.getItem`/`setItem` (la API sync) tiran
    `getValueWithKeySync is not a function` en web — la API sync de
@@ -179,17 +200,39 @@ browser en esta sesión, sin macOS ni Android SDK para un simulador nativo:
 2. `expo-secure-store` no soporta web en absoluto (ni sync ni async, ver
    arriba) — se agregó un chequeo de plataforma con `localStorage` como
    alternativa **sólo para esta verificación**, no para producción.
+3. **`app.json` con `extra.eas.projectId: null` explícito rompía la
+   conexión de un dispositivo real**, con `TypeError [ERR_INVALID_ARG_TYPE]:
+   The "path" argument must be of type string. Received an instance of
+   Object` — invisible en `expo start --web` con Playwright (que nunca
+   dispara el registro de sesión de desarrollo que sí hace un cliente de
+   Expo Go real) y en curl contra el manifest/bundle/assets, que tampoco lo
+   disparaba. El manifest servía `"eas":{"projectId":{}}` —un objeto vacío
+   donde algo más abajo esperaba un string o directamente la ausencia de la
+   clave—. Se sacó el bloque `extra.eas` entero de `app.json`: sin
+   `eas init` corrido, la ausencia de la clave es lo que Expo CLI sabe
+   manejar solo, no un `null` puesto a mano.
+4. **El proyecto se armó con Expo SDK 57 (el más nuevo al momento de
+   escribir el código), pero Expo Go en la App Store todavía sirve SDK
+   54** — Apple tarda en aprobar cada release nueva, y es un desfasaje
+   recurrente que Expo documenta en su propio changelog. Bajar el proyecto
+   entero (`expo`, `expo-router`, `react`, `react-native`, y el resto de
+   los paquetes `expo-*`) a las versiones que pide SDK 54 vía
+   `npx expo install --fix` destapó un quinto problema: `expo-status-bar`
+   listado en `plugins` de `app.json` sin necesitarlo (no tiene
+   configuración nativa que inyectar) rompía la resolución del config
+   plugin con Node 24 — `Error [ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING]`,
+   porque el soporte nativo de TypeScript de Node 24 intenta —y rechaza—
+   "strippear" tipos de un `.ts` bajo `node_modules`. Se sacó del array de
+   `plugins` (sigue siendo una dependencia normal, sólo no un config
+   plugin).
 
 **No verificado — hace falta lo que esta sesión no tiene**:
 
-- Un simulador de iOS (necesita macOS) o un emulador de Android (necesita
-  Android Studio/SDK instalado) — nada del layout específico de
-  `react-native` puro (sin la capa `react-native-web`) se vio corriendo de
-  verdad.
 - Push de punta a punta contra un dispositivo real: sin `eas init` no hay
   `projectId`, así que `getExpoPushTokenAsync` nunca se llegó a ejecutar
   (el código lo detecta y no hace nada — ver `push.ts` — pero eso es
   distinto de "se probó que un push llega a un teléfono").
+- Android, en cualquiera de sus dos formas (emulador o dispositivo real).
 - Todo lo de Fase E (publicación): no hay cuenta de Apple Developer
   Program ni de Google Play Developer, así que `EAS Build`/`EAS Submit`,
   el ícono/splash/screenshots y el envío a revisión no se hicieron.

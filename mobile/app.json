@@ -25,7 +25,6 @@
     },
     "plugins": [
       "expo-router",
-      "expo-status-bar",
       "expo-secure-store",
       [
         "expo-notifications",
@@ -37,11 +36,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": null
-      }
     }
   }
 }
