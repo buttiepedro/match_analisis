@@ -27,6 +27,8 @@ class NutritionSlotResponse(BaseModel):
     ends_at: datetime
     status: str
     nutritionist_id: uuid.UUID
+    division_id: Optional[uuid.UUID] = None
+    division_name: Optional[str] = None
     player_id: Optional[uuid.UUID] = None
     player_name: Optional[str] = None
     notes: Optional[str] = None

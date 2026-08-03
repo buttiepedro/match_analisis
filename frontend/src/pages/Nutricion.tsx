@@ -3,12 +3,19 @@ import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 
+interface Division {
+  id: string;
+  name: string;
+}
+
 interface NutritionSlot {
   id: string;
   starts_at: string;
   ends_at: string;
   status: "libre" | "reservado" | "cancelado";
   nutritionist_id: string;
+  division_id: string | null;
+  division_name: string | null;
   player_id: string | null;
   player_name: string | null;
   notes: string | null;
@@ -58,6 +65,8 @@ function addMinutes(iso: string, minutes: number): string {
  */
 export default function Nutricion() {
   const user = useAuthStore((s) => s.user);
+  const [divisions, setDivisions] = useState<Division[]>([]);
+  const [divisionId, setDivisionId] = useState("");
   const [slots, setSlots] = useState<NutritionSlot[]>([]);
   const [draft, setDraft] = useState<DraftSlot[]>([]);
   const [newStart, setNewStart] = useState("");
@@ -66,16 +75,27 @@ export default function Nutricion() {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
 
-  const load = () => {
+  useEffect(() => {
     if (!user?.club_id) return;
     api
-      .get<NutritionSlot[]>(`/clubs/${user.club_id}/nutrition-slots`)
-      .then(({ data }) => setSlots(data))
-      .catch((err) => setError(parseApiError(err, "No se pudo cargar la agenda")))
+      .get<Division[]>(`/clubs/${user.club_id}/divisions`)
+      .then(({ data }) => {
+        setDivisions(data);
+        setDivisionId((current) => current || data[0]?.id || "");
+      })
+      .catch((err) => setError(parseApiError(err, "No se pudieron cargar las divisiones")))
       .finally(() => setLoading(false));
+  }, [user?.club_id]);
+
+  const load = () => {
+    if (!user?.club_id || !divisionId) return;
+    api
+      .get<NutritionSlot[]>(`/clubs/${user.club_id}/nutrition-slots`, { params: { division_id: divisionId } })
+      .then(({ data }) => setSlots(data))
+      .catch((err) => setError(parseApiError(err, "No se pudo cargar la agenda")));
   };
 
-  useEffect(load, [user?.club_id]);
+  useEffect(load, [user?.club_id, divisionId]);
 
   const addToDraft = () => {
     if (!newStart) return;
@@ -86,11 +106,11 @@ export default function Nutricion() {
   const removeFromDraft = (key: string) => setDraft((d) => d.filter((s) => s.key !== key));
 
   const publish = async () => {
-    if (draft.length === 0 || !user?.club_id) return;
+    if (draft.length === 0 || !divisionId) return;
     setPublishing(true);
     setError("");
     try {
-      await api.post(`/clubs/${user.club_id}/nutrition-slots`, {
+      await api.post(`/divisions/${divisionId}/nutrition-slots`, {
         slots: draft.map((d) => ({
           starts_at: new Date(d.starts_at).toISOString(),
           ends_at: addMinutes(new Date(d.starts_at).toISOString(), d.duration_minutes),
@@ -131,9 +151,32 @@ export default function Nutricion() {
     return <div className="p-6"><p className="text-ink-muted text-sm">Cargando...</p></div>;
   }
 
+  if (divisions.length === 0) {
+    return (
+      <div className="p-6">
+        <h1 className="text-lg font-bold text-ink mb-2">Turnos de nutrición</h1>
+        <p className="text-ink-muted text-sm">
+          No hay divisiones cargadas todavía. Creá una desde Config para empezar a publicar horarios.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
       <h1 className="text-lg font-bold text-ink mb-4">Turnos de nutrición</h1>
+
+      {divisions.length > 1 && (
+        <select
+          value={divisionId}
+          onChange={(e) => setDivisionId(e.target.value)}
+          className="w-full bg-surface text-ink text-sm rounded-xl px-3 py-2.5 mb-4 outline-none focus:ring-2 focus:ring-brand-ring"
+        >
+          {divisions.map((d) => (
+            <option key={d.id} value={d.id}>{d.name}</option>
+          ))}
+        </select>
+      )}
 
       {error && (
         <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">{error}</p>

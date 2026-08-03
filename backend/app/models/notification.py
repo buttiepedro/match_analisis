@@ -34,6 +34,10 @@ class NotificationType(str, enum.Enum):
     turno_confirmado = "turno_confirmado"
     #: 20-24hs antes del turno, sólo al jugador.
     turno_recordatorio = "turno_recordatorio"
+    #: Se publicaron horarios nuevos para la división del jugador.
+    turnos_publicados = "turnos_publicados"
+    #: Se publicó un comunicado nuevo — del club entero o de la división.
+    comunicado_publicado = "comunicado_publicado"
 
 
 class NotificationDevice(Base):

@@ -27,6 +27,9 @@ class NutritionSlot(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     club_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("clubs.id"), nullable=False)
+    #: Nullable: turnos publicados antes de que existiera el alcance por
+    #: división quedan sin dato en vez de con uno inventado.
+    division_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("divisions.id"), nullable=True)
     nutritionist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -48,3 +51,7 @@ class NutritionSlot(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     player: Mapped[Optional["Player"]] = relationship()
+    #: `selectin`: `_to_response` la lee siempre, en endpoints (book/cancel)
+    #: que no la piden explícita — igual que `User.divisions`, evita que
+    #: acceder a `.division` dispare un lazy-load fuera de contexto async.
+    division: Mapped[Optional["Division"]] = relationship(lazy="selectin")

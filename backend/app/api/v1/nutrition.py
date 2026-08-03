@@ -7,6 +7,7 @@ escritura— para que la base arbitre la carrera entre dos jugadores que
 apuntan al mismo horario, no un chequeo previo que puede perder contra otro
 request.
 """
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Optional
@@ -17,15 +18,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.deps import assert_club_access, get_club_or_404, get_current_user, has_permission, require
+from app.core.deps import (
+    assert_club_access,
+    get_club_or_404,
+    get_current_user,
+    get_division_or_404,
+    has_permission,
+    require,
+    scoped_division_ids,
+)
 from app.core.notifications import notify
 from app.core.permissions import Permission
-from app.models import NotificationType, NutritionSlot, NutritionSlotStatus, Player, User
+from app.models import Division, NotificationType, NutritionSlot, NutritionSlotStatus, Player, User
 from app.schemas.nutrition_slot import (
     NutritionSlotBookRequest,
     NutritionSlotResponse,
     NutritionSlotsBatchCreate,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -48,6 +59,8 @@ def _to_response(slot: NutritionSlot) -> NutritionSlotResponse:
         ends_at=slot.ends_at,
         status=slot.status.value,
         nutritionist_id=slot.nutritionist_id,
+        division_id=slot.division_id,
+        division_name=slot.division.name if slot.division else None,
         player_id=slot.player_id,
         player_name=slot.player.name if slot.player else None,
         notes=slot.notes,
@@ -56,24 +69,57 @@ def _to_response(slot: NutritionSlot) -> NutritionSlotResponse:
     )
 
 
+async def _notify_new_slots_published(division: Division, db: AsyncSession) -> None:
+    """
+    Avisa a los jugadores de la división cuando se publica agenda nueva —
+    mismo criterio que `_notify_formation_loaded` en `lineup.py`: nunca se
+    deja escapar, un fallo acá no puede tirar abajo la publicación de horarios.
+    """
+    try:
+        recipients = (
+            await db.execute(
+                select(Player.user_id).where(
+                    Player.division_id == division.id, Player.user_id.isnot(None)
+                )
+            )
+        ).scalars().all()
+
+        for user_id in recipients:
+            await notify(
+                db,
+                user_id=user_id,
+                club_id=division.club_id,
+                type=NotificationType.turnos_publicados,
+                title="Nuevos turnos de nutrición",
+                body=f"Se publicaron horarios nuevos para {division.name}.",
+                data={"url": "/mi-turno-nutricion"},
+            )
+    except Exception:
+        logger.exception("No se pudo notificar los turnos publicados (división %s)", division.id)
+
+
 def _format_when(starts_at: datetime) -> str:
     return starts_at.strftime("%d/%m a las %H:%M")
 
 
 @router.post(
-    "/clubs/{club_id}/nutrition-slots",
+    "/divisions/{division_id}/nutrition-slots",
     response_model=list[NutritionSlotResponse],
     status_code=status.HTTP_201_CREATED,
 )
 async def create_nutrition_slots(
-    club_id: uuid.UUID,
+    division_id: uuid.UUID,
     body: NutritionSlotsBatchCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require(Permission.nutricion_turnos_publicar))],
 ):
-    """Alta en lote: la nutricionista bloquea la mañana del jueves en una sola carga."""
-    club = await get_club_or_404(club_id, db)
-    assert_club_access(club, current_user)
+    """
+    Alta en lote: la nutricionista bloquea la mañana del jueves en una sola carga.
+
+    Se valida por **división**, no por club — igual que `create_training`: una
+    nutricionista con alcance sólo a M17 no puede publicar agenda para Primera.
+    """
+    division = await get_division_or_404(division_id, db, current_user)
 
     if not body.slots:
         raise HTTPException(status_code=400, detail="No mandaste ningún horario")
@@ -87,7 +133,8 @@ async def create_nutrition_slots(
     created = [
         NutritionSlot(
             id=uuid.uuid4(),
-            club_id=club.id,
+            club_id=division.club_id,
+            division_id=division.id,
             nutritionist_id=current_user.id,
             starts_at=entry.starts_at,
             ends_at=entry.ends_at,
@@ -96,6 +143,9 @@ async def create_nutrition_slots(
     ]
     db.add_all(created)
     await db.commit()
+    await _notify_new_slots_published(division, db)
+    for s in created:
+        await db.refresh(s, attribute_names=["division"])
     return [_to_response(s) for s in created]
 
 
@@ -110,11 +160,16 @@ async def list_nutrition_slots(
     date_to: Annotated[Optional[datetime], Query(alias="to")] = None,
     status_filter: Annotated[Optional[str], Query(alias="status")] = None,
     nutritionist_id: Annotated[Optional[uuid.UUID], Query()] = None,
+    division_id: Annotated[Optional[uuid.UUID], Query()] = None,
 ):
     """
     Sin `status`, filtra a `libre` para quien sólo puede reservar — no tiene
     sentido que un jugador vea turnos ya tomados por otro. Quien puede
     publicar ve su agenda completa, porque la necesita entera.
+
+    Sin `division_id`: quien publica ve sus divisiones asignadas (todas si no
+    tiene alcance restringido); quien sólo reserva ve la agenda de su propia
+    división de jugador — nunca la de otra.
     """
     club = await get_club_or_404(club_id, db)
     assert_club_access(club, current_user)
@@ -136,7 +191,23 @@ async def list_nutrition_slots(
     elif not can_manage:
         query = query.where(NutritionSlot.status == NutritionSlotStatus.libre)
 
-    query = query.order_by(NutritionSlot.starts_at).options(selectinload(NutritionSlot.player))
+    if division_id:
+        division = await get_division_or_404(division_id, db, current_user)
+        query = query.where(NutritionSlot.division_id == division.id)
+    elif can_manage:
+        # `None` = sin alcance restringido, ve el club entero (incluidos los
+        # turnos publicados antes de que existiera el alcance por división).
+        scope = scoped_division_ids(current_user)
+        if scope is not None:
+            query = query.where(NutritionSlot.division_id.in_(scope))
+    else:
+        player = await _get_own_player(current_user, db)
+        query = query.where(NutritionSlot.division_id == player.division_id)
+
+    query = (
+        query.order_by(NutritionSlot.starts_at)
+        .options(selectinload(NutritionSlot.player), selectinload(NutritionSlot.division))
+    )
     rows = (await db.execute(query)).scalars().all()
     return [_to_response(s) for s in rows]
 
@@ -154,6 +225,14 @@ async def book_nutrition_slot(
     club = await get_club_or_404(slot.club_id, db)
     assert_club_access(club, current_user)
     player = await _get_own_player(current_user, db)
+
+    # Un turno con división no es de cualquier jugador del club: es de la
+    # nutricionista de esa división. Uno sin división (legacy) queda abierto.
+    if slot.division_id is not None and slot.division_id != player.division_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este turno es de otra división",
+        )
 
     # La base arbitra la carrera: si otro jugador reservó un instante antes,
     # esto afecta cero filas y el segundo request ve el 409, no una lectura
@@ -240,6 +319,7 @@ async def cancel_nutrition_slot(
             NutritionSlot(
                 id=uuid.uuid4(),
                 club_id=slot.club_id,
+                division_id=slot.division_id,
                 nutritionist_id=slot.nutritionist_id,
                 starts_at=slot.starts_at,
                 ends_at=slot.ends_at,
