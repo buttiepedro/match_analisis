@@ -59,9 +59,9 @@ describe("navFor", () => {
   it("el administrador llega a todo", () => {
     const items = labels("club_admin", PRESET.administrador);
     [
-      "Hoy", "Calendario", "Partidos", "Estadísticas", "Plantel", "Asistencia",
+      "Hoy", "Calendario", "Partidos", "Estadísticas de partidos", "Plantel", "Asistencia",
       "Mediciones", "Gimnasio", "Socios", "Bolsa de trabajo", "Configuración",
-      "Fixture", "Tablas", "Citados", "Nutrición", "Turno de nutrición",
+      "Fixture", "Tablas", "Citados", "Nutrición", "Turno de nutrición", "Comunicados",
     ].forEach((l) => expect(items).toContain(l));
   });
 
@@ -69,8 +69,8 @@ describe("navFor", () => {
     const items = labels("match_director", PRESET.entrenador);
     expect(items).toEqual(
       expect.arrayContaining([
-        "Hoy", "Calendario", "Partidos", "Estadísticas", "Plantel", "Asistencia",
-        "Mediciones", "Gimnasio", "Fixture", "Tablas", "Citados",
+        "Hoy", "Calendario", "Partidos", "Estadísticas de partidos", "Plantel", "Asistencia",
+        "Mediciones", "Gimnasio", "Fixture", "Tablas", "Citados", "Comunicados",
       ])
     );
     expect(items).not.toContain("Configuración");
@@ -80,14 +80,19 @@ describe("navFor", () => {
   it("el analista ve lo mismo que el entrenador menos el gimnasio", () => {
     const items = labels("analyst", PRESET.analista);
     expect(items).toContain("Asistencia");
-    expect(items).toContain("Estadísticas");
+    expect(items).toContain("Estadísticas de partidos");
     expect(items).not.toContain("Gimnasio");
     expect(items).not.toContain("Configuración");
   });
 
   it("el jugador ve lo suyo y su turno de nutrición", () => {
     const items = labels("player", PRESET.jugador);
-    expect(items).toEqual(expect.arrayContaining(["Mi ficha", "Turno de nutrición"]));
+    expect(items).toEqual(
+      expect.arrayContaining([
+        "Mi ficha", "Tests", "Mediciones físicas", "Gimnasio",
+        "Mis estadísticas", "Turno de nutrición",
+      ])
+    );
     expect(items).not.toContain("Nutrición");
   });
 

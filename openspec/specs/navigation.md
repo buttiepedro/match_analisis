@@ -48,26 +48,53 @@ scrollea, así que no hay techo: la próxima pantalla entra sin desalojar a nadi
 
 ## Estructura del menú
 
-Agrupada por momento de uso, no por entidad de datos:
+Dos lógicas de agrupación conviven en la misma lista, según a quién sirve cada
+grupo:
 
-| Grupo | Ítems |
-|-------|-------|
-| Mi cuenta | Mi cuota, Mi ficha, Turno de nutrición |
-| Día a día | Hoy, Calendario |
-| Partido | Partidos, Estadísticas |
-| Plantel | Plantel, Asistencia, Mediciones, Gimnasio, Nutrición |
-| Club | Fixture, Tablas, Citados, Socios, Bolsa de trabajo, Configuración |
+| Grupo | Ítems | Para quién |
+|-------|-------|-----------|
+| Día a día | Hoy, Calendario | Staff |
+| Partido | Partidos, Estadísticas de partidos | Staff |
+| Plantel | Plantel, Asistencia, Mediciones, Gimnasio, Nutrición | Staff |
+| Datos | Mi ficha, Tests, Mediciones físicas, Mi cuota | Jugador / socio |
+| Entrenamiento | Gimnasio, Turno de nutrición | Jugador |
+| Estadísticas | Mis estadísticas | Jugador |
+| Comunicación | Comunicados, Fixture, Tablas, Citados, Bolsa de trabajo | Todos |
+| Administración | Socios, Configuración | Staff con permiso de club |
+
+Los primeros tres grupos son **por tarea** (qué hace el cuerpo técnico) y ya
+existían. Los cuatro del medio son **por audiencia** (qué necesita ver un
+jugador o un socio de sí mismo y del club) — la misma taxonomía que ya usa la
+app móvil ([[app-movil]]) para su portal de socio y jugador. "Datos" y
+"Entrenamiento" no son pantallas nuevas: son deep-links a las tabs de "Mi
+ficha" (`/mi-ficha?tab=tests`, `?tab=fisico`, `?tab=gimnasio`,
+`?tab=estadisticas`) que antes sólo eran alcanzables entrando primero a "Mi
+ficha" y navegando adentro — un click de más para algo que un jugador mira
+todas las semanas. `PlayerPortal` lee `?tab` al montar y en cada cambio de
+`searchParams`, porque los cuatro ítems comparten pathname y React Router no
+remonta la página al pasar de uno a otro.
 
 "Turno de nutrición" (`nutricion.turnos_reservar`) y "Nutrición"
 (`nutricion.turnos_publicar`) son la misma agenda mirada por el jugador que
 reserva y por la nutricionista que la administra — ver [[turnos-nutricion]].
+Desde el alcance por división ([[turnos-nutricion]]), publicar toma
+`division_id` en la ruta (`POST /divisions/{id}/nutrition-slots`) igual que
+`entrenamiento.gestionar`; una nutricionista con alcance restringido en Config
+sólo ve y publica en sus divisiones.
 
 Fixture, Tablas y Citados —el portal multidivisión de
-[[add-portal-multidivision]]— van primero dentro de "Club" porque, a
-diferencia de Configuración y Socios, las ve también quien no administra
-nada: un socio o un jugador con `club.ver_competencia`. Comparten un único
-permiso porque son la misma pregunta ("¿cómo le va al club?") mirada desde
-tres ángulos, no tres decisiones de acceso distintas.
+[[add-portal-multidivision]]— comparten grupo, y el mismo permiso
+`club.ver_competencia`, con Comunicados y Bolsa de trabajo: son la misma
+pregunta ("¿cómo le va al club, y qué está pasando?") mirada desde varios
+ángulos, y las ve también quien no administra nada. El backend de
+Comunicados es más permisivo que el ítem del menú a propósito —
+`GET /clubs/{id}/announcements` no exige ninguna capacidad, cualquier
+autenticado del club la puede pedir, igual que la campana— pero el ítem sí
+pide `club.ver_competencia`, para no romper la regla de que sin capacidades
+el menú queda vacío en vez de mostrar cosas que no abren.
+"Comunicados" es el MVP de novedades del club: texto simple, del club entero
+o de una división, sin adjuntos ni moderación — eso ya lo resuelve Bolsa de
+trabajo para su propio caso de uso.
 
 Por rol:
 
@@ -75,13 +102,15 @@ Por rol:
 |-----|-----|
 | `superadmin` | Clubes |
 | `club_admin` | Todo |
-| `match_director` | Todo menos Configuración |
-| `analyst` | Todo menos Configuración |
-| `player` | Mi ficha, Turno de nutrición |
+| `match_director` | Todo menos Administración |
+| `analyst` | Todo menos Administración |
+| `player` | Datos, Entrenamiento, Estadísticas, y lo de Comunicación que el rol real (Jugador o Socio) tenga habilitado |
 
 Director y analista comparten menú: ninguno de los dos configura el club, y las
 diferencias de permiso entre ambos son de acción dentro de cada pantalla, no de
-acceso a la pantalla.
+acceso a la pantalla. `player` es el enum viejo: agrupa tanto a jugadores como
+a socios importados del padrón, que se distinguen por las capacidades de su
+rol preset real (Jugador vs. Socio), no por este valor.
 
 ## La campana no es un ítem del menú
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../lib/axios";
 import { parseApiError } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
@@ -71,7 +72,13 @@ interface AttendanceDetail {
   records: AttendanceRecord[];
 }
 
-type Tab = "resumen" | "perfil" | "tests" | "fisico" | "gimnasio";
+type Tab = "resumen" | "estadisticas" | "perfil" | "tests" | "fisico" | "gimnasio";
+
+const VALID_TABS: readonly Tab[] = ["resumen", "estadisticas", "perfil", "tests", "fisico", "gimnasio"];
+
+function isTab(value: string | null): value is Tab {
+  return VALID_TABS.includes(value as Tab);
+}
 
 const DAY_NAMES = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -714,6 +721,7 @@ function PerfilTab({
  */
 export default function PlayerPortal() {
   const user = useAuthStore((s) => s.user);
+  const [searchParams] = useSearchParams();
   const [player, setPlayer] = useState<Player | null>(null);
   const [attendance, setAttendance] = useState<AttendanceDetail | null>(null);
   const [season, setSeason] = useState<SeasonStats | null>(null);
@@ -722,7 +730,22 @@ export default function PlayerPortal() {
   const [gym, setGym] = useState<MyGymPlan | null>(null);
   const [history, setHistory] = useState<DivisionHistoryEntry[]>([]);
   const [injuries, setInjuries] = useState<ClosedInjury[]>([]);
-  const [tab, setTab] = useState<Tab>("resumen");
+  // El nav deep-linkea acá con `?tab=` (Datos/Entrenamiento/Estadísticas
+  // apuntan cada uno a su tab), así que un ítem como "Gimnasio" abre directo
+  // ahí en vez de en Resumen.
+  const [tab, setTab] = useState<Tab>(() => {
+    const requested = searchParams.get("tab");
+    return isTab(requested) ? requested : "resumen";
+  });
+
+  // Todos esos deep-links comparten pathname (`/mi-ficha`, sólo cambia el
+  // query) así que React Router no remonta la página al pasar de uno a
+  // otro — sin este efecto, el `useState` de arriba sólo se leería una vez
+  // y clickear "Tests" después de "Gimnasio" no cambiaría nada.
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    setTab(isTab(requested) ? requested : "resumen");
+  }, [searchParams]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -860,6 +883,7 @@ export default function PlayerPortal() {
       <div className="flex gap-1 bg-surface p-1 rounded-xl mb-4">
         {([
           ["resumen", "Resumen"],
+          ["estadisticas", "Estadísticas"],
           ["perfil", "Perfil"],
           ["tests", "Tests"],
           ["fisico", "Físico"],
@@ -883,9 +907,9 @@ export default function PlayerPortal() {
         </p>
       )}
 
-      {tab === "resumen" && (
+      {tab === "estadisticas" && (
         <>
-      {season && season.matches > 0 && (
+      {season && season.matches > 0 ? (
         <section className="mb-5">
           <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">
             Tu temporada
@@ -904,8 +928,16 @@ export default function PlayerPortal() {
             ))}
           </div>
         </section>
+      ) : (
+        <p className="text-ink-muted text-sm bg-surface rounded-xl px-4 py-3">
+          Todavía no jugaste ningún partido esta temporada.
+        </p>
+      )}
+        </>
       )}
 
+      {tab === "resumen" && (
+        <>
       <section>
         <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">
           Tu asistencia

@@ -212,12 +212,19 @@ const IconBell = () => (
   </svg>
 );
 
+const IconMegaphone = () => (
+  <svg {...svg}>
+    <path d="m3 11 18-5v12L3 14v-3z" />
+    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+  </svg>
+);
+
 // ── Menú por rol ──────────────────────────────────────────────────────────────
 
 const HOY: NavItem = { label: "Hoy", path: "/hoy", icon: <IconHome />, permission: ["asistencia.ver", "partido.ver", "plantel.ver"] };
 const CALENDARIO: NavItem = { label: "Calendario", path: "/calendario", icon: <IconCalendar />, permission: ["entrenamiento.gestionar", "asistencia.ver", "partido.ver"] };
 const PARTIDOS: NavItem = { label: "Partidos", path: "/tournaments", icon: <IconBall />, alias: ["/torneos"], permission: "partido.ver" };
-const STATS: NavItem = { label: "Estadísticas", path: "/stats", icon: <IconChart />, permission: "partido.ver" };
+const STATS: NavItem = { label: "Estadísticas de partidos", path: "/stats", icon: <IconChart />, permission: "partido.ver" };
 const PLANTEL: NavItem = { label: "Plantel", path: "/squad", icon: <IconUsers />, permission: "plantel.ver" };
 const ASISTENCIA: NavItem = { label: "Asistencia", path: "/trainings", icon: <IconClipboard />, permission: "asistencia.ver" };
 const MEDICIONES: NavItem = { label: "Mediciones", path: "/mediciones", icon: <IconActivity />, alias: ["/performance"], permission: "mediciones.ver" };
@@ -227,8 +234,21 @@ const GIMNASIO: NavItem = { label: "Gimnasio", path: "/gimnasio", icon: <IconDum
 const BOLSA: NavItem = { label: "Bolsa de trabajo", path: "/bolsa", icon: <IconBriefcase />, permission: "bolsa.ver" };
 const MI_CUOTA: NavItem = { label: "Mi cuota", path: "/mi-club", icon: <IconCard />, permission: "socios.ver_propia" };
 const MI_FICHA: NavItem = { label: "Mi ficha", path: "/mi-ficha", icon: <IconUser />, onlyForPlayers: true };
+//: Antes vivían como tabs invisibles adentro de "Mi ficha" — un click de más
+//: para algo que un jugador mira todas las semanas. Mismo `/mi-ficha`, `?tab`
+//: distinto: `PlayerPortal` lo lee al montar y cada vez que cambia.
+const MIS_TESTS: NavItem = { label: "Tests", path: "/mi-ficha?tab=tests", icon: <IconClipboard />, onlyForPlayers: true };
+const MI_FISICO: NavItem = { label: "Mediciones físicas", path: "/mi-ficha?tab=fisico", icon: <IconActivity />, onlyForPlayers: true };
+const MI_GIMNASIO_PROPIO: NavItem = { label: "Gimnasio", path: "/mi-ficha?tab=gimnasio", icon: <IconDumbbell />, onlyForPlayers: true };
+const MIS_ESTADISTICAS: NavItem = { label: "Mis estadísticas", path: "/mi-ficha?tab=estadisticas", icon: <IconChart />, onlyForPlayers: true };
 const MI_TURNO_NUTRICION: NavItem = { label: "Turno de nutrición", path: "/mi-turno-nutricion", icon: <IconLeaf />, permission: "nutricion.turnos_reservar" };
 const NUTRICION: NavItem = { label: "Nutrición", path: "/nutricion", icon: <IconLeaf />, permission: "nutricion.turnos_publicar" };
+// Mismo permiso que Fixture/Tablas/Citados: es la misma pregunta ("¿cómo le
+// va al club, y qué está pasando?") mirada desde otro ángulo. El backend no
+// exige capacidad para *leer* comunicados (cualquier autenticado del club
+// puede pedirlos), pero el ítem del menú sí, para no romper la regla de que
+// sin capacidades el menú queda vacío.
+const COMUNICADOS: NavItem = { label: "Comunicados", path: "/comunicados", icon: <IconMegaphone />, permission: "club.ver_competencia" };
 const FIXTURE: NavItem = { label: "Fixture", path: "/fixture", icon: <IconTrophy />, permission: "club.ver_competencia" };
 const TABLAS: NavItem = { label: "Tablas", path: "/tablas", icon: <IconTable />, permission: "club.ver_competencia" };
 const CITADOS: NavItem = { label: "Citados", path: "/citados", icon: <IconList />, permission: "club.ver_competencia" };
@@ -272,13 +292,18 @@ export function navFor(role: string | undefined, permissions: string[]): NavGrou
 }
 
 export const NAV: NavGroup[] = [
-  // Primero lo propio: para un jugador o un socio es todo lo que hay, y sería
-  // raro que apareciera al final de una lista de cosas que no puede tocar.
-  { title: "Mi cuenta", items: [MI_CUOTA, MI_FICHA, MI_TURNO_NUTRICION] },
   { title: "Día a día", items: [HOY, CALENDARIO] },
   { title: "Partido", items: [PARTIDOS, STATS] },
   { title: "Plantel", items: [PLANTEL, ASISTENCIA, MEDICIONES, GIMNASIO, NUTRICION] },
-  { title: "Club", items: [FIXTURE, TABLAS, CITADOS, SOCIOS, BOLSA, CONFIG] },
+  // Los cuatro grupos siguientes son la vista de un jugador o un socio: datos
+  // propios, entrenamiento propio, estadísticas propias, comunicación del
+  // club. Antes vivían repartidos ("Mi cuenta" + mitad de "Club") o enterrados
+  // como tabs de "Mi ficha" — acá cada uno es un click directo desde el nav.
+  { title: "Datos", items: [MI_FICHA, MIS_TESTS, MI_FISICO, MI_CUOTA] },
+  { title: "Entrenamiento", items: [MI_GIMNASIO_PROPIO, MI_TURNO_NUTRICION] },
+  { title: "Estadísticas", items: [MIS_ESTADISTICAS] },
+  { title: "Comunicación", items: [COMUNICADOS, FIXTURE, TABLAS, CITADOS, BOLSA] },
+  { title: "Administración", items: [SOCIOS, CONFIG] },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
@@ -403,10 +428,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     navigate("/login");
   };
 
-  const isActive = (item: NavItem) =>
-    [item.path, ...(item.alias ?? [])].some(
+  // `item.path` puede traer un `?tab=...` propio (los deep-links a "Mi
+  // ficha"): `location.pathname` nunca incluye el query string, así que sin
+  // este chequeo aparte todos esos ítems compartirían el mismo pathname y
+  // "Mi ficha" quedaría siempre marcado como activo, tab que se esté viendo.
+  const isActive = (item: NavItem) => {
+    const [itemPath, itemQuery] = item.path.split("?");
+    const pathMatches = [itemPath, ...(item.alias ?? [])].some(
       (p) => location.pathname === p || location.pathname.startsWith(p + "/")
     );
+    if (!pathMatches) return false;
+    const wantedTab = itemQuery ? new URLSearchParams(itemQuery).get("tab") : null;
+    const currentTab = new URLSearchParams(location.search).get("tab");
+    return wantedTab === currentTab;
+  };
 
   const currentLabel = groups
     .flatMap((g) => g.items)
