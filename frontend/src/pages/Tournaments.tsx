@@ -75,6 +75,8 @@ export default function Tournaments() {
   const [editTForm, setEditTForm] = useState(EMPTY_TOURNAMENT_FORM);
 
   const [divisionFilter, setDivisionFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const filterDivisions = Array.from(
     new Map(tournaments.map((t) => [t.division.id, t.division])).values()
@@ -83,9 +85,75 @@ export default function Tournaments() {
     ? tournaments.filter((t) => t.division.id === divisionFilter)
     : tournaments;
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Sección abierta: un `Set`, no un solo id — con el filtro de fechas activo
+  // varios torneos se auto-expanden a la vez para mostrar sus partidos en
+  // rango, y cada uno se puede seguir plegando/desplegando por separado.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [sessionsMap, setSessionsMap] = useState<Record<string, Session[]>>({});
   const [sessionsLoading, setSessionsLoading] = useState<string | null>(null);
+  const [bulkLoadingSessions, setBulkLoadingSessions] = useState(false);
+
+  const dateActive = Boolean(dateFrom || dateTo);
+
+  function inDateRange(iso: string | null): boolean {
+    if (!iso) return false;
+    const day = iso.slice(0, 10);
+    if (dateFrom && day < dateFrom) return false;
+    if (dateTo && day > dateTo) return false;
+    return true;
+  }
+
+  function sessionsFor(tournamentId: string): Session[] {
+    const all = sessionsMap[tournamentId] ?? [];
+    return dateActive ? all.filter((s) => inDateRange(s.scheduled_at)) : all;
+  }
+
+  // Con fechas activas hace falta la agenda de todos los torneos visibles —no
+  // sólo del que el usuario expandió a mano— para saber cuáles tienen
+  // partidos en el rango y auto-expandirlos.
+  useEffect(() => {
+    if (!dateActive) return;
+    let cancelled = false;
+    const missing = visibleTournaments.filter((t) => !sessionsMap[t.id]);
+
+    const autoExpand = (map: Record<string, Session[]>) => {
+      if (cancelled) return;
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        visibleTournaments.forEach((t) => {
+          if ((map[t.id] ?? []).some((s) => inDateRange(s.scheduled_at))) next.add(t.id);
+        });
+        return next;
+      });
+    };
+
+    if (missing.length === 0) {
+      autoExpand(sessionsMap);
+      return;
+    }
+
+    setBulkLoadingSessions(true);
+    Promise.all(
+      missing.map((t) =>
+        api.get<Session[]>(`/tournaments/${t.id}/sessions`).then(({ data }) => [t.id, data] as const)
+      )
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const merged = { ...sessionsMap };
+        results.forEach(([id, data]) => { merged[id] = data; });
+        setSessionsMap(merged);
+        autoExpand(merged);
+      })
+      .finally(() => { if (!cancelled) setBulkLoadingSessions(false); });
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateActive, dateFrom, dateTo, divisionFilter, tournaments]);
+
+  const dateFilteredTournaments = dateActive
+    ? visibleTournaments.filter((t) => sessionsFor(t.id).length > 0)
+    : visibleTournaments;
 
   const [addingSessionFor, setAddingSessionFor] = useState<string | null>(null);
   const [sForm, setSForm] = useState(EMPTY_SESSION_FORM);
@@ -171,13 +239,14 @@ export default function Tournaments() {
   }, [clubId]);
 
   const toggleTournament = async (id: string) => {
-    if (expandedId === id) {
-      setExpandedId(null);
-      setAddingSessionFor(null);
-      return;
-    }
-    setExpandedId(id);
+    const wasOpen = expandedIds.has(id);
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (wasOpen) next.delete(id); else next.add(id);
+      return next;
+    });
     setAddingSessionFor(null);
+    if (wasOpen) return;
     if (!sessionsMap[id]) {
       setSessionsLoading(id);
       try {
@@ -574,15 +643,49 @@ export default function Tournaments() {
         </div>
       )}
 
+      {/* Filtro de fechas: al activarse, auto-expande los torneos con partidos en rango */}
+      <div className="flex flex-wrap items-end gap-2 mb-5">
+        <div>
+          <label className="block text-[11px] text-ink-muted mb-1">Desde</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] text-ink-muted mb-1">Hasta</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="bg-surface-strong text-ink text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-ring"
+          />
+        </div>
+        {dateActive && (
+          <button
+            onClick={() => { setDateFrom(""); setDateTo(""); }}
+            className="pressable text-xs text-ink-muted hover:text-ink px-2 py-2"
+          >
+            Limpiar fechas
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <p className="text-ink-muted text-sm">Cargando...</p>
-      ) : visibleTournaments.length === 0 ? (
+      ) : bulkLoadingSessions ? (
+        <p className="text-ink-muted text-sm">Buscando partidos...</p>
+      ) : dateFilteredTournaments.length === 0 ? (
         <p className="text-ink-muted text-sm">
-          {divisionFilter ? "No hay torneos en esta división." : "No hay torneos todavía."}
+          {dateActive
+            ? "No hay partidos en ese rango de fechas."
+            : divisionFilter ? "No hay torneos en esta división." : "No hay torneos todavía."}
         </p>
       ) : (
         <div className="space-y-3">
-          {visibleTournaments.map((t) => (
+          {dateFilteredTournaments.map((t) => (
             <div key={t.id} className="bg-surface rounded-xl overflow-hidden">
               <button
                 onClick={() => toggleTournament(t.id)}
@@ -592,11 +695,16 @@ export default function Tournaments() {
                   <span className="text-ink font-medium">{t.name}</span>
                   <span className="text-xs text-ink-muted ml-2">{t.division.name}</span>
                   {t.season && <span className="text-xs text-ink-muted ml-2">{t.season}</span>}
+                  {dateActive && (
+                    <span className="text-xs text-brand ml-2">
+                      {sessionsFor(t.id).length} partido{sessionsFor(t.id).length === 1 ? "" : "s"}
+                    </span>
+                  )}
                 </div>
-                <span className="text-ink-muted text-sm">{expandedId === t.id ? "▲" : "▼"}</span>
+                <span className="text-ink-muted text-sm">{expandedIds.has(t.id) ? "▲" : "▼"}</span>
               </button>
 
-              {expandedId === t.id && (
+              {expandedIds.has(t.id) && (
                 <div className="border-t border-line px-4 py-3">
                   {/* Editar / eliminar torneo */}
                   {editingTournamentId === t.id ? (
@@ -674,11 +782,13 @@ export default function Tournaments() {
 
                   {sessionsLoading === t.id ? (
                     <p className="text-ink-muted text-sm mb-3">Cargando...</p>
-                  ) : (sessionsMap[t.id] ?? []).length === 0 ? (
-                    <p className="text-ink-muted text-sm mb-3">Sin partidos.</p>
+                  ) : sessionsFor(t.id).length === 0 ? (
+                    <p className="text-ink-muted text-sm mb-3">
+                      {dateActive ? "Sin partidos en ese rango de fechas." : "Sin partidos."}
+                    </p>
                   ) : (
                     <ul className="space-y-2 mb-3">
-                      {(sessionsMap[t.id] ?? []).map((s) => {
+                      {sessionsFor(t.id).map((s) => {
                         const statusColors: Record<string, string> = {
                           active:    "bg-green-900/60 text-brand",
                           halftime:  "bg-yellow-900/60 text-yellow-300",
@@ -937,7 +1047,7 @@ export default function Tournaments() {
           try {
             const { data } = await api.get<Session[]>(`/tournaments/${tid}/sessions`);
             setSessionsMap((prev) => ({ ...prev, [tid]: data }));
-            setExpandedId(tid);
+            setExpandedIds((prev) => new Set(prev).add(tid));
           } catch {
             // refresh failed silently — user can expand tournament manually
           }
