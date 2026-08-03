@@ -167,15 +167,29 @@ async def club_standings(
     ).scalars().all()
     # Si una división tiene más de un torneo activo, se muestra el de la
     # temporada más reciente: la tabla es por competencia, y mezclar dos
-    # competiciones daría una tabla sin sentido deportivo.
-    tournament_by_division: dict[uuid.UUID, Tournament] = {}
+    # competiciones daría una tabla sin sentido deportivo. Entre torneos de la
+    # misma temporada, el orden de arriba ya viene por `created_at`, pero eso
+    # es arbitrario en una carga masiva — así que dentro de cada división se
+    # prueba en ese orden y se queda con el primero que realmente tenga
+    # partidos terminados, no con el que ganó la moneda al voleo.
+    candidates_by_division: dict[uuid.UUID, list[Tournament]] = {}
     for t in tournaments:
-        tournament_by_division.setdefault(t.division_id, t)
+        candidates_by_division.setdefault(t.division_id, []).append(t)
 
     result: list[DivisionStandings] = []
     for d in divisions:
-        tournament = tournament_by_division.get(d.id)
-        rows = await compute_standings(tournament.id, db) if tournament else []
+        tournament = None
+        rows: list = []
+        for candidate in candidates_by_division.get(d.id, []):
+            candidate_rows = await compute_standings(candidate.id, db)
+            if candidate_rows:
+                tournament, rows = candidate, candidate_rows
+                break
+            if tournament is None:
+                # Ninguno tuvo partidos todavía: nos quedamos con el primero
+                # (temporada más reciente) para que la división muestre "sin
+                # resultados" de SU torneo, no una tabla vacía sin contexto.
+                tournament = candidate
         result.append(
             DivisionStandings(
                 division_id=d.id,
