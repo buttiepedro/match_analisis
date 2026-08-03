@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
+from app.api.v1.announcements import router as announcements_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.club_competencia import router as club_competencia_router
 from app.api.v1.clubs import router as clubs_router
@@ -166,4 +167,5 @@ app.include_router(gym_router, tags=["gym"])
 app.include_router(job_board_router, tags=["job-board"])
 app.include_router(notifications_router, tags=["notifications"])
 app.include_router(nutrition_router, tags=["nutrition"])
+app.include_router(announcements_router, tags=["announcements"])
 app.include_router(public_router, tags=["public"])

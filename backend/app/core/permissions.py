@@ -75,6 +75,11 @@ class Permission(str, enum.Enum):
     #: Reservar y cancelar el turno propio.
     nutricion_turnos_reservar = "nutricion.turnos_reservar"
 
+    # Comunicados — leerlos no es una capacidad: cualquier autenticado del
+    # club ve los suyos, igual que la bandeja de notificaciones.
+    #: Publicar y borrar comunicados, del club entero o de una división.
+    club_comunicados_publicar = "club.comunicados_publicar"
+
 
 ALL_PERMISSIONS: frozenset[str] = frozenset(p.value for p in Permission)
 
@@ -119,6 +124,7 @@ PRESET_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.mediciones_cargar.value,
         Permission.gimnasio_ver.value,
         Permission.club_ver_competencia.value,
+        Permission.club_comunicados_publicar.value,
     },
     # analyst: registraba eventos y tomaba asistencia; nada más.
     ANALISTA: READ_ONLY
