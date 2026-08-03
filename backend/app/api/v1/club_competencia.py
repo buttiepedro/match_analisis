@@ -11,6 +11,7 @@ Sin modelo nuevo: agregación de sólo lectura sobre `sessions`, `standings`
 ([[competition]]) y `match_squad` ([[lineup]]).
 """
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -86,10 +87,21 @@ async def club_fixture(
         for e in all_events:
             events_by_session.setdefault(e.session_id, []).append(e)
 
+    # `status != finished` no alcanza para "próximo": un partido viejo sin
+    # resultado (p.ej. un bye "vs LIBRE" que nunca se juega) queda eternamente
+    # pendiente y aparecería como próximo aunque sea de hace meses. Un partido
+    # sin fecha todavía puede ser genuinamente futuro (no se cargó la fecha
+    # todavía) — sólo se excluye el que tiene una fecha *pasada* concreta. Ver
+    # mismo fix en `dashboard.py::club_today`.
+    now = datetime.now(timezone.utc)
+
     by_division: dict[uuid.UUID, list[FixtureMatch]] = {d.id: [] for d in divisions}
     for s, t in matches:
-        if upcoming and s.status == SessionStatus.finished:
-            continue
+        if upcoming:
+            if s.status == SessionStatus.finished:
+                continue
+            if s.scheduled_at is not None and s.scheduled_at < now:
+                continue
         home_score = away_score = None
         if s.status == SessionStatus.finished:
             events = events_by_session.get(s.id, [])
@@ -104,6 +116,9 @@ async def club_fixture(
                 status=s.status.value,
                 home_score=home_score,
                 away_score=away_score,
+                tournament_id=t.id,
+                tournament_name=t.name,
+                season=t.season,
             )
         )
 
@@ -139,12 +154,20 @@ async def club_standings(
                 Tournament.division_id.in_([d.id for d in divisions]),
                 Tournament.is_active.is_(True),
             )
-            .order_by(Tournament.created_at.desc())
+            # Por temporada, no por cuándo se cargó el registro: una carga masiva
+            # (import histórico) inserta todo en el mismo lote, así que
+            # `created_at` no dice nada sobre qué torneo es el vigente.
+            # `season` nulo se manda al final en vez de ganar por default.
+            .order_by(
+                Tournament.season.is_(None),
+                Tournament.season.desc(),
+                Tournament.created_at.desc(),
+            )
         )
     ).scalars().all()
-    # Si una división tiene más de un torneo activo, se muestra el más nuevo:
-    # la tabla es por competencia, y mezclar dos competiciones daría una tabla
-    # sin sentido deportivo.
+    # Si una división tiene más de un torneo activo, se muestra el de la
+    # temporada más reciente: la tabla es por competencia, y mezclar dos
+    # competiciones daría una tabla sin sentido deportivo.
     tournament_by_division: dict[uuid.UUID, Tournament] = {}
     for t in tournaments:
         tournament_by_division.setdefault(t.division_id, t)

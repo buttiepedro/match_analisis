@@ -659,6 +659,7 @@ export default function Stats() {
   const [catFilter,       setCatFilter]       = useState<CatFilter>("all");
   const [divisionFilter,  setDivisionFilter]  = useState<string>("");
   const [tournamentFilter, setTournamentFilter] = useState<string>("");
+  const [tournamentSearch, setTournamentSearch] = useState<string>("");
   const [objectives, setObjectives] = useState<Objectives>(() => {
     try {
       const stored = localStorage.getItem(OBJECTIVES_KEY);
@@ -746,6 +747,12 @@ export default function Stats() {
       sessionsInDivision.map((s) => [s.tournament_id, { id: s.tournament_id, name: s.tournament_name }])
     ).values()
   );
+
+  const visibleTournaments = tournamentSearch.trim()
+    ? tournaments.filter((t) =>
+        t.name.toLowerCase().includes(tournamentSearch.trim().toLowerCase())
+      )
+    : tournaments;
 
   const sessionsInTournament = tournamentFilter
     ? sessionsInDivision.filter((s) => s.tournament_id === tournamentFilter)
@@ -907,30 +914,43 @@ export default function Stats() {
 
       {/* Tournament filter pills */}
       {!loading && tournaments.length > 1 && (
-        <div className="flex gap-2 mb-3 flex-wrap">
-          <button
-            onClick={() => handleTournamentChange("")}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-              tournamentFilter === ""
-                ? "bg-brand text-white"
-                : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
-            }`}
-          >
-            Todos los torneos
-          </button>
-          {tournaments.map((t) => (
+        <div className="mb-3">
+          <input
+            type="text"
+            inputMode="search"
+            placeholder="Buscar torneo..."
+            value={tournamentSearch}
+            onChange={(e) => setTournamentSearch(e.target.value)}
+            className="w-full bg-surface text-ink text-sm rounded-xl px-3 py-2.5 mb-2 placeholder-ink-faint outline-none focus:ring-2 focus:ring-brand-ring"
+          />
+          <div className="flex gap-2 flex-wrap">
             <button
-              key={t.id}
-              onClick={() => handleTournamentChange(t.id)}
+              onClick={() => handleTournamentChange("")}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                tournamentFilter === t.id
+                tournamentFilter === ""
                   ? "bg-brand text-white"
                   : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
               }`}
             >
-              {t.name}
+              Todos los torneos
             </button>
-          ))}
+            {visibleTournaments.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => handleTournamentChange(t.id)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                  tournamentFilter === t.id
+                    ? "bg-brand text-white"
+                    : "bg-surface-strong text-ink-soft hover:bg-surface-hover"
+                }`}
+              >
+                {t.name}
+              </button>
+            ))}
+            {visibleTournaments.length === 0 && (
+              <span className="text-xs text-ink-faint py-1">Sin resultados</span>
+            )}
+          </div>
         </div>
       )}
 

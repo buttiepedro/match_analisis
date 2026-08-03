@@ -13,6 +13,9 @@ interface FixtureMatch {
   status: string;
   home_score: number | null;
   away_score: number | null;
+  tournament_id: string;
+  tournament_name: string;
+  season: string | null;
 }
 
 interface DivisionFixture {
@@ -54,6 +57,7 @@ export default function Fixture() {
   const [divisionFilter, setDivisionFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [showHistorical, setShowHistorical] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -76,11 +80,23 @@ export default function Fixture() {
       .finally(() => setLoading(false));
   }, [user?.club_id, effectiveUpcoming]);
 
+  // En modo "Todos" (sin filtro de fecha) el historial completo del club
+  // queda mezclado en una sola lista — por defecto sólo mostramos la
+  // temporada más reciente, con un toggle para ver años anteriores.
+  const latestSeason = divisions
+    .flatMap((d) => d.matches)
+    .reduce<string | null>((max, m) => (m.season && (!max || m.season > max) ? m.season : max), null);
+  const seasonSplitActive = !dateActive && !upcomingOnly && Boolean(latestSeason) && !showHistorical;
+
   const ordered = withOwnFirst(divisions, ownDivisionId)
     .filter((d) => !divisionFilter || d.division_id === divisionFilter)
     .map((d) => ({
       ...d,
-      matches: dateActive ? d.matches.filter((m) => inRange(m.scheduled_at, dateFrom, dateTo)) : d.matches,
+      matches: dateActive
+        ? d.matches.filter((m) => inRange(m.scheduled_at, dateFrom, dateTo))
+        : seasonSplitActive
+        ? d.matches.filter((m) => m.season === latestSeason)
+        : d.matches,
     }));
 
   if (loading) {
@@ -112,6 +128,17 @@ export default function Fixture() {
             </button>
           ))}
         </div>
+      )}
+
+      {!dateActive && !upcomingOnly && latestSeason && (
+        <button
+          onClick={() => setShowHistorical((v) => !v)}
+          className="w-full text-left text-xs text-ink-muted hover:text-ink bg-surface-strong/50 hover:bg-surface-strong rounded-lg px-3 py-2 mb-3 transition-colors"
+        >
+          {showHistorical
+            ? `▲ Mostrar sólo temporada ${latestSeason}`
+            : `▼ Ver también temporadas anteriores a ${latestSeason}`}
+        </button>
       )}
 
       {divisions.length > 1 && (
@@ -187,7 +214,11 @@ export default function Fixture() {
               <p className="text-ink-muted text-sm px-4 py-4">
                 {dateActive
                   ? "Sin partidos en ese rango de fechas."
-                  : upcomingOnly ? "Sin partidos próximos." : "Sin partidos cargados."}
+                  : upcomingOnly
+                  ? "Sin partidos próximos."
+                  : seasonSplitActive
+                  ? `Sin partidos en la temporada ${latestSeason}.`
+                  : "Sin partidos cargados."}
               </p>
             ) : (
               <ul className="divide-y divide-line">
@@ -197,7 +228,12 @@ export default function Fixture() {
                       <p className="text-sm text-ink truncate">
                         {m.home_team} vs {m.away_team}
                       </p>
-                      <p className="text-xs text-ink-muted">{formatMatchDate(m.scheduled_at)}</p>
+                      <p className="text-xs text-ink-muted truncate">
+                        {formatMatchDate(m.scheduled_at)}
+                        <span className="ml-1.5">
+                          · {m.tournament_name}{m.season ? ` ${m.season}` : ""}
+                        </span>
+                      </p>
                     </div>
                     {m.status === "finished" ? (
                       <span className="text-sm font-bold text-ink tabular-nums shrink-0">

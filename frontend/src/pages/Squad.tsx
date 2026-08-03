@@ -438,6 +438,11 @@ export default function Squad() {
 
   const [activeDivId, setActiveDivId] = useState<string | "all">("all");
   const [search, setSearch] = useState("");
+  //: Con miles de jugadores importados, renderizar todo de una es lo que
+  //: hacía la página pesar cientos de miles de píxeles de alto. Se muestra de
+  //: a tandas y se resetea cada vez que cambia el filtro.
+  const RENDER_BATCH = 150;
+  const [renderLimit, setRenderLimit] = useState(RENDER_BATCH);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [multiMode, setMultiMode] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -481,6 +486,11 @@ export default function Squad() {
       (p.position ?? "").toLowerCase().includes(search.toLowerCase());
     return matchDiv && matchSearch;
   });
+  const renderedPlayers = visiblePlayers.slice(0, renderLimit);
+
+  useEffect(() => {
+    setRenderLimit(RENDER_BATCH);
+  }, [activeDivId, search]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -492,10 +502,10 @@ export default function Squad() {
   };
 
   const toggleAll = () => {
-    if (selected.size === visiblePlayers.length) {
+    if (selected.size === renderedPlayers.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(visiblePlayers.map((p) => p.id)));
+      setSelected(new Set(renderedPlayers.map((p) => p.id)));
     }
   };
 
@@ -650,7 +660,7 @@ export default function Squad() {
             onClick={toggleAll}
             className="text-sm text-brand hover:text-brand transition-colors"
           >
-            {selected.size === visiblePlayers.length ? "Deseleccionar todos" : "Seleccionar todos"}
+            {selected.size === renderedPlayers.length ? "Deseleccionar todos" : "Seleccionar todos"}
           </button>
         )}
       </div>
@@ -673,7 +683,7 @@ export default function Squad() {
             )}
           </div>
         )}
-        {visiblePlayers.map((player) => {
+        {renderedPlayers.map((player) => {
           const isSelected = selected.has(player.id);
           const divName = divisions.find((d) => d.id === player.division_id)?.name;
           return (
@@ -767,10 +777,22 @@ export default function Squad() {
 
       {/* Count footer */}
       {visiblePlayers.length > 0 && (
-        <p className="text-center text-xs text-ink-faint py-4">
-          {visiblePlayers.length} jugador{visiblePlayers.length !== 1 ? "es" : ""}
-          {activeDivId !== "all" && ` en ${activeDivName}`}
-        </p>
+        <div className="text-center py-4 space-y-2">
+          <p className="text-xs text-ink-faint">
+            {renderedPlayers.length < visiblePlayers.length
+              ? `Mostrando ${renderedPlayers.length} de ${visiblePlayers.length} jugadores`
+              : `${visiblePlayers.length} jugador${visiblePlayers.length !== 1 ? "es" : ""}`}
+            {activeDivId !== "all" && ` en ${activeDivName}`}
+          </p>
+          {renderedPlayers.length < visiblePlayers.length && (
+            <button
+              onClick={() => setRenderLimit((n) => n + RENDER_BATCH)}
+              className="text-sm text-brand hover:text-brand transition-colors"
+            >
+              Cargar {Math.min(RENDER_BATCH, visiblePlayers.length - renderedPlayers.length)} más
+            </button>
+          )}
+        </div>
       )}
 
       {/* Modals */}

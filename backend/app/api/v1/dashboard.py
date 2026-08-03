@@ -5,11 +5,11 @@ No agregan modelo: reúnen en un request lo que hoy vive repartido en cinco
 pantallas. Todo respeta el alcance por división del usuario.
 """
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -60,6 +60,10 @@ router = APIRouter()
 #: Ventana de aviso del apto médico, igual que en `injuries.py`.
 CLEARANCE_WARNING_DAYS = 30
 AT_RISK_STREAK = 3
+#: Ventana para la alerta de "roja sin suspensión" — de sobra para cualquier
+#: sanción real, evita que una tarjeta de hace años quede como pendiente para
+#: siempre.
+RED_CARD_WINDOW_DAYS = 60
 ATTENDED = (AttendanceStatus.presente, AttendanceStatus.tarde)
 
 
@@ -370,6 +374,12 @@ async def club_today(
     ]
 
     # ── Próximos partidos ────────────────────────────────────────────────────
+    # `status != finished` no alcanza: un partido viejo sin resultado (p.ej. un
+    # bye "vs LIBRE" que nunca se juega) queda eternamente pendiente y gana el
+    # primer lugar aunque sea de hace meses. Un partido sin fecha todavía puede
+    # ser genuinamente futuro (no se cargó la fecha todavía) — sólo se excluye
+    # el que tiene una fecha *pasada* concreta.
+    today_start = datetime.combine(today, datetime.min.time())
     matches = (
         await db.execute(
             select(Session, Tournament)
@@ -377,6 +387,7 @@ async def club_today(
             .where(
                 Tournament.division_id.in_(division_ids),
                 Session.status != SessionStatus.finished,
+                or_(Session.scheduled_at >= today_start, Session.scheduled_at.is_(None)),
             )
             .order_by(Session.scheduled_at.is_(None), Session.scheduled_at)
             .limit(5)
@@ -447,7 +458,12 @@ async def club_today(
             )
         )
 
-    # Rojas sin suspensión cargada.
+    # Rojas sin suspensión cargada, de partidos recientes.
+    #
+    # Sin ventana de tiempo, una roja de hace 5 años sigue apareciendo acá para
+    # siempre — la suspensión ya se cumplió en la vida real, solo que nadie
+    # vuelve a tocar `availability` una vez pasado el partido. RED_CARD_WINDOW_DAYS
+    # cubre de sobra cualquier sanción real (semanas, no años).
     red_rows = (
         await db.execute(
             select(Player.name)
@@ -459,6 +475,7 @@ async def club_today(
                 Tournament.division_id.in_(division_ids),
                 Player.availability != Availability.suspendido,
                 Player.is_active.is_(True),
+                Session.scheduled_at >= today_start - timedelta(days=RED_CARD_WINDOW_DAYS),
             )
             .distinct()
         )

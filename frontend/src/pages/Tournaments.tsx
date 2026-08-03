@@ -77,6 +77,8 @@ export default function Tournaments() {
   const [divisionFilter, setDivisionFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [tournamentSearch, setTournamentSearch] = useState("");
+  const [showHistorical, setShowHistorical] = useState(false);
 
   const filterDivisions = Array.from(
     new Map(tournaments.map((t) => [t.division.id, t.division])).values()
@@ -84,6 +86,20 @@ export default function Tournaments() {
   const visibleTournaments = divisionFilter
     ? tournaments.filter((t) => t.division.id === divisionFilter)
     : tournaments;
+
+  // La temporada más reciente entre los torneos visibles — es lo que se
+  // considera "actual" para ocultar años anteriores por defecto. Un torneo
+  // sin temporada cargada se trata como histórico: no hay forma de saber si
+  // es de este año o de hace diez.
+  const latestSeason = visibleTournaments.reduce<string | null>(
+    (max, t) => (t.season && (!max || t.season > max) ? t.season : max),
+    null
+  );
+  const searchedTournaments = tournamentSearch.trim()
+    ? visibleTournaments.filter((t) =>
+        t.name.toLowerCase().includes(tournamentSearch.trim().toLowerCase())
+      )
+    : visibleTournaments;
 
   // Sección abierta: un `Set`, no un solo id — con el filtro de fechas activo
   // varios torneos se auto-expanden a la vez para mostrar sus partidos en
@@ -114,13 +130,13 @@ export default function Tournaments() {
   useEffect(() => {
     if (!dateActive) return;
     let cancelled = false;
-    const missing = visibleTournaments.filter((t) => !sessionsMap[t.id]);
+    const missing = searchedTournaments.filter((t) => !sessionsMap[t.id]);
 
     const autoExpand = (map: Record<string, Session[]>) => {
       if (cancelled) return;
       setExpandedIds((prev) => {
         const next = new Set(prev);
-        visibleTournaments.forEach((t) => {
+        searchedTournaments.forEach((t) => {
           if ((map[t.id] ?? []).some((s) => inDateRange(s.scheduled_at))) next.add(t.id);
         });
         return next;
@@ -152,8 +168,21 @@ export default function Tournaments() {
   }, [dateActive, dateFrom, dateTo, divisionFilter, tournaments]);
 
   const dateFilteredTournaments = dateActive
-    ? visibleTournaments.filter((t) => sessionsFor(t.id).length > 0)
-    : visibleTournaments;
+    ? searchedTournaments.filter((t) => sessionsFor(t.id).length > 0)
+    : searchedTournaments;
+
+  // Con búsqueda o rango de fechas activo el usuario ya pidió algo puntual —
+  // no le tapamos el resultado agrupándolo detrás de "temporadas anteriores".
+  const seasonSplitActive = !dateActive && !tournamentSearch.trim() && Boolean(latestSeason);
+  const currentSeasonTournaments = seasonSplitActive
+    ? dateFilteredTournaments.filter((t) => t.season === latestSeason)
+    : dateFilteredTournaments;
+  const historicalTournaments = seasonSplitActive
+    ? dateFilteredTournaments.filter((t) => t.season !== latestSeason)
+    : [];
+  const shownTournaments = showHistorical
+    ? dateFilteredTournaments
+    : currentSeasonTournaments;
 
   const [addingSessionFor, setAddingSessionFor] = useState<string | null>(null);
   const [sForm, setSForm] = useState(EMPTY_SESSION_FORM);
@@ -643,6 +672,17 @@ export default function Tournaments() {
         </div>
       )}
 
+      {!loading && tournaments.length > 6 && (
+        <input
+          type="text"
+          inputMode="search"
+          placeholder="Buscar torneo..."
+          value={tournamentSearch}
+          onChange={(e) => setTournamentSearch(e.target.value)}
+          className="w-full bg-surface text-ink text-sm rounded-xl px-3 py-2.5 mb-3 placeholder-ink-faint outline-none focus:ring-2 focus:ring-brand-ring"
+        />
+      )}
+
       {/* Filtro de fechas: al activarse, auto-expande los torneos con partidos en rango */}
       <div className="flex flex-wrap items-end gap-2 mb-5">
         <div>
@@ -681,11 +721,23 @@ export default function Tournaments() {
         <p className="text-ink-muted text-sm">
           {dateActive
             ? "No hay partidos en ese rango de fechas."
+            : tournamentSearch.trim()
+            ? "Ningún torneo coincide con la búsqueda."
             : divisionFilter ? "No hay torneos en esta división." : "No hay torneos todavía."}
         </p>
       ) : (
         <div className="space-y-3">
-          {dateFilteredTournaments.map((t) => (
+          {seasonSplitActive && historicalTournaments.length > 0 && (
+            <button
+              onClick={() => setShowHistorical((v) => !v)}
+              className="w-full text-left text-xs text-ink-muted hover:text-ink bg-surface-strong/50 hover:bg-surface-strong rounded-lg px-3 py-2 transition-colors"
+            >
+              {showHistorical
+                ? `▲ Ocultar temporadas anteriores (${historicalTournaments.length})`
+                : `▼ Ver también temporadas anteriores (${historicalTournaments.length})`}
+            </button>
+          )}
+          {shownTournaments.map((t) => (
             <div key={t.id} className="bg-surface rounded-xl overflow-hidden">
               <button
                 onClick={() => toggleTournament(t.id)}

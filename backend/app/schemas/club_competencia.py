@@ -24,6 +24,9 @@ class FixtureMatch(BaseModel):
     #: todavía, y mostrar un score parcial confundiría con uno final.
     home_score: Optional[int] = None
     away_score: Optional[int] = None
+    tournament_id: uuid.UUID
+    tournament_name: str
+    season: Optional[str] = None
 
 
 class DivisionFixture(BaseModel):
