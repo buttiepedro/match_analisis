@@ -149,32 +149,43 @@ async def club_standings(
 
     tournaments = (
         await db.execute(
-            select(Tournament)
-            .where(
+            select(Tournament).where(
                 Tournament.division_id.in_([d.id for d in divisions]),
                 Tournament.is_active.is_(True),
             )
-            # Por temporada, no por cuándo se cargó el registro: una carga masiva
-            # (import histórico) inserta todo en el mismo lote, así que
-            # `created_at` no dice nada sobre qué torneo es el vigente.
-            # `season` nulo se manda al final en vez de ganar por default.
-            .order_by(
-                Tournament.season.is_(None),
-                Tournament.season.desc(),
-                Tournament.created_at.desc(),
-            )
         )
     ).scalars().all()
-    # Si una división tiene más de un torneo activo, se muestra el de la
-    # temporada más reciente: la tabla es por competencia, y mezclar dos
-    # competiciones daría una tabla sin sentido deportivo. Entre torneos de la
-    # misma temporada, el orden de arriba ya viene por `created_at`, pero eso
-    # es arbitrario en una carga masiva — así que dentro de cada división se
-    # prueba en ese orden y se queda con el primero que realmente tenga
-    # partidos terminados, no con el que ganó la moneda al voleo.
+
+    def season_rank(t: Tournament) -> tuple:
+        # Más reciente primero; sin temporada cargada, al final. `created_at`
+        # no sirve para esto: una carga masiva (import histórico) inserta
+        # todo en el mismo lote, así que no dice nada sobre qué torneo es
+        # el vigente.
+        if not t.season:
+            return (1, 0)
+        try:
+            return (0, -int(t.season))
+        except ValueError:
+            return (1, 0)
+
+    def tier_rank(t: Tournament) -> int:
+        # Una división puede juntar varias competencias paralelas de
+        # "Mayores" (Primera/Intermedia/Pre-Intermedia son la misma
+        # división acá, no torneos distintos por edad) — de haber empate de
+        # temporada, la Primera es la que mejor representa a la división.
+        return 0 if "primera" in t.name.lower() else 1
+
     candidates_by_division: dict[uuid.UUID, list[Tournament]] = {}
     for t in tournaments:
         candidates_by_division.setdefault(t.division_id, []).append(t)
+    for candidates in candidates_by_division.values():
+        # season_rank/tier_rank son "menor = mejor" (orden ascendente); el
+        # desempate final por created_at sí quiere el más reciente primero,
+        # de ahí el signo negativo.
+        candidates.sort(key=lambda t: (season_rank(t), tier_rank(t), -t.created_at.timestamp()))
+    # Entre los que sigan empatados, se prueba en ese orden y se queda con el
+    # primero que realmente tenga partidos terminados, no con el que ganó la
+    # moneda al voleo.
 
     result: list[DivisionStandings] = []
     for d in divisions:
